@@ -1,0 +1,11 @@
+<Project>
+
+    <ItemGroup Condition="'$(MSBuildProjectName)' != 'Shared'">
+        <Content Include="$(MSBuildThisFileDirectory)settings\appsettings.json">
+            <Link>appsettings.json</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+</Project>
+
