@@ -3,7 +3,7 @@ using Microsoft.Agents.AI.Workflows;
 
 namespace PromptChaining.AgentFramework;
 
-internal class EmailExecutor(AIAgent emailAgent) 
+internal class EmailExecutor(AIAgent emailAgent)
     : Executor("EmailGenerator")
 {
     [MessageHandler]

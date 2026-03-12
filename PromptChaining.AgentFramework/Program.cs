@@ -6,7 +6,6 @@ using Microsoft.Extensions.AI;
 using PromptChaining.AgentFramework;
 using Shared;
 
-
 var setting = new Settings();
 var chatClient = new AzureOpenAIClient(
         new Uri(setting.AzureOpenAi.Endpoint),
@@ -21,9 +20,9 @@ var emailAgent = new ChatClientAgent(chatClient, name: "EmailGeneratorAgent",
     instructions: "You write concise internal emails to leadership (max 150 words).");
 
 
-var extractorExec  = new ExtractorExecutor(chatClient);
+var extractorExec = new ExtractorExecutor(chatClient);
 var summarizerExec = new SummarizerExecutor(summarizerAgent);
-var emailExec      = new EmailExecutor(emailAgent);
+var emailExec = new EmailExecutor(emailAgent);
 
 var workflow = new WorkflowBuilder(extractorExec)
     .AddEdge(extractorExec, summarizerExec)
@@ -38,7 +37,5 @@ var input = """
 
 await using var run = await InProcessExecution.RunStreamingAsync(workflow, input);
 await foreach (var evt in run.WatchStreamAsync())
-{
     if (evt is WorkflowOutputEvent outputEvt)
         Console.WriteLine(outputEvt.Data);
-}

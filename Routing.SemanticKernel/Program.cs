@@ -5,6 +5,7 @@ using Microsoft.SemanticKernel.Agents.Runtime.InProcess;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Shared;
+
 #pragma warning disable SKEXP0110
 
 var setting = new Settings();
@@ -14,7 +15,7 @@ var kernel = Kernel.CreateBuilder()
         setting.AzureOpenAi.Endpoint,
         setting.AzureOpenAi.ApiKey)
     .Build();
-    
+
 ChatCompletionAgent triageAgent = new()
 {
     Name = "TriageAgent",
@@ -62,15 +63,18 @@ var handoffs = OrchestrationHandoffs
 
 
 ChatHistory history = [];
+
 ValueTask responseCallback(ChatMessageContent msg)
 {
     history.Add(msg);
-    Console.WriteLine($"{msg.AuthorName ?? msg.Role.ToString()}: {msg.Content ?? (msg as OpenAIChatMessageContent)!.ToolCalls[0].FunctionName}");
+    Console.WriteLine(
+        $"{msg.AuthorName ?? msg.Role.ToString()}: {msg.Content ?? (msg as OpenAIChatMessageContent)!.ToolCalls[0].FunctionName}");
     return ValueTask.CompletedTask;
 }
 
 Queue<string> userInputs = new();
 userInputs.Enqueue("I was charged twice on my last invoice.");
+
 ValueTask<ChatMessageContent> interactiveCallback()
 {
     var input = userInputs.Dequeue();
@@ -87,13 +91,13 @@ HandoffOrchestration orchestration = new(
     accountAgent)
 {
     InteractiveCallback = interactiveCallback,
-    ResponseCallback = responseCallback,
+    ResponseCallback = responseCallback
 };
 
 InProcessRuntime runtime = new();
 await runtime.StartAsync();
 
-string task = "A customer is on the line.";
+var task = "A customer is on the line.";
 var result = await orchestration.InvokeAsync(task, runtime);
 
 // Wait for the orchestration to complete

@@ -4,7 +4,7 @@ using Microsoft.Extensions.AI;
 
 namespace PromptChaining.AgentFramework;
 
-internal class ExtractorExecutor(IChatClient chatClient) 
+internal class ExtractorExecutor(IChatClient chatClient)
     : Executor("Extractor")
 {
     [MessageHandler]
