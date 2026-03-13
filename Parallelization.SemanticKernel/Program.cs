@@ -13,34 +13,33 @@ ChatCompletionAgent researcher = new()
 {
     Name = "Researcher",
     Instructions = "You are a factual researcher. Provide concise findings, risks, and unknowns.",
-    Kernel = kernel,
+    Kernel = kernel
 };
 
 ChatCompletionAgent marketer = new()
 {
     Name = "Marketer",
     Instructions = "You are a marketing strategist. Propose positioning, messaging, and target personas.",
-    Kernel = kernel,
+    Kernel = kernel
 };
 
 ChatCompletionAgent legal = new()
 {
     Name = "Legal",
     Instructions = "You are a cautious compliance reviewer. Flag legal/policy concerns and needed disclaimers.",
-    Kernel = kernel,
+    Kernel = kernel
 };
 
 async Task<string> RunAgentAsync(ChatCompletionAgent agent, string input)
 {
     var responses = new List<string>();
     await foreach (ChatMessageContent response in agent.InvokeAsync(new ChatMessageContent(AuthorRole.User, input)))
-    {
         responses.Add(response.ToChatMessage().Text.Trim());
-    }
     return $"## {agent.Name}{Environment.NewLine}{string.Join(Environment.NewLine, responses)}";
 }
 
-try{
+try
+{
     var tasks = new[]
     {
         RunAgentAsync(researcher, prompt),

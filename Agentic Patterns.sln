@@ -16,6 +16,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parallelization.SemanticKer
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parallelization.AgentFramework", "Parallelization.AgentFramework\Parallelization.AgentFramework.csproj", "{233333C4-A158-43C4-8C60-CC1E90F40AAA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToolUse.SemanticKernel", "ToolUse.SemanticKernel\ToolUse.SemanticKernel.csproj", "{88A248EA-17C4-4489-9D61-091DC587B335}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ToolUse.AgentFramework", "ToolUse.AgentFramework\ToolUse.AgentFramework.csproj", "{9EB35343-2133-458B-BF85-540BD83A1BAA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -54,5 +58,13 @@ Global
 		{233333C4-A158-43C4-8C60-CC1E90F40AAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{233333C4-A158-43C4-8C60-CC1E90F40AAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{233333C4-A158-43C4-8C60-CC1E90F40AAA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{88A248EA-17C4-4489-9D61-091DC587B335}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{88A248EA-17C4-4489-9D61-091DC587B335}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{88A248EA-17C4-4489-9D61-091DC587B335}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{88A248EA-17C4-4489-9D61-091DC587B335}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9EB35343-2133-458B-BF85-540BD83A1BAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9EB35343-2133-458B-BF85-540BD83A1BAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9EB35343-2133-458B-BF85-540BD83A1BAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9EB35343-2133-458B-BF85-540BD83A1BAA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

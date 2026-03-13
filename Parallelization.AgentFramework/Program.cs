@@ -9,20 +9,21 @@ var chatClient = settings.ChatClient;
 
 var researcher = new ChatExecutor("researcher", new ChatClientAgent(chatClient,
     "You're an expert market and product researcher. Provide concise, factual insights, opportunities, and risks.",
-    name: "researcher"));
+    "researcher"));
 
 var marketer = new ChatExecutor("marketer", new ChatClientAgent(chatClient,
     "You're a creative marketing strategist. Craft compelling value propositions and target messaging aligned to the prompt.",
-    name: "marketer"));
+    "marketer"));
 
 var legal = new ChatExecutor("legal", new ChatClientAgent(chatClient,
     "You're a cautious legal/compliance reviewer. Highlight constraints, disclaimers, and policy concerns.",
-    name: "legal"));
+    "legal"));
 
 var input = new ChatForwardingExecutor("input", new ChatForwardingExecutorOptions());
 var output = new AggregatingExecutor<ChatMessage, List<ChatMessage>>("aggregator", (agg, item) =>
 {
-    var list = agg is null ? new List<ChatMessage>()
+    var list = agg is null
+        ? new List<ChatMessage>()
         : new List<ChatMessage>(agg);
     list.Add(item);
     return list;
@@ -35,18 +36,14 @@ var workflow = new WorkflowBuilder(input)
     .WithOutputFrom(output)
     .Build();
 
-var run = await InProcessExecution.RunStreamingAsync(workflow, input: new ChatMessage(
+var run = await InProcessExecution.RunStreamingAsync(workflow, new ChatMessage(
     ChatRole.User,
     "Assess launching a new B2B analytics product in the EU. Provide recommendations."));
 
 await foreach (var evt in run.WatchStreamAsync().ConfigureAwait(false))
-{
     if (evt is WorkflowOutputEvent outputEvent)
     {
         var data = outputEvent.Data as List<ChatMessage>;
         if (data is not null && data.Count == 3)
-        {
             Console.WriteLine(string.Join(Environment.NewLine, data.Select(m => $"##{m.Role}: {m.Text.Trim()}")));
-        }
     }
-}

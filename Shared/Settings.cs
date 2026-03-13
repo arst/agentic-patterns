@@ -19,14 +19,14 @@ public class Settings
     public AzureOpenAiSettiings AzureOpenAi => _azureOpenAi ??=
         _root.GetSection("AzureOpenAI").Get<AzureOpenAiSettiings>()
         ?? new AzureOpenAiSettiings();
-    
+
     public Kernel Kernel => Kernel.CreateBuilder()
         .AddAzureOpenAIChatCompletion(
             AzureOpenAi.ChatModelDeployment,
             AzureOpenAi.Endpoint,
             AzureOpenAi.ApiKey)
         .Build();
-    
+
     public IChatClient ChatClient => new AzureOpenAIClient(
             new Uri(AzureOpenAi.Endpoint),
             new ApiKeyCredential(AzureOpenAi.ApiKey))
