@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Routing.SemanticKernel", "R
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Routing.AgentFramework", "Routing.AgentFramework\Routing.AgentFramework.csproj", "{84973B7F-A903-436F-9B68-D2999F9D9237}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Routing.AgentFramework.Workflow", "Routing.AgentFramework.Workflow\Routing.AgentFramework.Workflow.csproj", "{ABCC2A7E-E186-465D-972C-10200320E03C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,5 +38,9 @@ Global
 		{84973B7F-A903-436F-9B68-D2999F9D9237}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{84973B7F-A903-436F-9B68-D2999F9D9237}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{84973B7F-A903-436F-9B68-D2999F9D9237}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ABCC2A7E-E186-465D-972C-10200320E03C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ABCC2A7E-E186-465D-972C-10200320E03C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ABCC2A7E-E186-465D-972C-10200320E03C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ABCC2A7E-E186-465D-972C-10200320E03C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
