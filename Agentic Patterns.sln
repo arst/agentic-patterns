@@ -12,6 +12,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Routing.AgentFramework", "R
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Routing.AgentFramework.Workflow", "Routing.AgentFramework.Workflow\Routing.AgentFramework.Workflow.csproj", "{ABCC2A7E-E186-465D-972C-10200320E03C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parallelization.SemanticKernel", "Parallelization.SemanticKernel\Parallelization.SemanticKernel.csproj", "{F769C41B-1CA2-4C54-94F3-011919E33729}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Parallelization.AgentFramework", "Parallelization.AgentFramework\Parallelization.AgentFramework.csproj", "{233333C4-A158-43C4-8C60-CC1E90F40AAA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +46,13 @@ Global
 		{ABCC2A7E-E186-465D-972C-10200320E03C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ABCC2A7E-E186-465D-972C-10200320E03C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ABCC2A7E-E186-465D-972C-10200320E03C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F769C41B-1CA2-4C54-94F3-011919E33729}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F769C41B-1CA2-4C54-94F3-011919E33729}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F769C41B-1CA2-4C54-94F3-011919E33729}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F769C41B-1CA2-4C54-94F3-011919E33729}.Release|Any CPU.Build.0 = Release|Any CPU
+		{233333C4-A158-43C4-8C60-CC1E90F40AAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{233333C4-A158-43C4-8C60-CC1E90F40AAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{233333C4-A158-43C4-8C60-CC1E90F40AAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{233333C4-A158-43C4-8C60-CC1E90F40AAA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

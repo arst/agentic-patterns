@@ -1,4 +1,8 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.ClientModel;
+using Azure.AI.OpenAI;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Configuration;
+using Microsoft.SemanticKernel;
 
 namespace Shared;
 
@@ -15,11 +19,17 @@ public class Settings
     public AzureOpenAiSettiings AzureOpenAi => _azureOpenAi ??=
         _root.GetSection("AzureOpenAI").Get<AzureOpenAiSettiings>()
         ?? new AzureOpenAiSettiings();
-}
-
-public class AzureOpenAiSettiings
-{
-    public string ChatModelDeployment { get; set; } = string.Empty;
-    public string Endpoint { get; set; } = string.Empty;
-    public string ApiKey { get; set; } = string.Empty;
+    
+    public Kernel Kernel => Kernel.CreateBuilder()
+        .AddAzureOpenAIChatCompletion(
+            AzureOpenAi.ChatModelDeployment,
+            AzureOpenAi.Endpoint,
+            AzureOpenAi.ApiKey)
+        .Build();
+    
+    public IChatClient ChatClient => new AzureOpenAIClient(
+            new Uri(AzureOpenAi.Endpoint),
+            new ApiKeyCredential(AzureOpenAi.ApiKey))
+        .GetChatClient(AzureOpenAi.ChatModelDeployment)
+        .AsIChatClient();
 }
