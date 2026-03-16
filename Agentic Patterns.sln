@@ -24,6 +24,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Planning.SemanticKernel", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Planning.AgentFramework", "Planning.AgentFramework\Planning.AgentFramework.csproj", "{9EC0AD76-FF35-4A84-BD45-AC0F422B39E3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiAgentCollaboration.SemanticKernel", "MultiAgentCollaboration.SemanticKernel\MultiAgentCollaboration.SemanticKernel.csproj", "{E373BD76-A98F-4A7D-B970-66083E508FA8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiAgentCollaboration.AgentFramework", "MultiAgentCollaboration.AgentFramework\MultiAgentCollaboration.AgentFramework.csproj", "{632701A3-2F9D-4349-9DBC-13F5EC62F255}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -78,5 +82,13 @@ Global
 		{9EC0AD76-FF35-4A84-BD45-AC0F422B39E3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9EC0AD76-FF35-4A84-BD45-AC0F422B39E3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9EC0AD76-FF35-4A84-BD45-AC0F422B39E3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E373BD76-A98F-4A7D-B970-66083E508FA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E373BD76-A98F-4A7D-B970-66083E508FA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E373BD76-A98F-4A7D-B970-66083E508FA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E373BD76-A98F-4A7D-B970-66083E508FA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{632701A3-2F9D-4349-9DBC-13F5EC62F255}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{632701A3-2F9D-4349-9DBC-13F5EC62F255}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{632701A3-2F9D-4349-9DBC-13F5EC62F255}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{632701A3-2F9D-4349-9DBC-13F5EC62F255}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
