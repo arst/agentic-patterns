@@ -36,6 +36,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LearningAndAdaptation.Seman
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LearningAndAdaptation.AgentFramework", "LearningAndAdaptation.AgentFramework\LearningAndAdaptation.AgentFramework.csproj", "{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCP.SemanticKernel", "MCP.SemanticKernel\MCP.SemanticKernel.csproj", "{838FD919-252B-4DC3-B551-822ACA937CA9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -114,5 +116,9 @@ Global
 		{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{838FD919-252B-4DC3-B551-822ACA937CA9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{838FD919-252B-4DC3-B551-822ACA937CA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{838FD919-252B-4DC3-B551-822ACA937CA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{838FD919-252B-4DC3-B551-822ACA937CA9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
