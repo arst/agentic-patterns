@@ -28,6 +28,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiAgentCollaboration.Sem
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultiAgentCollaboration.AgentFramework", "MultiAgentCollaboration.AgentFramework\MultiAgentCollaboration.AgentFramework.csproj", "{632701A3-2F9D-4349-9DBC-13F5EC62F255}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoryManagement.SemanticKernel", "MemoryManagement.SemanticKernel\MemoryManagement.SemanticKernel.csproj", "{CA37B65D-9F10-4520-8AD1-FFA104EBDEE2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MemoryManagement.AgentFramework", "MemoryManagement.AgentFramework\MemoryManagement.AgentFramework.csproj", "{0C279131-9679-40B6-B751-3F99B1F940D8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LearningAndAdaptation.SemanticKernel", "LearningAndAdaptation.SemanticKernel\LearningAndAdaptation.SemanticKernel.csproj", "{12D197BF-0A68-4AD1-98D9-9A61F4EDD759}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LearningAndAdaptation.AgentFramework", "LearningAndAdaptation.AgentFramework\LearningAndAdaptation.AgentFramework.csproj", "{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -90,5 +98,21 @@ Global
 		{632701A3-2F9D-4349-9DBC-13F5EC62F255}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{632701A3-2F9D-4349-9DBC-13F5EC62F255}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{632701A3-2F9D-4349-9DBC-13F5EC62F255}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CA37B65D-9F10-4520-8AD1-FFA104EBDEE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CA37B65D-9F10-4520-8AD1-FFA104EBDEE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CA37B65D-9F10-4520-8AD1-FFA104EBDEE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CA37B65D-9F10-4520-8AD1-FFA104EBDEE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C279131-9679-40B6-B751-3F99B1F940D8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C279131-9679-40B6-B751-3F99B1F940D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C279131-9679-40B6-B751-3F99B1F940D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C279131-9679-40B6-B751-3F99B1F940D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12D197BF-0A68-4AD1-98D9-9A61F4EDD759}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12D197BF-0A68-4AD1-98D9-9A61F4EDD759}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12D197BF-0A68-4AD1-98D9-9A61F4EDD759}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12D197BF-0A68-4AD1-98D9-9A61F4EDD759}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AECE60CE-9A59-48DA-982D-C62E73DFF5A3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

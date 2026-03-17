@@ -14,9 +14,9 @@ public class Settings
         .AddEnvironmentVariables()
         .Build();
 
-    private AzureOpenAiSettiings? _azureOpenAi;
+    public Mem0ApiSettings Mem0ApiSettings => _root.GetSection("Mem0").Get<Mem0ApiSettings>() ?? new Mem0ApiSettings();
 
-    public AzureOpenAiSettiings AzureOpenAi => _azureOpenAi ??=
+    public AzureOpenAiSettiings AzureOpenAi => field ??=
         _root.GetSection("AzureOpenAI").Get<AzureOpenAiSettiings>()
         ?? new AzureOpenAiSettiings();
 
@@ -26,6 +26,12 @@ public class Settings
             AzureOpenAi.Endpoint,
             AzureOpenAi.ApiKey)
         .Build();
+
+    public IKernelBuilder KernelBuilder => Kernel.CreateBuilder()
+        .AddAzureOpenAIChatCompletion(
+            AzureOpenAi.ChatModelDeployment,
+            AzureOpenAi.Endpoint,
+            AzureOpenAi.ApiKey);
 
     public IChatClient ChatClient => new AzureOpenAIClient(
             new Uri(AzureOpenAi.Endpoint),
