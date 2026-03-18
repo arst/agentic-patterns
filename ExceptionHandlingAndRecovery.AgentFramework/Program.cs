@@ -20,12 +20,10 @@ async Task<AgentResponse> RetryAndFallbackMiddleware(
 
             var response = await innerAgent.RunAsync(
                 messages, session, options, cancellationToken);
-
-            // Check if the agent's response indicates a tool failure
-            // (the agent may have caught the error and reported it in text)
-            var responseText = string.Join(" ",
-                response.Messages.Select(m => m.Text ?? ""));
+            
             // Simplistic check for the error, it's better done with structured tool responses or another call to an LLM, but this is just an example
+            var responseText = string.Join(" ",
+                response.Messages.Select(m => m.Text));
             var isError = responseText.Contains("ERROR", StringComparison.OrdinalIgnoreCase) ||
                           responseText.Contains("unavailable", StringComparison.OrdinalIgnoreCase) ||
                           responseText.Contains("unable", StringComparison.OrdinalIgnoreCase);
@@ -54,7 +52,7 @@ async Task<AgentResponse> RetryAndFallbackMiddleware(
             }
         }
 
-    // All retries exhausted → return a graceful degradation response
+    // All retries exhausted -> return a graceful degradation response
     // The middleware returns an AgentResponse directly, skipping the agent
     Console.WriteLine("  [RunMiddleware] All retries exhausted. Returning fallback response.");
     return new AgentResponse([
@@ -92,4 +90,4 @@ var result = await agent.RunAsync(
     "Find the precise location of '15 Rue de Rivoli, Paris, France'.",
     session);
 
-Console.WriteLine($"\n✅ Agent response:\n{result}");
+Console.WriteLine($"\nAgent response:\n{result}");
