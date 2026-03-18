@@ -17,7 +17,7 @@ async Task<AgentResponse> GoalDirectedMiddleware(
     for (var iteration = 1; iteration <= maxIterations; iteration++)
     {
         Console.WriteLine($"  [GoalMonitor] Iteration {iteration}/{maxIterations}");
-        
+
         var responseText = string.Join(" ",
             response.Messages.Select(m => m.Text ?? ""));
 
@@ -33,7 +33,7 @@ async Task<AgentResponse> GoalDirectedMiddleware(
             Console.WriteLine("  [GoalMonitor] Max iterations — returning best effort.");
             return response;
         }
-        
+
         Console.WriteLine("[GoalMonitor] Goals not met — requesting refinement...\n");
 
         var refinementMessage = new ChatMessage(ChatRole.User,

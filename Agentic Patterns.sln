@@ -42,6 +42,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoalSettingAndMonitoring.Se
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoalSettingsAndMonitoring.AgentFramework", "GoalSettingsAndMonitoring.AgentFramework\GoalSettingsAndMonitoring.AgentFramework.csproj", "{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExceptionHandlingAndRecovery.SemanticKernel", "ExceptionHandlingAndRecovery.SemanticKernel\ExceptionHandlingAndRecovery.SemanticKernel.csproj", "{2D4D76FC-D909-4061-A6C1-57D23FF82863}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExceptionHandlingAndRecovery.AgentFramework", "ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj", "{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -132,5 +136,13 @@ Global
 		{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2D4D76FC-D909-4061-A6C1-57D23FF82863}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2D4D76FC-D909-4061-A6C1-57D23FF82863}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2D4D76FC-D909-4061-A6C1-57D23FF82863}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2D4D76FC-D909-4061-A6C1-57D23FF82863}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
