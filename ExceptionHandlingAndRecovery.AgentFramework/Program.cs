@@ -20,7 +20,7 @@ async Task<AgentResponse> RetryAndFallbackMiddleware(
 
             var response = await innerAgent.RunAsync(
                 messages, session, options, cancellationToken);
-            
+
             // Simplistic check for the error, it's better done with structured tool responses or another call to an LLM, but this is just an example
             var responseText = string.Join(" ",
                 response.Messages.Select(m => m.Text));

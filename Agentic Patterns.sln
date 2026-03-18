@@ -46,6 +46,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExceptionHandlingAndRecover
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExceptionHandlingAndRecovery.AgentFramework", "ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj", "{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HumanInTheLoop.SemanticKernel", "HumanInTheLoop.SemanticKernel\HumanInTheLoop.SemanticKernel.csproj", "{096A2A68-A942-4256-A5A9-7036AF01A465}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HumanInTheLoop.AgentFramework", "HumanInTheLoop.AgentFramework\HumanInTheLoop.AgentFramework.csproj", "{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -144,5 +148,13 @@ Global
 		{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E1F119FB-97D6-466C-B6C0-962F5FBE76AD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{096A2A68-A942-4256-A5A9-7036AF01A465}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{096A2A68-A942-4256-A5A9-7036AF01A465}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{096A2A68-A942-4256-A5A9-7036AF01A465}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{096A2A68-A942-4256-A5A9-7036AF01A465}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
