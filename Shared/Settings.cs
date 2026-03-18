@@ -4,6 +4,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.SemanticKernel;
 
+#pragma warning disable SKEXP0010
+
 namespace Shared;
 
 public class Settings
@@ -23,6 +25,10 @@ public class Settings
     public Kernel Kernel => Kernel.CreateBuilder()
         .AddAzureOpenAIChatCompletion(
             AzureOpenAi.ChatModelDeployment,
+            AzureOpenAi.Endpoint,
+            AzureOpenAi.ApiKey)
+        .AddAzureOpenAIEmbeddingGenerator(
+            "text-embedding-3-small",
             AzureOpenAi.Endpoint,
             AzureOpenAi.ApiKey)
         .Build();

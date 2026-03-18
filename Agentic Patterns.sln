@@ -50,6 +50,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HumanInTheLoop.SemanticKern
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HumanInTheLoop.AgentFramework", "HumanInTheLoop.AgentFramework\HumanInTheLoop.AgentFramework.csproj", "{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAG.SemanticKernel", "RAG.SemanticKernel\RAG.SemanticKernel.csproj", "{C59D0B7D-11E9-47FA-88D0-342BCC29050E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAG.AgentFramework", "RAG.AgentFramework\RAG.AgentFramework.csproj", "{64F3C289-2DC2-4501-85E2-7328C62C8B4D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -156,5 +160,13 @@ Global
 		{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{35AE8CCC-B285-45CC-9B98-15FB4E6B21A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C59D0B7D-11E9-47FA-88D0-342BCC29050E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C59D0B7D-11E9-47FA-88D0-342BCC29050E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C59D0B7D-11E9-47FA-88D0-342BCC29050E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C59D0B7D-11E9-47FA-88D0-342BCC29050E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64F3C289-2DC2-4501-85E2-7328C62C8B4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64F3C289-2DC2-4501-85E2-7328C62C8B4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64F3C289-2DC2-4501-85E2-7328C62C8B4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64F3C289-2DC2-4501-85E2-7328C62C8B4D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
