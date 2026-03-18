@@ -54,6 +54,16 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAG.SemanticKernel", "RAG.S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RAG.AgentFramework", "RAG.AgentFramework\RAG.AgentFramework.csproj", "{64F3C289-2DC2-4501-85E2-7328C62C8B4D}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "InterAgentCommunication", "InterAgentCommunication", "{C1B4C484-62E8-484C-9161-C3B095DCD0E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterAgentCommunication.A2A.SemanticKernel.Server", "InterAgentCommunication.A2A.SemanticKernel.Server\InterAgentCommunication.A2A.SemanticKernel.Server.csproj", "{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterAgentCommunication.A2A.SemanticKernel.Client", "InterAgentCommunication.A2A.SemanticKernel.Client\InterAgentCommunication.A2A.SemanticKernel.Client.csproj", "{7D08EE3C-CF08-4D15-A2FF-238A6050957D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterAgentCommunication.A2A.AgentFramework.Server", "InterAgentCommunication.A2A.AgentFramework.Server\InterAgentCommunication.A2A.AgentFramework.Server.csproj", "{E6A88D8E-B182-4980-9954-B19D3A5FBD09}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterAgentCommunication.A2A.AgentFramework.Client", "InterAgentCommunication.A2A.AgentFramework.Client\InterAgentCommunication.A2A.AgentFramework.Client.csproj", "{6CC08204-1321-4EA3-B53B-588460D63199}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -168,5 +178,27 @@ Global
 		{64F3C289-2DC2-4501-85E2-7328C62C8B4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64F3C289-2DC2-4501-85E2-7328C62C8B4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{64F3C289-2DC2-4501-85E2-7328C62C8B4D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7D08EE3C-CF08-4D15-A2FF-238A6050957D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7D08EE3C-CF08-4D15-A2FF-238A6050957D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7D08EE3C-CF08-4D15-A2FF-238A6050957D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7D08EE3C-CF08-4D15-A2FF-238A6050957D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E6A88D8E-B182-4980-9954-B19D3A5FBD09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E6A88D8E-B182-4980-9954-B19D3A5FBD09}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E6A88D8E-B182-4980-9954-B19D3A5FBD09}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E6A88D8E-B182-4980-9954-B19D3A5FBD09}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6CC08204-1321-4EA3-B53B-588460D63199}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6CC08204-1321-4EA3-B53B-588460D63199}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6CC08204-1321-4EA3-B53B-588460D63199}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6CC08204-1321-4EA3-B53B-588460D63199}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
+		{7D08EE3C-CF08-4D15-A2FF-238A6050957D} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
+		{E6A88D8E-B182-4980-9954-B19D3A5FBD09} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
+		{6CC08204-1321-4EA3-B53B-588460D63199} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
 	EndGlobalSection
 EndGlobal
