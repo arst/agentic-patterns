@@ -38,6 +38,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LearningAndAdaptation.Agent
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCP.SemanticKernel", "MCP.SemanticKernel\MCP.SemanticKernel.csproj", "{838FD919-252B-4DC3-B551-822ACA937CA9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoalSettingAndMonitoring.SemanticKernel", "GoalSettingAndMonitoring.SemanticKernel\GoalSettingAndMonitoring.SemanticKernel.csproj", "{3EF068DF-B69E-46B1-8E00-C908AF5D0181}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GoalSettingsAndMonitoring.AgentFramework", "GoalSettingsAndMonitoring.AgentFramework\GoalSettingsAndMonitoring.AgentFramework.csproj", "{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -120,5 +124,13 @@ Global
 		{838FD919-252B-4DC3-B551-822ACA937CA9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{838FD919-252B-4DC3-B551-822ACA937CA9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{838FD919-252B-4DC3-B551-822ACA937CA9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3EF068DF-B69E-46B1-8E00-C908AF5D0181}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3EF068DF-B69E-46B1-8E00-C908AF5D0181}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3EF068DF-B69E-46B1-8E00-C908AF5D0181}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3EF068DF-B69E-46B1-8E00-C908AF5D0181}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EF4AB50B-BE41-46B4-8A0D-A5D4AAD949C9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

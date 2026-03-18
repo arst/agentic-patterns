@@ -24,9 +24,10 @@ var answerAgent = new ChatClientAgent(chatClient,
 
 var critiqueAgent = new ChatClientAgent(chatClient,
     name: "critiquer",
-    instructions: "You are a strict self-evaluator. Critique responses honestly and extract only genuinely useful improvement rules.");
+    instructions:
+    "You are a strict self-evaluator. Critique responses honestly and extract only genuinely useful improvement rules.");
 
-var answerExec  = new AnswerExecutor(answerAgent);
+var answerExec = new AnswerExecutor(answerAgent);
 var critiqueExec = new CritiqueExecutor(critiqueAgent);
 
 var workflow = new WorkflowBuilder(answerExec)
@@ -40,7 +41,7 @@ string[] questions =
 [
     "Explain what a transformer neural network is.",
     "Explain how the attention mechanism works inside a transformer.",
-    "Explain why positional encoding is necessary in transformers and how it works.",
+    "Explain why positional encoding is necessary in transformers and how it works."
 ];
 
 for (var i = 0; i < questions.Length; i++)
@@ -61,14 +62,10 @@ for (var i = 0; i < questions.Length; i++)
         workflow, new TurnInput(sessionId, questions[i]));
 
     await foreach (var evt in run.WatchStreamAsync())
-    {
         switch (evt)
         {
             case ExecutorCompletedEvent { ExecutorId: "answer" } completed:
-                if (completed.Data is AnswerPayload ap)
-                {
-                    Console.WriteLine($"\n  [answer]\n{ap.Answer}");
-                }
+                if (completed.Data is AnswerPayload ap) Console.WriteLine($"\n  [answer]\n{ap.Answer}");
                 break;
 
             case WorkflowOutputEvent output:
@@ -82,9 +79,9 @@ for (var i = 0; i < questions.Length; i++)
                 {
                     Console.WriteLine("\n  [critique: no new rules — answer was already good]");
                 }
+
                 break;
         }
-    }
 }
 
 Console.WriteLine($"\n{"═",60}");

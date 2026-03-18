@@ -7,11 +7,11 @@ using Shared;
 #pragma warning disable SKEXP0001
 
 await using var mcpClient = await McpClient.CreateAsync(
-    new StdioClientTransport(new()
+    new StdioClientTransport(new StdioClientTransportOptions
     {
         Name = "MCPServer",
         Command = "npx",
-        Arguments = ["-y", "--verbose", "@modelcontextprotocol/server-github"],
+        Arguments = ["-y", "--verbose", "@modelcontextprotocol/server-github"]
     }));
 
 // 2) Discover tools
@@ -29,7 +29,7 @@ kernel.Plugins.AddFromFunctions(
 var exec = new OpenAIPromptExecutionSettings
 {
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(
-        options: new()
+        options: new FunctionChoiceBehaviorOptions
         {
             RetainArgumentTypes = true
         })

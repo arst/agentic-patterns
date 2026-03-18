@@ -4,6 +4,7 @@ using Microsoft.SemanticKernel.Agents.Orchestration.GroupChat;
 using Microsoft.SemanticKernel.Agents.Runtime.InProcess;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Shared;
+
 #pragma warning disable SKEXP0110
 
 var kernel = new Settings().Kernel;
@@ -25,6 +26,7 @@ var reviewer = new ChatCompletionAgent
 };
 
 ChatHistory history = [];
+
 ValueTask responseCallback(ChatMessageContent msg)
 {
     history.Add(msg);
@@ -47,7 +49,7 @@ var result = await orchestration.InvokeAsync(
     "Create a slogan for a new electric SUV that is affordable and fun to drive.",
     runtime);
 
-string final = await result.GetValueAsync(TimeSpan.FromSeconds(60));
+var final = await result.GetValueAsync(TimeSpan.FromSeconds(60));
 Console.WriteLine($"\n=== FINAL ===\n{final}");
 
 await runtime.RunUntilIdleAsync();

@@ -32,18 +32,13 @@ var messages = new List<ChatMessage>
 };
 
 var run = await InProcessExecution.RunStreamingAsync(workflow, messages);
-await run.TrySendMessageAsync(new TurnToken(emitEvents: true));
+await run.TrySendMessageAsync(new TurnToken(true));
 
 await foreach (var evt in run.WatchStreamAsync().ConfigureAwait(false))
-{
     if (evt.GetType() == typeof(WorkflowOutputEvent) && evt is WorkflowOutputEvent output)
     {
         var conversationHistory = output.As<List<ChatMessage>>();
         Console.WriteLine("\n=== Final Conversation ===");
-        foreach (var message in conversationHistory)
-        {
-            Console.WriteLine($"{message.AuthorName}: {message.Text}");
-        }
+        foreach (var message in conversationHistory) Console.WriteLine($"{message.AuthorName}: {message.Text}");
         break;
     }
-}

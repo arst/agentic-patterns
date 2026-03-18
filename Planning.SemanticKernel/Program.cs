@@ -26,7 +26,7 @@ var result = await InvokePromptAsync(
     """",
     new KernelArguments(new OpenAIPromptExecutionSettings
     {
-        ResponseFormat = typeof(Plan),
+        ResponseFormat = typeof(Plan)
     }) { ["request"] = "Book a flight from NYC to Paris on 2024-12-01 and draft a confirmation email." });
 Console.WriteLine("=== Final Answer ===");
 var plan = JsonSerializer.Deserialize<Plan>(result);

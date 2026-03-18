@@ -4,16 +4,19 @@ using Microsoft.SemanticKernel;
 namespace LearningAndAdaptation.SemanticKernel;
 
 /// <summary>
-/// Tools the agent uses to update its own behavioral policy.
-/// These are called by the agent itself during self-critique, not by the user.
+///     Tools the agent uses to update its own behavioral policy.
+///     These are called by the agent itself during self-critique, not by the user.
 /// </summary>
 public sealed class AdaptationTools
 {
     [KernelFunction]
-    [Description("Record a new behavioral rule the agent has learned. Call this after self-critiquing a response and identifying a concrete improvement.")]
+    [Description(
+        "Record a new behavioral rule the agent has learned. Call this after self-critiquing a response and identifying a concrete improvement.")]
     public string LearnRule(
         [Description("The session id")] string sessionId,
-        [Description("A short, actionable behavioral rule to follow in future responses, e.g. 'Keep answers under 5 sentences' or 'Avoid nested bullet lists'")] string rule)
+        [Description(
+            "A short, actionable behavioral rule to follow in future responses, e.g. 'Keep answers under 5 sentences' or 'Avoid nested bullet lists'")]
+        string rule)
     {
         PolicyStore.AddRule(sessionId, rule);
         return $"Rule learned: \"{rule}\"";

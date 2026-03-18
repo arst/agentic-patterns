@@ -4,14 +4,16 @@ using Microsoft.Agents.AI.Workflows;
 namespace LearningAndAdaptation.AgentFramework;
 
 /// <summary>
-/// Step 1 of the learning loop.
-/// Receives a question, prepends any already-learned policy rules, then answers.
-/// Passes (question, answer) to the CritiqueExecutor.
+///     Step 1 of the learning loop.
+///     Receives a question, prepends any already-learned policy rules, then answers.
+///     Passes (question, answer) to the CritiqueExecutor.
 /// </summary>
 public class AnswerExecutor(ChatClientAgent agent) : Executor("answer")
 {
-    protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder) =>
-        protocolBuilder.ConfigureRoutes(r => r.AddHandler<TurnInput, AnswerPayload>(HandleAsync));
+    protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
+    {
+        return protocolBuilder.ConfigureRoutes(r => r.AddHandler<TurnInput, AnswerPayload>(HandleAsync));
+    }
 
     private async ValueTask<AnswerPayload> HandleAsync(TurnInput input, IWorkflowContext context)
     {

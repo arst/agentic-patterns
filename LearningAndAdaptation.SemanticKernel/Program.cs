@@ -32,7 +32,7 @@ var answerSettings = new OpenAIPromptExecutionSettings { Temperature = 0.7 };
 var critiqueSettings = new OpenAIPromptExecutionSettings
 {
     Temperature = 0,
-    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
 
 // Three increasingly specific questions on the same topic — we want to see the
@@ -41,7 +41,7 @@ string[] questions =
 {
     "Explain what a transformer neural network is.",
     "Explain how the attention mechanism works inside a transformer.",
-    "Explain why positional encoding is necessary in transformers and how it works.",
+    "Explain why positional encoding is necessary in transformers and how it works."
 };
 
 for (var i = 0; i < questions.Length; i++)
@@ -50,32 +50,32 @@ for (var i = 0; i < questions.Length; i++)
     Console.WriteLine($"  Turn {i + 1} — Question");
     Console.WriteLine($"{'─',60}");
     Console.WriteLine($"  {questions[i]}\n");
-    
+
     var answer = await agentKernel.InvokePromptAsync(questions[i], new KernelArguments(answerSettings));
 
     Console.WriteLine($"\n  [answer]\n{answer}");
-    
+
     var critiquePrompt = $"""
-        You just gave this answer to a user:
-        ---
-        {answer}
-        ---
-        Critically evaluate the answer on three axes:
-          • Clarity  – was it easy to follow?
-          • Depth    – did it actually explain the "why", not just the "what"?
-          • Conciseness – was there any fluff or repetition?
+                          You just gave this answer to a user:
+                          ---
+                          {answer}
+                          ---
+                          Critically evaluate the answer on three axes:
+                            • Clarity  – was it easy to follow?
+                            • Depth    – did it actually explain the "why", not just the "what"?
+                            • Conciseness – was there any fluff or repetition?
 
-        If you identify a concrete, actionable improvement you should make in
-        FUTURE answers (not a fix to this one), call LearnRule with sessionId="{sessionId}"
-        and a short imperative rule, e.g. "Always lead with a one-sentence summary before diving into detail."
+                          If you identify a concrete, actionable improvement you should make in
+                          FUTURE answers (not a fix to this one), call LearnRule with sessionId="{sessionId}"
+                          and a short imperative rule, e.g. "Always lead with a one-sentence summary before diving into detail."
 
-        You may call LearnRule more than once if you find multiple independent improvements.
-        If the answer was already excellent, do NOT invent fake rules — call nothing.
+                          You may call LearnRule more than once if you find multiple independent improvements.
+                          If the answer was already excellent, do NOT invent fake rules — call nothing.
 
-        After any tool calls, write a brief critique summary (2–3 sentences).
-        """;
+                          After any tool calls, write a brief critique summary (2–3 sentences).
+                          """;
 
-    Console.WriteLine($"\n  [self-critique]\n");
+    Console.WriteLine("\n  [self-critique]\n");
     var critique = await agentKernel.InvokePromptAsync(critiquePrompt, new KernelArguments(critiqueSettings));
     Console.WriteLine(critique);
 }
