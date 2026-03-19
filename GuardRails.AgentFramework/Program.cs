@@ -33,7 +33,7 @@ async Task<AgentResponse> InputGuardMiddleware(
                 "Please contact your IT administrator.")
         ]);
     }
-    
+
     return await innerAgent.RunAsync(messages, session, options, cancellationToken);
 }
 
@@ -54,7 +54,7 @@ async Task<ChatResponse> PiiGuardMiddleware(
 
         return m;
     }).ToList();
-    
+
     var response = await chatClient.GetResponseAsync(sanitizedMessages, options, cancellationToken);
 
     // Redact PII from the model's response
@@ -81,7 +81,7 @@ async Task<AgentResponse> OutputGuardMiddleware(
 
     var responseText = string.Join("",
         response.Messages.Select(m => m.Text ?? ""));
-    
+
     if (responseText.Length > 2000)
     {
         Console.WriteLine("  [OutputGuard] Response too long — truncating.");

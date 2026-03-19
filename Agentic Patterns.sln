@@ -80,6 +80,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GuardRails.SemanticKernel",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GuardRails.AgentFramework", "GuardRails.AgentFramework\GuardRails.AgentFramework.csproj", "{8EAA1561-1546-45DB-BA48-75570CC4A3E1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EvaluationAndMonitoring.SemanticKernel", "EvaluationAndMonitoring.SemanticKernel\EvaluationAndMonitoring.SemanticKernel.csproj", "{FC6ECC1D-A250-4AC4-A5D3-CB9F497667EC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EvaluationAndMonitoring.AgentFramework", "EvaluationAndMonitoring.AgentFramework\EvaluationAndMonitoring.AgentFramework.csproj", "{A7A29D57-AA15-4308-BAE6-04327B61ACEC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -238,6 +242,14 @@ Global
 		{8EAA1561-1546-45DB-BA48-75570CC4A3E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8EAA1561-1546-45DB-BA48-75570CC4A3E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8EAA1561-1546-45DB-BA48-75570CC4A3E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC6ECC1D-A250-4AC4-A5D3-CB9F497667EC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC6ECC1D-A250-4AC4-A5D3-CB9F497667EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC6ECC1D-A250-4AC4-A5D3-CB9F497667EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC6ECC1D-A250-4AC4-A5D3-CB9F497667EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7A29D57-AA15-4308-BAE6-04327B61ACEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7A29D57-AA15-4308-BAE6-04327B61ACEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7A29D57-AA15-4308-BAE6-04327B61ACEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7A29D57-AA15-4308-BAE6-04327B61ACEC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
