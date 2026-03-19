@@ -1,4 +1,4 @@
-﻿using Microsoft.Agents.AI;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
 
@@ -63,7 +63,7 @@ async Task<AgentResponse> RetryAndFallbackMiddleware(
     ]);
 }
 
-var chatClient = new Settings().ChatClient;
+var chatClient = Settings.ChatClient;
 var agent = new ChatClientAgent(chatClient,
         """
         You are a helpful location assistant.

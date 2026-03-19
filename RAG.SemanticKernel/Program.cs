@@ -1,4 +1,4 @@
-ï»¿using Microsoft.Extensions.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.InMemory;
@@ -9,7 +9,7 @@ using Shared;
 #pragma warning disable SKEXP0001
 
 
-var builder = new Settings().KernelBuilder;
+var builder = Settings.CreateKernelBuilder();
 var kernel = builder.Build();
 var embeddingService = kernel.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
 
@@ -29,7 +29,7 @@ var policyChunks = new[]
     {
         Id = "remote-2", Source = "remote-work-policy-2025.pdf",
         Content =
-            "Remote workers must maintain a dedicated workspace with reliable internet (minimum 50 Mbps). The company provides a one-time â‚¬500 home office stipend."
+            "Remote workers must maintain a dedicated workspace with reliable internet (minimum 50 Mbps). The company provides a one-time €500 home office stipend."
     },
     new
     {
@@ -47,7 +47,7 @@ var policyChunks = new[]
     {
         Id = "expense-1", Source = "expense-policy-2025.pdf",
         Content =
-            "Business travel expenses require pre-approval for amounts exceeding â‚¬500. Economy class is standard for flights under 6 hours. Meal reimbursement is capped at â‚¬50/day."
+            "Business travel expenses require pre-approval for amounts exceeding €500. Economy class is standard for flights under 6 hours. Meal reimbursement is capped at €50/day."
     }
 };
 

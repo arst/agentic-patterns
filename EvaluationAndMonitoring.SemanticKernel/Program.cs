@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -47,7 +47,7 @@ var callCount = evalMeter.CreateCounter<long>(
 
 var evalActivitySource = new ActivitySource("AgentEvaluation");
 
-var builder = new Settings().KernelBuilder;
+var builder = Settings.CreateKernelBuilder();
 builder.Services.AddSingleton<IFunctionInvocationFilter>(
     new MetricsFilter(callLatency, totalTokens, callCount, evalActivitySource));
 
@@ -88,7 +88,7 @@ var responses = new List<(string Query, string Response, double LatencyMs)>();
 
 foreach (var query in testQueries)
 {
-    Console.WriteLine($"👤 User: {query}");
+    Console.WriteLine($"?? User: {query}");
     var sw = Stopwatch.StartNew();
 
     var responseText = "";

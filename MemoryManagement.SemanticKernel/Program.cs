@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Memory;
 using Shared;
@@ -6,8 +6,7 @@ using Shared;
 #pragma warning disable SKEXP0110
 #pragma warning disable SKEXP0130
 
-var settings = new Settings();
-var kernel = settings.Kernel;
+var kernel = Settings.Kernel;
 
 var agent = new ChatCompletionAgent
 {
@@ -19,7 +18,7 @@ var agent = new ChatCompletionAgent
 using var httpClient = new HttpClient();
 httpClient.BaseAddress = new Uri("https://api.mem0.ai");
 httpClient.DefaultRequestHeaders.Authorization =
-    new AuthenticationHeaderValue("Token", settings.Mem0ApiSettings.ApiKey);
+    new AuthenticationHeaderValue("Token", Settings.Mem0ApiSettings.ApiKey);
 
 var mem0Provider = new Mem0Provider(httpClient, options: new Mem0ProviderOptions
 {
@@ -35,6 +34,6 @@ thread.AIContextProviders.Add(mem0Provider);
 // Uncomment to create a memory for the agent
 //await agent.InvokeAsync("Remember that I prefer weekly PDF reports, not slides.", thread).FirstAsync();
 
-// 5) Later… ask a question that should use memory
+// 5) Later ask a question that should use memory
 var response = await agent.InvokeAsync("Which format for reports do I prefer?", thread).FirstAsync();
 Console.WriteLine(response.Message.Content);

@@ -1,15 +1,14 @@
-﻿using System.ClientModel;
+using System.ClientModel;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Routing.AgentFramework;
 using Shared;
 
-var setting = new Settings();
 var chatClient = new AzureOpenAIClient(
-        new Uri(setting.AzureOpenAi.Endpoint),
-        new ApiKeyCredential(setting.AzureOpenAi.ApiKey))
-    .GetChatClient(setting.AzureOpenAi.ChatModelDeployment)
+        new Uri(Settings.AzureOpenAi.Endpoint),
+        new ApiKeyCredential(Settings.AzureOpenAi.ApiKey))
+    .GetChatClient(Settings.AzureOpenAi.ChatModelDeployment)
     .AsIChatClient();
 
 AIAgent router = new ChatClientAgent(

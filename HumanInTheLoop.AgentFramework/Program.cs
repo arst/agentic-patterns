@@ -1,4 +1,4 @@
-﻿#pragma warning disable MEAI001
+#pragma warning disable MEAI001
 using HumanInTheLoop.AgentFramework;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -12,7 +12,7 @@ AIFunction createTicketTool = new ApprovalRequiredAIFunction(
     AIFunctionFactory.Create(SupportPlugin.CreateTicket));
 AIFunction issueRefundTool = new ApprovalRequiredAIFunction(
     AIFunctionFactory.Create(SupportPlugin.IssueRefund));
-var chatClient = new Settings().ChatClient;
+var chatClient = Settings.ChatClient;
 
 var agent = new ChatClientAgent(
     chatClient,

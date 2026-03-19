@@ -1,11 +1,10 @@
-﻿using Microsoft.Agents.AI;
+using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Parallelization.AgentFramework;
 using Shared;
 
-var settings = new Settings();
-var chatClient = settings.ChatClient;
+var chatClient = Settings.ChatClient;
 
 var researcher = new ChatExecutor("researcher", new ChatClientAgent(chatClient,
     "You're an expert market and product researcher. Provide concise, factual insights, opportunities, and risks.",

@@ -8,21 +8,22 @@ using Microsoft.SemanticKernel;
 
 namespace Shared;
 
-public class Settings
+public static class Settings
 {
-    private readonly IConfigurationRoot _root = new ConfigurationBuilder()
+    private static readonly IConfigurationRoot Root = new ConfigurationBuilder()
         .AddJsonFile("appsettings.json", false)
-        .AddUserSecrets<Settings>(true)
+        .AddUserSecrets<AzureOpenAiSettiings>(true)
         .AddEnvironmentVariables()
         .Build();
 
-    public Mem0ApiSettings Mem0ApiSettings => _root.GetSection("Mem0").Get<Mem0ApiSettings>() ?? new Mem0ApiSettings();
+    public static Mem0ApiSettings Mem0ApiSettings => field ??=
+        Root.GetSection("Mem0").Get<Mem0ApiSettings>() ?? new Mem0ApiSettings();
 
-    public AzureOpenAiSettiings AzureOpenAi => field ??=
-        _root.GetSection("AzureOpenAI").Get<AzureOpenAiSettiings>()
+    public static AzureOpenAiSettiings AzureOpenAi => field ??=
+        Root.GetSection("AzureOpenAI").Get<AzureOpenAiSettiings>()
         ?? new AzureOpenAiSettiings();
 
-    public Kernel Kernel => Kernel.CreateBuilder()
+    public static Kernel Kernel => field ??= Kernel.CreateBuilder()
         .AddAzureOpenAIChatCompletion(
             AzureOpenAi.ChatModelDeployment,
             AzureOpenAi.Endpoint,
@@ -33,13 +34,14 @@ public class Settings
             AzureOpenAi.ApiKey)
         .Build();
 
-    public IKernelBuilder KernelBuilder => Kernel.CreateBuilder()
-        .AddAzureOpenAIChatCompletion(
-            AzureOpenAi.ChatModelDeployment,
-            AzureOpenAi.Endpoint,
-            AzureOpenAi.ApiKey);
+    public static IKernelBuilder CreateKernelBuilder() =>
+        Microsoft.SemanticKernel.Kernel.CreateBuilder()
+            .AddAzureOpenAIChatCompletion(
+                AzureOpenAi.ChatModelDeployment,
+                AzureOpenAi.Endpoint,
+                AzureOpenAi.ApiKey);
 
-    public IChatClient ChatClient => new AzureOpenAIClient(
+    public static IChatClient ChatClient => field ??= new AzureOpenAIClient(
             new Uri(AzureOpenAi.Endpoint),
             new ApiKeyCredential(AzureOpenAi.ApiKey))
         .GetChatClient(AzureOpenAi.ChatModelDeployment)

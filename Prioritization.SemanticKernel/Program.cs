@@ -1,9 +1,9 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Shared;
 
-var kernel = new Settings().Kernel;
+var kernel = Settings.Kernel;
 
 kernel.Plugins.AddFromType<ProjectTools>();
 
@@ -45,12 +45,12 @@ ChatCompletionAgent agent = new()
 
 var thread = new ChatHistoryAgentThread();
 
-Console.WriteLine("═══ Step 1: Initial task batch ═══\n");
+Console.WriteLine("--- Step 1: Initial task batch ---\n");
 
 await foreach (var response in agent.InvokeAsync("""
                                                  We have the following work items for this sprint:
                                                  1. Add dark mode to the settings page
-                                                 2. Fix the login timeout bug — users are getting logged out after 2 minutes
+                                                 2. Fix the login timeout bug � users are getting logged out after 2 minutes
                                                  3. Update the API documentation for v2 endpoints
                                                  4. The checkout page is returning 500 errors in production
                                                  5. Migrate CI/CD pipeline to GitHub Actions
@@ -59,7 +59,7 @@ await foreach (var response in agent.InvokeAsync("""
                                                  """, thread))
     Console.WriteLine(response.Message.Content);
 
-Console.WriteLine("\n\n═══ Step 2: Urgent issue arrives — re-prioritize ═══\n");
+Console.WriteLine("\n\n--- Step 2: Urgent issue arrives � re-prioritize ---\n");
 
 await foreach (var response in agent.InvokeAsync("""
                                                  URGENT: We just discovered a SQL injection vulnerability in the user search endpoint.
@@ -68,7 +68,7 @@ await foreach (var response in agent.InvokeAsync("""
                                                  """, thread))
     Console.WriteLine(response.Message.Content);
 
-Console.WriteLine("\n\n═══ Step 3: Final task board ═══\n");
+Console.WriteLine("\n\n--- Step 3: Final task board ---\n");
 
 await foreach (var response in agent.InvokeAsync(
                    "Show me the current task board sorted by priority.", thread))

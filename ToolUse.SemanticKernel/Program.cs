@@ -1,9 +1,9 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Shared;
 
-var kernel = new Settings().Kernel;
+var kernel = Settings.Kernel;
 
 kernel.ImportPluginFromType<WeatherPlugin>();
 

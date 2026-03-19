@@ -1,8 +1,8 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Shared;
 
-var kernel = new Settings().Kernel;
+var kernel = Settings.Kernel;
 
 ChatCompletionAgent researcher = new()
 {
@@ -12,12 +12,12 @@ ChatCompletionAgent researcher = new()
         about a given topic. For each hypothesis:
 
         1. State the hypothesis clearly and concisely.
-        2. Explain the reasoning — what existing knowledge supports this idea?
+        2. Explain the reasoning � what existing knowledge supports this idea?
         3. Describe how it could be tested or validated.
         4. Rate your own confidence (low/medium/high).
 
         Generate 3 distinct hypotheses that vary in approach and boldness.
-        Be creative — explore unconventional angles, not just obvious ideas.
+        Be creative � explore unconventional angles, not just obvious ideas.
 
         Format each hypothesis as:
         ## Hypothesis N: [title]
@@ -63,7 +63,7 @@ ChatCompletionAgent evolver = new()
         1. Take the most promising hypothesis identified by the critic.
         2. Address each weakness the critic identified.
         3. Strengthen the reasoning and evidence.
-        4. Explore one UNEXPECTED ANGLE — combine it with an idea from a different field.
+        4. Explore one UNEXPECTED ANGLE � combine it with an idea from a different field.
         5. Produce a refined, stronger version of the hypothesis.
 
         Also produce ONE entirely new hypothesis inspired by the gaps the critic found.
@@ -118,7 +118,7 @@ for (int iteration = 1; iteration <= maxIterations; iteration++)
     if (criticOutput.Contains("OVERALL QUALITY: high", StringComparison.OrdinalIgnoreCase)
         && iteration > 1)
     {
-        Console.WriteLine("\nHigh quality reached — stopping exploration.");
+        Console.WriteLine("\nHigh quality reached � stopping exploration.");
         break;
     }
     
@@ -136,11 +136,11 @@ for (int iteration = 1; iteration <= maxIterations; iteration++)
     currentHypotheses = evolverOutput;
 }
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // 3. Final summary
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
-Console.WriteLine($"\n{'═',0}══ Final Discovery Summary ═══\n");
+Console.WriteLine($"\n{'-',0}-- Final Discovery Summary ---\n");
 Console.WriteLine("The exploration cycle has produced the following refined hypotheses:");
 Console.WriteLine(currentHypotheses);
-Console.WriteLine("\n⚠️ These are AI-generated hypotheses requiring human validation and experimental verification.");
+Console.WriteLine("\n?? These are AI-generated hypotheses requiring human validation and experimental verification.");

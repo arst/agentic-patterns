@@ -1,4 +1,4 @@
-﻿using A2A;
+using A2A;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.A2A;
 using Microsoft.Extensions.AI;
@@ -24,7 +24,7 @@ var agentAsFunction = async (string question) =>
 var weatherTool = AIFunctionFactory.Create(agentAsFunction, "WeatherExpert",
     "Ask the WeatherExpert agent a question about the weather at a specific location and time.");
 
-var chatClient = new Settings().ChatClient;
+var chatClient = Settings.ChatClient;
 var agent = new ChatClientAgent(chatClient,
     """
     You are a travel planning assistant. Help users plan trips by:

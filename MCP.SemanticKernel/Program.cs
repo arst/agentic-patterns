@@ -1,4 +1,4 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using ModelContextProtocol.Client;
@@ -18,7 +18,7 @@ await using var mcpClient = await McpClient.CreateAsync(
 var tools = await mcpClient.ListToolsAsync().ConfigureAwait(false);
 
 // 3) Register MCP tools as SK functions (agent can tool-call)
-var kernel = new Settings().Kernel;
+var kernel = Settings.Kernel;
 
 // This pattern (MCP tools -> Kernel functions) is used in the official SK MCP sample. :contentReference[oaicite:5]{index=5}
 kernel.Plugins.AddFromFunctions(

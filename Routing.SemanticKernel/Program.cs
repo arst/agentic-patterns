@@ -1,4 +1,4 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Agents.Orchestration.Handoff;
 using Microsoft.SemanticKernel.Agents.Runtime.InProcess;
@@ -8,12 +8,11 @@ using Shared;
 
 #pragma warning disable SKEXP0110
 
-var setting = new Settings();
 var kernel = Kernel.CreateBuilder()
     .AddAzureOpenAIChatCompletion(
-        setting.AzureOpenAi.ChatModelDeployment,
-        setting.AzureOpenAi.Endpoint,
-        setting.AzureOpenAi.ApiKey)
+        Settings.AzureOpenAi.ChatModelDeployment,
+        Settings.AzureOpenAi.Endpoint,
+        Settings.AzureOpenAi.ApiKey)
     .Build();
 
 ChatCompletionAgent triageAgent = new()

@@ -1,4 +1,4 @@
-﻿using System.ClientModel;
+using System.ClientModel;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -10,9 +10,8 @@ using TextSearchProviderOptions = Microsoft.Agents.AI.TextSearchProviderOptions;
 
 #pragma warning disable SKEXP0130
 
-var settings = new Settings();
-var azureClient = new AzureOpenAIClient(new Uri(settings.AzureOpenAi.Endpoint),
-    new ApiKeyCredential(settings.AzureOpenAi.ApiKey));
+var azureClient = new AzureOpenAIClient(new Uri(Settings.AzureOpenAi.Endpoint),
+    new ApiKeyCredential(Settings.AzureOpenAi.ApiKey));
 
 var embeddingGenerator = azureClient
     .GetEmbeddingClient("text-embedding-3-small")
@@ -27,13 +26,13 @@ var policies = new (string Id, string Source, string Text)[]
     ("remote-1", "Remote Work Policy 2025",
         "Employees may work remotely up to 3 days per week. Manager approval is required for full remote. Remote work agreements must be renewed annually."),
     ("remote-2", "Remote Work Policy 2025",
-        "Remote workers must maintain a dedicated workspace with reliable internet (min 50 Mbps). The company provides a one-time €500 home office stipend."),
+        "Remote workers must maintain a dedicated workspace with reliable internet (min 50 Mbps). The company provides a one-time �500 home office stipend."),
     ("pto-1", "Leave Policy 2025",
         "Full-time employees receive 25 days of paid time off per year. Unused PTO can be carried over up to 5 days into the next calendar year."),
     ("pto-2", "Leave Policy 2025",
         "Parental leave is 16 weeks fully paid for the primary caregiver and 6 weeks for the secondary caregiver. Applies to both birth and adoption."),
     ("expense-1", "Expense Policy 2025",
-        "Business travel requires pre-approval for amounts exceeding €500. Economy class is standard for flights under 6 hours. Meal reimbursement capped at €50/day.")
+        "Business travel requires pre-approval for amounts exceeding �500. Economy class is standard for flights under 6 hours. Meal reimbursement capped at �50/day.")
 };
 
 var texts = policies.Select(p => p.Text).ToList();
@@ -76,7 +75,7 @@ var textSearchOptions = new TextSearchProviderOptions
 {
     SearchTime = TextSearchProviderOptions.TextSearchBehavior.BeforeAIInvoke
 };
-var chatClient = settings.ChatClient;
+var chatClient = Settings.ChatClient;
 
 var agent = new ChatClientAgent(
         chatClient,
@@ -92,9 +91,9 @@ var agent = new ChatClientAgent(
     .Build();
 
 
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 // 6. Run the RAG-enabled agent
-// ──────────────────────────────────────────────
+// ----------------------------------------------
 
 var thread = await agent.CreateSessionAsync();
 

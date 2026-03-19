@@ -1,22 +1,22 @@
-﻿using LearningAndAdaptation.AgentFramework;
+using LearningAndAdaptation.AgentFramework;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Shared;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Learning & Adaptation pattern — Microsoft Agent Framework
+// -----------------------------------------------------------------------------
+// Learning & Adaptation pattern � Microsoft Agent Framework
 //
 // Each turn runs a two-step workflow:
-//   AnswerExecutor  → answers the question, injecting any already-learned rules
-//   CritiqueExecutor → self-critiques the answer and persists new rules to
+//   AnswerExecutor  ? answers the question, injecting any already-learned rules
+//   CritiqueExecutor ? self-critiques the answer and persists new rules to
 //                      PolicyStore via structured JSON output
 //
 // Because PolicyStore is shared across runs, each turn's AnswerExecutor
-// automatically picks up every rule discovered in all previous turns —
+// automatically picks up every rule discovered in all previous turns �
 // so the agent genuinely adapts without any user intervention.
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
-var chatClient = new Settings().ChatClient;
+var chatClient = Settings.ChatClient;
 
 var answerAgent = new ChatClientAgent(chatClient,
     name: "answerer",
@@ -46,9 +46,9 @@ string[] questions =
 
 for (var i = 0; i < questions.Length; i++)
 {
-    Console.WriteLine($"\n{"─",60}");
-    Console.WriteLine($"  Turn {i + 1} — {questions[i]}");
-    Console.WriteLine($"{"─",60}");
+    Console.WriteLine($"\n{"-",60}");
+    Console.WriteLine($"  Turn {i + 1} � {questions[i]}");
+    Console.WriteLine($"{"-",60}");
 
     var rulesBeforeTurn = PolicyStore.GetRules(sessionId);
     if (rulesBeforeTurn.Count > 0)
@@ -73,20 +73,20 @@ for (var i = 0; i < questions.Length; i++)
                 {
                     Console.WriteLine("\n  [rules learned this turn]");
                     foreach (var rule in lr.Rules)
-                        Console.WriteLine($"    • {rule}");
+                        Console.WriteLine($"    � {rule}");
                 }
                 else
                 {
-                    Console.WriteLine("\n  [critique: no new rules — answer was already good]");
+                    Console.WriteLine("\n  [critique: no new rules � answer was already good]");
                 }
 
                 break;
         }
 }
 
-Console.WriteLine($"\n{"═",60}");
+Console.WriteLine($"\n{"-",60}");
 Console.WriteLine("  Final learned policy:");
-Console.WriteLine($"{"═",60}");
+Console.WriteLine($"{"-",60}");
 var finalRules = PolicyStore.GetRules(sessionId);
 if (finalRules.Count == 0)
     Console.WriteLine("  (no rules accumulated)");

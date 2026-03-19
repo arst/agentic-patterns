@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using A2A;
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.AspNetCore.Builder;
@@ -24,7 +24,7 @@ var loggerFactory = LoggerFactory.Create(loggingBuilder =>
         .AddFilter("Microsoft.SemanticKernel", LogLevel.Trace)
         .AddFilter("A2A", LogLevel.Trace);
 });
-var chatClient = new Settings().ChatClient.AsBuilder().UseLogging(loggerFactory).Build();
+var chatClient = Settings.ChatClient.AsBuilder().UseLogging(loggerFactory).Build();
 builder.Services.AddSingleton(chatClient);
 
 var weatherAgent = builder.AddAIAgent("weather",

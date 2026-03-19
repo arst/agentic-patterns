@@ -1,10 +1,10 @@
-﻿using GoalSettingAndMonitoring.SemanticKernel;
+using GoalSettingAndMonitoring.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Shared;
 
-var builder = new Settings().KernelBuilder;
+var builder = Settings.CreateKernelBuilder();
 
 builder.Plugins.AddFromType<CodeGenerationPlugin>();
 
@@ -39,4 +39,4 @@ history.AddUserMessage("Write a C# method that parses a string to an integer saf
 
 var response = await chat.GetChatMessageContentAsync(history, settings, kernel);
 
-Console.WriteLine($"\n🤖 Final output:\n{response.Content}");
+Console.WriteLine($"\n?? Final output:\n{response.Content}");

@@ -1,32 +1,31 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using ResourceAwareOptimization.SemanticKernel;
 using Shared;
 
-var setting = new Settings();
-var builder = setting.KernelBuilder;
+var builder = Settings.CreateKernelBuilder();
 
-// Fast tier — cheap, low-latency, good for factual recall and simple tasks
+// Fast tier � cheap, low-latency, good for factual recall and simple tasks
 builder.AddAzureOpenAIChatCompletion(
     "gpt-4o-mini",
-    setting.AzureOpenAi.Endpoint,
-    setting.AzureOpenAi.ApiKey,
+    Settings.AzureOpenAi.Endpoint,
+    Settings.AzureOpenAi.ApiKey,
     "fast");
 
-// Reasoning tier — expensive, high-capability, for complex multi-step reasoning
+// Reasoning tier � expensive, high-capability, for complex multi-step reasoning
 builder.AddAzureOpenAIChatCompletion(
     "o4-mini",
-    setting.AzureOpenAi.Endpoint,
-    setting.AzureOpenAi.ApiKey,
+    Settings.AzureOpenAi.Endpoint,
+    Settings.AzureOpenAi.ApiKey,
     "reasoning");
 
-// Default tier — mid-range, used for the router/classifier itself
+// Default tier � mid-range, used for the router/classifier itself
 builder.AddAzureOpenAIChatCompletion(
     "gpt-4o",
-    setting.AzureOpenAi.Endpoint,
-    setting.AzureOpenAi.ApiKey,
+    Settings.AzureOpenAi.Endpoint,
+    Settings.AzureOpenAi.ApiKey,
     "default");
 
 var kernel = builder.Build();
@@ -37,7 +36,7 @@ kernel.FunctionInvocationFilters.Add(budgetTracker);
 
 string ClassifyQuery(string query)
 {
-    // Heuristic tier — zero LLM cost
+    // Heuristic tier � zero LLM cost
     var wordCount = query.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
 
     if (wordCount < 10 && !query.Contains("why", StringComparison.OrdinalIgnoreCase)
@@ -104,24 +103,24 @@ async Task<string> HandleQueryAsync(string userQuery)
 
 var queries = new[]
 {
-    "What is the capital of France?", // → simple → fast
+    "What is the capital of France?", // ? simple ? fast
     "Explain step by step why gradient descent converges for convex " +
     "functions and analyze the conditions under which it might diverge " +
-    "for non-convex optimization landscapes.", // → reasoning
-    "Hi" // → simple → fast
+    "for non-convex optimization landscapes.", // ? reasoning
+    "Hi" // ? simple ? fast
 };
 
 foreach (var query in queries)
 {
-    Console.WriteLine($"\n👤 User: {query}");
+    Console.WriteLine($"\n?? User: {query}");
     var answer = await HandleQueryAsync(query);
     Console.WriteLine($"Agent: {answer}");
 
     if (budgetTracker.BudgetExceeded)
     {
-        Console.WriteLine("\n⚠Budget limit reached. Switching all remaining queries to fast tier.");
+        Console.WriteLine("\n?Budget limit reached. Switching all remaining queries to fast tier.");
         break;
     }
 }
 
-Console.WriteLine($"\nTotal estimated cost: {budgetTracker.TotalCostCents:F2}¢");
+Console.WriteLine($"\nTotal estimated cost: {budgetTracker.TotalCostCents:F2}�");

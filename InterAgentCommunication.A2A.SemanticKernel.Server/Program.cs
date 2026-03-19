@@ -1,4 +1,4 @@
-﻿using A2A;
+using A2A;
 using A2A.AspNetCore;
 using InterAgentCommunication.A2A.SemanticKernel.Server;
 using Microsoft.AspNetCore.Builder;
@@ -9,7 +9,7 @@ using Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddA2AAgent<WeatherAgentHandler>(WeatherAgentHandler.GetAgentCard());
-builder.Services.AddSingleton<IAgentHandler>(_ => new WeatherAgentHandler(new Settings().Kernel));
+builder.Services.AddSingleton<IAgentHandler>(_ => new WeatherAgentHandler(Settings.Kernel));
 builder.Services.AddSingleton(WeatherAgentHandler.GetAgentCard());
 builder.Services.AddSingleton(new A2AServerOptions());
 builder.Services.TryAddSingleton<ChannelEventNotifier>();

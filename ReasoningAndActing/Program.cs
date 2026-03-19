@@ -1,10 +1,10 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using ReasoningAndActing;
 using Shared;
 
-var reactKernel = new Settings().Kernel;
+var reactKernel = Settings.Kernel;
 
 // Register tools the agent can use mid-reasoning
 reactKernel.Plugins.AddFromType<ResearchTools>();
@@ -25,7 +25,7 @@ reactHistory.AddSystemMessage("""
                               """);
 
 reactHistory.AddUserMessage(
-    "Which country has a larger population — Canada or Australia? " +
+    "Which country has a larger population � Canada or Australia? " +
     "And what is the approximate ratio?");
 
 var reactSettings = new OpenAIPromptExecutionSettings

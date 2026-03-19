@@ -1,8 +1,8 @@
-ï»¿using Microsoft.Agents.AI;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
 
-var chatClient = new Settings().ChatClient;
+var chatClient = Settings.ChatClient;
 AIAgent researcher = new ChatClientAgent(chatClient, name: "Researcher",
     instructions: """
                   You are a creative research scientist. GENERATE novel hypotheses about the given topic.
@@ -13,7 +13,7 @@ AIAgent researcher = new ChatClientAgent(chatClient, name: "Researcher",
                   4. Rate confidence (low/medium/high).
 
                   Generate 3 distinct hypotheses varying in approach and boldness.
-                  Be creative â€” explore unconventional angles.
+                  Be creative — explore unconventional angles.
 
                   Format each as:
                   ## Hypothesis N: [title]
@@ -99,7 +99,7 @@ async Task<AgentResponse> ExplorationMiddleware(
         if (criticOutput.Contains("OVERALL QUALITY: high", StringComparison.OrdinalIgnoreCase)
             && iteration > 1)
         {
-            Console.WriteLine("\nHigh quality reached â€” stopping exploration.");
+            Console.WriteLine("\nHigh quality reached — stopping exploration.");
             break;
         }
         
@@ -122,7 +122,7 @@ async Task<AgentResponse> ExplorationMiddleware(
     return new AgentResponse([new ChatMessage(ChatRole.Assistant, summary)]);
 }
 
-// Build the coordinator agent â€” its middleware handles the entire exploration cycle
+// Build the coordinator agent — its middleware handles the entire exploration cycle
 // The innerAgent is never actually called (the middleware handles everything),
 // but we need a base agent to attach middleware to.
 AIAgent explorationAgent = new ChatClientAgent(chatClient,

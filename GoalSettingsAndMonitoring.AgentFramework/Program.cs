@@ -1,4 +1,4 @@
-ï»¿using GoalSettingsAndMonitoring.AgentFramework;
+using GoalSettingsAndMonitoring.AgentFramework;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
@@ -24,17 +24,17 @@ async Task<AgentResponse> GoalDirectedMiddleware(
         if (responseText.Contains("\"allGoalsMet\": true") ||
             responseText.Contains("All goals met", StringComparison.OrdinalIgnoreCase))
         {
-            Console.WriteLine("  [GoalMonitor] Goals achieved â€” returning result.");
-            return response; // Early return â€” middleware terminates the loop
+            Console.WriteLine("  [GoalMonitor] Goals achieved — returning result.");
+            return response; // Early return — middleware terminates the loop
         }
 
         if (iteration >= maxIterations)
         {
-            Console.WriteLine("  [GoalMonitor] Max iterations â€” returning best effort.");
+            Console.WriteLine("  [GoalMonitor] Max iterations — returning best effort.");
             return response;
         }
 
-        Console.WriteLine("[GoalMonitor] Goals not met â€” requesting refinement...\n");
+        Console.WriteLine("[GoalMonitor] Goals not met — requesting refinement...\n");
 
         var refinementMessage = new ChatMessage(ChatRole.User,
             "The goals are not fully met. Review the EvaluateGoals feedback and refine your code. " +
@@ -48,7 +48,7 @@ async Task<AgentResponse> GoalDirectedMiddleware(
 }
 
 
-var chatClient = new Settings().ChatClient;
+var chatClient = Settings.ChatClient;
 var agent = new ChatClientAgent(chatClient,
         $$"""
           You are a code generation agent working toward specific goals.
@@ -72,7 +72,7 @@ var session = await agent.CreateSessionAsync();
 
 Console.WriteLine("User: Write a C# method that parses a string to an integer safely.\n");
 
-// Single call â€” the goal-directed middleware handles all iterations internally
+// Single call — the goal-directed middleware handles all iterations internally
 var result = await agent.RunAsync(
     "Write a C# method that parses a string to an integer safely.",
     session);

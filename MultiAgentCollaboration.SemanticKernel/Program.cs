@@ -1,4 +1,4 @@
-﻿using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Agents.Orchestration.GroupChat;
 using Microsoft.SemanticKernel.Agents.Runtime.InProcess;
@@ -7,7 +7,7 @@ using Shared;
 
 #pragma warning disable SKEXP0110
 
-var kernel = new Settings().Kernel;
+var kernel = Settings.Kernel;
 
 var writer = new ChatCompletionAgent
 {

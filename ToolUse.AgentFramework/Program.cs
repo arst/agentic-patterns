@@ -1,8 +1,8 @@
-﻿using Microsoft.Agents.AI;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
 
-var agent = new ChatClientAgent(new Settings().ChatClient,
+var agent = new ChatClientAgent(Settings.ChatClient,
     "You are a helpful assistant. Use tools when needed.",
     tools: new List<AITool>
     {
@@ -15,5 +15,5 @@ return;
 
 static string GetWeather(string location)
 {
-    return $"Weather in {location}: cloudy, 15°C";
+    return $"Weather in {location}: cloudy, 15�C";
 }

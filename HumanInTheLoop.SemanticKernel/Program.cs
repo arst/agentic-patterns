@@ -1,11 +1,11 @@
-﻿using HumanInTheLoop.SemanticKernel;
+using HumanInTheLoop.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Shared;
 
-var builder = new Settings().KernelBuilder;
+var builder = Settings.CreateKernelBuilder();
 builder.Plugins.AddFromType<SupportPlugin>();
 builder.Services.AddLogging(cfg => cfg.AddConsole().SetMinimumLevel(LogLevel.Warning));
 builder.Services.AddSingleton<IAutoFunctionInvocationFilter, HumanApprovalFilter>();

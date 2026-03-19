@@ -1,7 +1,7 @@
-﻿using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.ChatCompletion;
 using Shared;
 
-var cotKernel = new Settings().Kernel;
+var cotKernel = Settings.Kernel;
 var cotService = cotKernel.GetRequiredService<IChatCompletionService>();
 
 var cotHistory = new ChatHistory();

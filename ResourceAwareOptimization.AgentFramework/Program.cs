@@ -1,12 +1,11 @@
-﻿using System.ClientModel;
+using System.ClientModel;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
 
-var settings = new Settings();
-var credential = new ApiKeyCredential(settings.AzureOpenAi.ApiKey);
-var azureClient = new AzureOpenAIClient(new Uri(settings.AzureOpenAi.Endpoint), credential);
+var credential = new ApiKeyCredential(Settings.AzureOpenAi.ApiKey);
+var azureClient = new AzureOpenAIClient(new Uri(Settings.AzureOpenAi.Endpoint), credential);
 
 var fastClient = azureClient
     .GetChatClient("gpt-4o-mini")
@@ -49,7 +48,7 @@ async Task<ChatResponse> RoutingMiddleware(
     // If budget is exceeded, force the cheapest model
     if (budget.Exceeded)
     {
-        Console.WriteLine("  [Router] Budget exceeded — forcing fast tier.");
+        Console.WriteLine("  [Router] Budget exceeded � forcing fast tier.");
         chain = [fastClient];
     }
 
@@ -76,7 +75,7 @@ async Task<ChatResponse> RoutingMiddleware(
         }
     }
 
-    // All models failed — call the original pipeline as last resort
+    // All models failed � call the original pipeline as last resort
     Console.WriteLine("  [Fallback] All tier models failed. Trying original pipeline.");
     return await chatClient.GetResponseAsync(messages, options, cancellationToken);
 }
@@ -120,11 +119,11 @@ var agent = new ChatClientAgent(client, """
 
 var queries = new[]
 {
-    "What is the capital of France?", // → simple → fast
+    "What is the capital of France?", // ? simple ? fast
     "Explain step by step why gradient descent converges for convex " +
     "functions and analyze the conditions under which it might diverge " +
-    "for non-convex optimization landscapes.", // → reasoning
-    "Hi, how are you?" // → simple → fast
+    "for non-convex optimization landscapes.", // ? reasoning
+    "Hi, how are you?" // ? simple ? fast
 };
 
 var session = await agent.CreateSessionAsync();
@@ -136,4 +135,4 @@ foreach (var query in queries)
     Console.WriteLine($"Agent: {result}");
 }
 
-Console.WriteLine($"\nTotal estimated cost: {budget.TotalCostCents:F2}¢");
+Console.WriteLine($"\nTotal estimated cost: {budget.TotalCostCents:F2}�");

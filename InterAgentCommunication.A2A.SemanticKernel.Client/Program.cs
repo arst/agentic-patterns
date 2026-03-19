@@ -1,4 +1,4 @@
-﻿using A2A;
+using A2A;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Shared;
@@ -8,7 +8,7 @@ var weatherCard = await resolver.GetAgentCardAsync();
 Console.WriteLine($"Discovered remote agent: {weatherCard.Name}");
 var a2AClient = new A2AClient(new Uri(weatherCard.SupportedInterfaces[0].Url));
 
-var kernel = new Settings().Kernel;
+var kernel = Settings.Kernel;
 
 kernel.Plugins.AddFromFunctions("RemoteAgents", [
     KernelFunctionFactory.CreateFromMethod(
@@ -44,7 +44,7 @@ var history = new ChatHistory("""
                               Always check the weather before giving travel advice.
                               """);
 
-Console.WriteLine("\n👤 User: I'm planning a weekend trip to Amsterdam. What should I pack?\n");
+Console.WriteLine("\n?? User: I'm planning a weekend trip to Amsterdam. What should I pack?\n");
 history.AddUserMessage("I'm planning a weekend trip to Amsterdam. What should I pack?");
 
 var response = await chat.GetChatMessageContentAsync(history, settings, kernel);

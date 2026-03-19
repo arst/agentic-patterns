@@ -1,10 +1,10 @@
-﻿using GuardRails.SemanticKernel;
+using GuardRails.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Shared;
 
-var builder = new Settings().KernelBuilder;
+var builder = Settings.CreateKernelBuilder();
 
 builder.Services.AddSingleton<IPromptRenderFilter, InputGuardFilter>();
 builder.Services.AddSingleton<IFunctionInvocationFilter, OutputGuardFilter>();

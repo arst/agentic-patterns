@@ -1,15 +1,14 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using PromptChaining.SemanticKernel;
 using Shared;
 
-var setting = new Settings();
 var kernel = Kernel.CreateBuilder()
     .AddAzureOpenAIChatCompletion(
-        setting.AzureOpenAi.ChatModelDeployment,
-        setting.AzureOpenAi.Endpoint,
-        setting.AzureOpenAi.ApiKey)
+        Settings.AzureOpenAi.ChatModelDeployment,
+        Settings.AzureOpenAi.Endpoint,
+        Settings.AzureOpenAi.ApiKey)
     .Build();
 
 var input = """

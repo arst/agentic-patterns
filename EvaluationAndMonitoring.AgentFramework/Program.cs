@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -8,7 +8,6 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Shared;
 
-var settings = new Settings();
 var resource = ResourceBuilder.CreateDefault().AddService("AgentEvaluation");
 
 var agentActivitySource = new ActivitySource("AgentEvaluation");
@@ -37,7 +36,7 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
 
 var telemetry = new AgentTelemetry();
 
-// IChatClient Middleware — Per-call telemetry
+// IChatClient Middleware � Per-call telemetry
 // Intercepts every LLM call to record:
 //   - Latency per call
 //   - Token usage from ChatResponse.Usage
@@ -57,7 +56,7 @@ async Task<ChatResponse> TelemetryMiddleware(
     // Start an OTel span for this LLM call
     using var activity = agentActivitySource.StartActivity("llm.chat.completion", ActivityKind.Client);
     activity?.SetTag("gen_ai.system", "openai");
-    activity?.SetTag("gen_ai.request.model", settings.AzureOpenAi.ChatModelDeployment);
+    activity?.SetTag("gen_ai.request.model", Settings.AzureOpenAi.ChatModelDeployment);
 
     var response = await client.GetResponseAsync(messages, options, cancellationToken);
 
@@ -65,7 +64,7 @@ async Task<ChatResponse> TelemetryMiddleware(
 
     var inputTokens = response.Usage?.InputTokenCount ?? 0;
     var outputTokens = response.Usage?.OutputTokenCount ?? 0;
-    var modelId = response.ModelId ?? settings.AzureOpenAi.ChatModelDeployment;
+    var modelId = response.ModelId ?? Settings.AzureOpenAi.ChatModelDeployment;
 
     // Record into our custom telemetry collector
     telemetry.RecordCall(modelId, sw.Elapsed.TotalMilliseconds, inputTokens, outputTokens);
@@ -90,11 +89,11 @@ async Task<ChatResponse> TelemetryMiddleware(
     return response;
 }
 
-// Agent Run Middleware — End-to-end metrics + trajectory
+// Agent Run Middleware � End-to-end metrics + trajectory
 // Wraps the entire agent execution to measure:
 //   - Total end-to-end latency (including tool calls, retries)
 //   - Number of LLM calls per user request
-//   - Full trajectory record (user query → agent response)
+//   - Full trajectory record (user query ? agent response)
 
 async Task<AgentResponse> TrajectoryMiddleware(
     IEnumerable<ChatMessage> messages,
@@ -136,13 +135,13 @@ async Task<AgentResponse> TrajectoryMiddleware(
     return response;
 }
 
-var client = settings
+var client = Settings
     .ChatClient
     .AsBuilder()
     .Use(TelemetryMiddleware, null)
     .Build();
 
-var agent = new ChatClientAgent(settings.ChatClient,
+var agent = new ChatClientAgent(Settings.ChatClient,
         name: "SupportAgent",
         instructions: """
                       You are a helpful customer support agent for TechCorp.
@@ -168,7 +167,7 @@ var responses = new List<(string Query, string Response)>();
 
 foreach (var query in testQueries)
 {
-    Console.WriteLine($"\n👤 User: {query}");
+    Console.WriteLine($"\n?? User: {query}");
     var result = await agent.RunAsync(query, session);
     var responseText = result.ToString() ?? "";
     responses.Add((query, responseText));

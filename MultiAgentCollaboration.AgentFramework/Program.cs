@@ -1,9 +1,9 @@
-﻿using Microsoft.Agents.AI;
+using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.AI;
 using Shared;
 
-var client = new Settings().ChatClient;
+var client = Settings.ChatClient;
 
 ChatClientAgent writer = new(
     client,

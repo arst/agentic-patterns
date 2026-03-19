@@ -1,10 +1,10 @@
-﻿using ExceptionHandlingAndRecovery.SemanticKernel;
+using ExceptionHandlingAndRecovery.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 using Shared;
 
-var builder = new Settings().KernelBuilder;
+var builder = Settings.CreateKernelBuilder();
 builder.Plugins.AddFromType<LocationPlugin>();
 builder.Services.AddLogging(cfg => cfg.AddConsole().SetMinimumLevel(LogLevel.Information));
 builder.Services.AddSingleton<IFunctionInvocationFilter, RetryAndFallbackFilter>();
@@ -25,7 +25,7 @@ try
 }
 catch (Exception ex)
 {
-    // Terminal fallback — if even the fallback fails, escalate
+    // Terminal fallback � if even the fallback fails, escalate
     Console.WriteLine($"\n[Escalation] All recovery strategies exhausted: {ex.Message}");
-    Console.WriteLine("   → Routing to human operator for manual resolution.");
+    Console.WriteLine("   ? Routing to human operator for manual resolution.");
 }

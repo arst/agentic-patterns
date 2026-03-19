@@ -1,7 +1,7 @@
-﻿using Microsoft.Agents.AI;
+using Microsoft.Agents.AI;
 using Shared;
 
-var chatClient = new Settings().ChatClient;
+var chatClient = Settings.ChatClient;
 
 var planner = new ChatClientAgent(
     chatClient,

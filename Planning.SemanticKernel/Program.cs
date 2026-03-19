@@ -1,10 +1,10 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Planning.SemanticKernel;
 using Shared;
 
-var kernel = new Settings().Kernel;
+var kernel = Settings.Kernel;
 
 kernel.ImportPluginFromType<TravelTools>();
 

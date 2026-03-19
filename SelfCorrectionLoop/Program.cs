@@ -1,4 +1,4 @@
-﻿using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.Agents;
 using Shared;
 
 ChatCompletionAgent generator = new()
@@ -8,7 +8,7 @@ ChatCompletionAgent generator = new()
                    You write social media posts. When given feedback, incorporate it
                    into your next revision. Always output ONLY the revised post, nothing else.
                    """,
-    Kernel = new Settings().Kernel
+    Kernel = Settings.Kernel
 };
 
 ChatCompletionAgent evaluator = new()
@@ -24,9 +24,9 @@ ChatCompletionAgent evaluator = new()
 
                    If ALL checks pass, respond with exactly: "APPROVED"
                    If any check fails, respond with specific feedback for improvement.
-                   Never write the post yourself — only critique.
+                   Never write the post yourself � only critique.
                    """,
-    Kernel = new Settings().Kernel
+    Kernel = Settings.Kernel
 };
 
 var requirements =
