@@ -3,6 +3,7 @@ using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel.Connectors.InMemory;
+using RAG.AgentFramework;
 using Shared;
 using TextSearchProvider = Microsoft.Agents.AI.TextSearchProvider;
 using TextSearchProviderOptions = Microsoft.Agents.AI.TextSearchProviderOptions;

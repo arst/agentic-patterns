@@ -32,7 +32,7 @@ var weatherAgent = builder.AddAIAgent("weather",
 
 var app = builder.Build();
 
-app.MapA2A(weatherAgent, "/a2a/weather", agentCard: new AgentCard
+app.MapA2A(weatherAgent, "/a2a/weather", new AgentCard
 {
     Name = "WeatherExpert",
     Description = "Provides weather forecasts for any location worldwide.",
