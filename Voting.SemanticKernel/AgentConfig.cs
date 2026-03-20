@@ -1,0 +1,1 @@
+﻿internal record AgentConfig(string Name, string SystemPrompt, float Temperature);

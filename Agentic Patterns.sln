@@ -104,6 +104,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpeL.SemanticKernel", "Exp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpeL.AgentFramework", "ExpeL.AgentFramework\ExpeL.AgentFramework.csproj", "{60FC8C47-D16B-4578-96EE-107567A23613}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Voting.SemanticKernel", "Voting.SemanticKernel\Voting.SemanticKernel.csproj", "{09D14F0E-85F0-4372-8CF7-84A9412E98B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Voting.AgentFramework", "Voting.AgentFramework\Voting.AgentFramework.csproj", "{82747054-E4D2-4720-A5EF-A825D343A5AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -310,6 +314,14 @@ Global
 		{60FC8C47-D16B-4578-96EE-107567A23613}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{60FC8C47-D16B-4578-96EE-107567A23613}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{60FC8C47-D16B-4578-96EE-107567A23613}.Release|Any CPU.Build.0 = Release|Any CPU
+		{09D14F0E-85F0-4372-8CF7-84A9412E98B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{09D14F0E-85F0-4372-8CF7-84A9412E98B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{09D14F0E-85F0-4372-8CF7-84A9412E98B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{09D14F0E-85F0-4372-8CF7-84A9412E98B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82747054-E4D2-4720-A5EF-A825D343A5AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82747054-E4D2-4720-A5EF-A825D343A5AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82747054-E4D2-4720-A5EF-A825D343A5AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82747054-E4D2-4720-A5EF-A825D343A5AF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
