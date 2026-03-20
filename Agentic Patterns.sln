@@ -100,6 +100,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SelfNote.SemanticKernel", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SelfNote.AgentFramework", "SelfNote.AgentFramework\SelfNote.AgentFramework.csproj", "{33F4A024-177F-4A00-ABE5-7999BDC48EE7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpeL.SemanticKernel", "ExpeL.SemanticKernel\ExpeL.SemanticKernel.csproj", "{7B16F772-4C34-4DC3-9AE2-0E27FA0C0DD2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExpeL.AgentFramework", "ExpeL.AgentFramework\ExpeL.AgentFramework.csproj", "{60FC8C47-D16B-4578-96EE-107567A23613}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -298,6 +302,14 @@ Global
 		{33F4A024-177F-4A00-ABE5-7999BDC48EE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{33F4A024-177F-4A00-ABE5-7999BDC48EE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{33F4A024-177F-4A00-ABE5-7999BDC48EE7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7B16F772-4C34-4DC3-9AE2-0E27FA0C0DD2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7B16F772-4C34-4DC3-9AE2-0E27FA0C0DD2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7B16F772-4C34-4DC3-9AE2-0E27FA0C0DD2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7B16F772-4C34-4DC3-9AE2-0E27FA0C0DD2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{60FC8C47-D16B-4578-96EE-107567A23613}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{60FC8C47-D16B-4578-96EE-107567A23613}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{60FC8C47-D16B-4578-96EE-107567A23613}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{60FC8C47-D16B-4578-96EE-107567A23613}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
