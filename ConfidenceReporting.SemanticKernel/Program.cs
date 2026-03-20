@@ -13,7 +13,7 @@ Console.WriteLine($"Question: {question}\n");
 
 var selfReported = await GetSelfReportedConfidenceAsync(chatService, question);
 var logprobScore = await GetLogprobConfidenceAsync(chatService, question);
-var consistency = await GetConsistencySamplingConfidenceAsync(chatService, question, 5);
+var consistency = await GetConsistencySamplingConfidenceAsync(chatService, question);
 
 var combinedConfidence = CombineConfidence(selfReported, logprobScore, consistency);
 

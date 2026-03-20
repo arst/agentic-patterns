@@ -43,7 +43,7 @@ async Task<AgentResponse> ConfidenceMiddleware(
 
     var selfReported = await GetSelfReportedConfidenceAsync(q);
     var logprobScore = await GetLogprobConfidenceAsync(q);
-    var consistency = await GetConsistencySamplingConfidenceAsync(q, 5);
+    var consistency = await GetConsistencySamplingConfidenceAsync(q);
 
     var combinedConfidence = CombineConfidence(selfReported, logprobScore, consistency);
 
@@ -51,13 +51,17 @@ async Task<AgentResponse> ConfidenceMiddleware(
     Console.WriteLine($"Answer:                   {selfReported.Answer}");
     Console.WriteLine($"Self-reported confidence: {selfReported.Confidence:P0} (subjective, treat as UX hint)");
     Console.WriteLine($"Logprob confidence:       {logprobScore:P0}            (token probability signal)");
-    Console.WriteLine($"Consistency score:        {consistency.Score:P0}        (agreement across {consistency.Runs} runs)");
+    Console.WriteLine(
+        $"Consistency score:        {consistency.Score:P0}        (agreement across {consistency.Runs} runs)");
     Console.WriteLine($"Hedging language:         {(selfReported.ContainsHedging ? "Yes" : "No")}");
     Console.WriteLine();
-    Console.WriteLine($"► Combined confidence:    {combinedConfidence:P0}   → {GetConfidenceLabel(combinedConfidence)}");
+    Console.WriteLine(
+        $"► Combined confidence:    {combinedConfidence:P0}   → {GetConfidenceLabel(combinedConfidence)}");
 
-    return new AgentResponse([new ChatMessage(ChatRole.Assistant,
-        $"Answer: {selfReported.Answer} (combined confidence: {combinedConfidence:P0})")]);
+    return new AgentResponse([
+        new ChatMessage(ChatRole.Assistant,
+            $"Answer: {selfReported.Answer} (combined confidence: {combinedConfidence:P0})")
+    ]);
 }
 
 // Build the coordinator agent — its middleware handles the entire confidence pipeline.
@@ -138,8 +142,8 @@ async Task<ConsistencyResult> GetConsistencySamplingConfidenceAsync(string q, in
     {
         var response = await chatClient.GetResponseAsync(
         [
-            new(ChatRole.System, "Answer the question in one short sentence. Be direct."),
-            new(ChatRole.User, q)
+            new ChatMessage(ChatRole.System, "Answer the question in one short sentence. Be direct."),
+            new ChatMessage(ChatRole.User, q)
         ], new ChatOptions { Temperature = 0.9f });
 
         return response.Messages[0].Text.Trim().ToLowerInvariant() ?? "";
