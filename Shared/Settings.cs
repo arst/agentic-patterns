@@ -34,16 +34,18 @@ public static class Settings
             AzureOpenAi.ApiKey)
         .Build();
 
-    public static IKernelBuilder CreateKernelBuilder() =>
-        Microsoft.SemanticKernel.Kernel.CreateBuilder()
-            .AddAzureOpenAIChatCompletion(
-                AzureOpenAi.ChatModelDeployment,
-                AzureOpenAi.Endpoint,
-                AzureOpenAi.ApiKey);
-
     public static IChatClient ChatClient => field ??= new AzureOpenAIClient(
             new Uri(AzureOpenAi.Endpoint),
             new ApiKeyCredential(AzureOpenAi.ApiKey))
         .GetChatClient(AzureOpenAi.ChatModelDeployment)
         .AsIChatClient();
+
+    public static IKernelBuilder CreateKernelBuilder()
+    {
+        return Kernel.CreateBuilder()
+            .AddAzureOpenAIChatCompletion(
+                AzureOpenAi.ChatModelDeployment,
+                AzureOpenAi.Endpoint,
+                AzureOpenAi.ApiKey);
+    }
 }

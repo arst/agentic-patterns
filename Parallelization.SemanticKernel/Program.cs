@@ -3,7 +3,6 @@ using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Shared;
 
-
 var kernel = Settings.Kernel;
 
 const string prompt = "Assess launching a new B2B analytics product in the EU. Provide recommendations.";

@@ -13,7 +13,7 @@ AIAgent researcher = new ChatClientAgent(chatClient, name: "Researcher",
                   4. Rate confidence (low/medium/high).
 
                   Generate 3 distinct hypotheses varying in approach and boldness.
-                  Be creative — explore unconventional angles.
+                  Be creative ï¿½ explore unconventional angles.
 
                   Format each as:
                   ## Hypothesis N: [title]
@@ -44,16 +44,16 @@ AIAgent evolver = new ChatClientAgent(chatClient, name: "Evolver",
                   3. Strengthen reasoning and evidence.
                   4. Explore one UNEXPECTED ANGLE from a different field.
                   5. Produce a refined, stronger version.
-                  
+
                   Also produce ONE entirely new hypothesis inspired by the gaps found.
-                  
+
                   Format:
                   ## Refined Hypothesis: [title]
                   **Original weakness addressed**: ...
                   **Improved claim**: ...
                   **Cross-disciplinary insight**: ...
                   **Confidence**: ...
-                  
+
                   ## New Hypothesis: [title]
                   **Inspired by gap**: ...
                   **Claim**: ...
@@ -69,12 +69,12 @@ async Task<AgentResponse> ExplorationMiddleware(
     CancellationToken cancellationToken)
 {
     var topic = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text ?? "";
-    string currentHypotheses = "";
-    string lastCritique = "";
+    var currentHypotheses = "";
+    var lastCritique = "";
 
     Console.WriteLine($"Research Topic: {topic}\n");
 
-    for (int iteration = 1; iteration <= maxIterations; iteration++)
+    for (var iteration = 1; iteration <= maxIterations; iteration++)
     {
         Console.WriteLine($"\n--- Iteration {iteration}/{maxIterations} ---\n");
         Console.WriteLine("[Researcher] Generating hypotheses...\n");
@@ -87,7 +87,7 @@ async Task<AgentResponse> ExplorationMiddleware(
         var researcherResult = await researcher.RunAsync(genPrompt);
         var researcherOutput = researcherResult.ToString() ?? "";
         Console.WriteLine(researcherOutput);
-        
+
         Console.WriteLine("\n\n[Critic] Evaluating hypotheses...\n");
 
         var criticResult = await critic.RunAsync(
@@ -95,14 +95,14 @@ async Task<AgentResponse> ExplorationMiddleware(
         var criticOutput = criticResult.ToString() ?? "";
         Console.WriteLine(criticOutput);
         lastCritique = criticOutput;
-        
+
         if (criticOutput.Contains("OVERALL QUALITY: high", StringComparison.OrdinalIgnoreCase)
             && iteration > 1)
         {
-            Console.WriteLine("\nHigh quality reached — stopping exploration.");
+            Console.WriteLine("\nHigh quality reached ï¿½ stopping exploration.");
             break;
         }
-        
+
         Console.WriteLine("\n\n[Evolver] Refining hypotheses...\n");
 
         var evolverResult = await evolver.RunAsync(
@@ -113,23 +113,23 @@ async Task<AgentResponse> ExplorationMiddleware(
         currentHypotheses = evolverResult.ToString() ?? "";
         Console.WriteLine(currentHypotheses);
     }
-    
+
     var summary = $"## Exploration Complete\n\n" +
-        $"### Final Hypotheses\n{currentHypotheses}\n\n" +
-        $"### Last Critique\n{lastCritique}\n\n" +
-        "These are AI-generated hypotheses requiring human validation.";
+                  $"### Final Hypotheses\n{currentHypotheses}\n\n" +
+                  $"### Last Critique\n{lastCritique}\n\n" +
+                  "These are AI-generated hypotheses requiring human validation.";
 
     return new AgentResponse([new ChatMessage(ChatRole.Assistant, summary)]);
 }
 
-// Build the coordinator agent — its middleware handles the entire exploration cycle
+// Build the coordinator agent ï¿½ its middleware handles the entire exploration cycle
 // The innerAgent is never actually called (the middleware handles everything),
 // but we need a base agent to attach middleware to.
-AIAgent explorationAgent = new ChatClientAgent(chatClient,
+var explorationAgent = new ChatClientAgent(chatClient,
         name: "ExplorationCoordinator",
         instructions: "You coordinate research exploration.")
     .AsBuilder()
-    .Use(runFunc: ExplorationMiddleware, runStreamingFunc: null)
+    .Use(ExplorationMiddleware, null)
     .Build();
 
 var result = await explorationAgent.RunAsync(
