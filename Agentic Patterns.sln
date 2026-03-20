@@ -96,6 +96,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfidenceReporting.Semanti
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfidenceReporting.AgentFramework", "ConfidenceReporting.AgentFramework\ConfidenceReporting.AgentFramework.csproj", "{1C28211B-D599-48BE-83A0-C32711F0FB4F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SelfNote.SemanticKernel", "SelfNote.SemanticKernel\SelfNote.SemanticKernel.csproj", "{3C5678A4-02CE-4E09-84F0-3A62B903E77C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SelfNote.AgentFramework", "SelfNote.AgentFramework\SelfNote.AgentFramework.csproj", "{33F4A024-177F-4A00-ABE5-7999BDC48EE7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -286,6 +290,14 @@ Global
 		{1C28211B-D599-48BE-83A0-C32711F0FB4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1C28211B-D599-48BE-83A0-C32711F0FB4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1C28211B-D599-48BE-83A0-C32711F0FB4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3C5678A4-02CE-4E09-84F0-3A62B903E77C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C5678A4-02CE-4E09-84F0-3A62B903E77C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C5678A4-02CE-4E09-84F0-3A62B903E77C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C5678A4-02CE-4E09-84F0-3A62B903E77C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{33F4A024-177F-4A00-ABE5-7999BDC48EE7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33F4A024-177F-4A00-ABE5-7999BDC48EE7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33F4A024-177F-4A00-ABE5-7999BDC48EE7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33F4A024-177F-4A00-ABE5-7999BDC48EE7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{4A3FC202-6AE4-4E3B-B3A7-01BFF7AC7338} = {C1B4C484-62E8-484C-9161-C3B095DCD0E9}
