@@ -15,5 +15,5 @@ return;
 
 static string GetWeather(string location)
 {
-    return $"Weather in {location}: cloudy, 15°C";
+    return $"Weather in {location}: cloudy, 15Â°C";
 }

@@ -2,9 +2,6 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <TargetFramework>net10.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
@@ -12,10 +9,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="A2A" Version="1.0.0-preview"/>
-        <PackageReference Include="A2A.AspNetCore" Version="1.0.0-preview"/>
-        <PackageReference Include="Microsoft.Agents.AI.Hosting.A2A.AspNetCore" Version="1.0.0-preview.260311.1"/>
-        <PackageReference Include="Microsoft.SemanticKernel.Agents.A2A" Version="1.73.0-alpha"/>
+        <PackageReference Include="A2A"/>
+        <PackageReference Include="A2A.AspNetCore"/>
     </ItemGroup>
 
 </Project>

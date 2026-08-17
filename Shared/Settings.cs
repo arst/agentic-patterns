@@ -12,16 +12,16 @@ public static class Settings
 {
     private static readonly IConfigurationRoot Root = new ConfigurationBuilder()
         .AddJsonFile("appsettings.json", false)
-        .AddUserSecrets<AzureOpenAiSettiings>(true)
+        .AddUserSecrets<AzureOpenAISettings>(true)
         .AddEnvironmentVariables()
         .Build();
 
     public static Mem0ApiSettings Mem0ApiSettings => field ??=
         Root.GetSection("Mem0").Get<Mem0ApiSettings>() ?? new Mem0ApiSettings();
 
-    public static AzureOpenAiSettiings AzureOpenAi => field ??=
-        Root.GetSection("AzureOpenAI").Get<AzureOpenAiSettiings>()
-        ?? new AzureOpenAiSettiings();
+    public static AzureOpenAISettings AzureOpenAi => field ??=
+        Root.GetSection("AzureOpenAi").Get<AzureOpenAISettings>()
+        ?? new AzureOpenAISettings();
 
     public static Kernel Kernel => field ??= Kernel.CreateBuilder()
         .AddAzureOpenAIChatCompletion(
@@ -29,7 +29,7 @@ public static class Settings
             AzureOpenAi.Endpoint,
             AzureOpenAi.ApiKey)
         .AddAzureOpenAIEmbeddingGenerator(
-            "text-embedding-3-small",
+            AzureOpenAi.EmbeddingModelDeployment,
             AzureOpenAi.Endpoint,
             AzureOpenAi.ApiKey)
         .Build();

@@ -40,7 +40,7 @@ string ListTasks()
     var tasks = taskStore.GetAllSorted().ToList();
     if (tasks.Count == 0) return "No tasks in the system.";
     return string.Join("\n", tasks.Select(t =>
-        $"  {t.Id} [{t.Priority}] {t.Description} — {t.Status}" +
+        $"  {t.Id} [{t.Priority}] {t.Description} â€” {t.Status}" +
         (t.AssignedTo != null ? $" (? {t.AssignedTo})" : "")));
 }
 
@@ -95,7 +95,7 @@ Console.WriteLine("---- Step 1: Initial task batch ----\n");
 var result1 = await agent.RunAsync("""
                                    We have the following work items for this sprint:
                                    1. Add dark mode to the settings page
-                                   2. Fix the login timeout bug — users are getting logged out after 2 minutes
+                                   2. Fix the login timeout bug â€” users are getting logged out after 2 minutes
                                    3. Update the API documentation for v2 endpoints
                                    4. The checkout page is returning 500 errors in production
                                    5. Migrate CI/CD pipeline to GitHub Actions
@@ -104,7 +104,7 @@ var result1 = await agent.RunAsync("""
                                    """, session);
 Console.WriteLine(result1);
 
-Console.WriteLine("\n\n---- Step 2: Urgent issue arrives — re-prioritize ----\n");
+Console.WriteLine("\n\n---- Step 2: Urgent issue arrives â€” re-prioritize ----\n");
 
 var result2 = await agent.RunAsync("""
                                    URGENT: We just discovered a SQL injection vulnerability in the user search endpoint.

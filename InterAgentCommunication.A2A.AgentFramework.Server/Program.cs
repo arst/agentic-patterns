@@ -1,5 +1,4 @@
-using System.Diagnostics;
-using A2A;
+#pragma warning disable MEAI001
 using Microsoft.Agents.AI.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.AI;
@@ -10,35 +9,19 @@ using Shared;
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging
     .AddConsole()
-    .SetMinimumLevel(LogLevel.Warning) // keep noise down globally
-    .AddFilter("Microsoft.Agents", LogLevel.Trace)
-    .AddFilter("Microsoft.SemanticKernel", LogLevel.Trace)
-    .AddFilter("A2A", LogLevel.Trace)
-    .AddTraceSource("Microsoft.Agents", new ConsoleTraceListener());
-var loggerFactory = LoggerFactory.Create(loggingBuilder =>
-{
-    loggingBuilder
-        .AddConsole()
-        .SetMinimumLevel(LogLevel.Trace)
-        .AddFilter("Microsoft.Agents", LogLevel.Trace)
-        .AddFilter("Microsoft.SemanticKernel", LogLevel.Trace)
-        .AddFilter("A2A", LogLevel.Trace);
-});
-var chatClient = Settings.ChatClient.AsBuilder().UseLogging(loggerFactory).Build();
-builder.Services.AddSingleton(chatClient);
+    .SetMinimumLevel(LogLevel.Information);
 
-var weatherAgent = builder.AddAIAgent("weather",
+builder.Services.AddSingleton(Settings.ChatClient);
+
+var weatherAgent = builder.AddAIAgent("WeatherExpert",
     "You are a weather specialist. Provide realistic forecasts with temperature, precipitation, and clothing recommendations.");
+
+// The hosting layer generates the agent card (name, URL, capabilities) from the
+// registered agent and the request address - no hand-built AgentCard needed.
+weatherAgent.AddA2AServer(_ => { });
 
 var app = builder.Build();
 
-app.MapA2A(weatherAgent, "/a2a/weather", new AgentCard
-{
-    Name = "WeatherExpert",
-    Description = "Provides weather forecasts for any location worldwide.",
-    Version = "1.0.0",
-    PreferredTransport = AgentTransport.JsonRpc,
-    Url = "http://localhost:5100/a2a/weather"
-});
+app.MapA2AJsonRpc(weatherAgent, "/a2a/weather");
 
 app.Run("http://localhost:5200");

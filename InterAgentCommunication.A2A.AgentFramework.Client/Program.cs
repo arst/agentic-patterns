@@ -13,16 +13,11 @@ var loggerBuilder = LoggerFactory.Create(builder =>
 var client = new A2AClient(new Uri("http://localhost:5200/a2a/weather/"));
 var a2AAgent = new A2AAgent(client, loggerFactory: loggerBuilder);
 
-var agentAsFunction = async (string question) =>
+var weatherTool = a2AAgent.AsAIFunction(new AIFunctionFactoryOptions
 {
-    Console.WriteLine($"[A2A] Calling WeatherExpert: \"{question}\"");
-    var result = await a2AAgent.RunAsync(
-        question);
-    return result.Text;
-};
-
-var weatherTool = AIFunctionFactory.Create(agentAsFunction, "WeatherExpert",
-    "Ask the WeatherExpert agent a question about the weather at a specific location and time.");
+    Name = "WeatherExpert",
+    Description = "Ask the WeatherExpert agent a question about the weather at a specific location and time."
+});
 
 var chatClient = Settings.ChatClient;
 var agent = new ChatClientAgent(chatClient,

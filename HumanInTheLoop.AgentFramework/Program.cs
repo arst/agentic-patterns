@@ -1,4 +1,3 @@
-#pragma warning disable MEAI001
 using HumanInTheLoop.AgentFramework;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -43,17 +42,20 @@ foreach (var message in customerMessages)
     // Check if the agent is requesting approval for any tool calls
     var approvalRequests = response.Messages
         .SelectMany(m => m.Contents)
-        .OfType<FunctionApprovalRequestContent>()
+        .OfType<ToolApprovalRequestContent>()
         .ToList();
 
-    // Handle approval requests in a loop (there may be multiple)
-    while (approvalRequests.Count > 0)
+    // Handle approval requests in rounds (there may be multiple per round)
+    const int maxApprovalRounds = 5;
+    for (var round = 1; approvalRequests.Count > 0 && round <= maxApprovalRounds; round++)
     {
+        var approvalResponses = new List<AIContent>();
         foreach (var request in approvalRequests)
         {
-            Console.WriteLine($"\n[APPROVAL REQUIRED] Agent wants to call: {request.FunctionCall.Name}");
+            var functionCall = request.ToolCall as FunctionCallContent;
+            Console.WriteLine($"\n[APPROVAL REQUIRED] Agent wants to call: {functionCall?.Name ?? request.ToolCall.CallId}");
             Console.WriteLine($"   Arguments: {string.Join(", ",
-                request.FunctionCall.Arguments?.Select(a => $"{a.Key}={a.Value}") ?? [])}");
+                functionCall?.Arguments?.Select(a => $"{a.Key}={a.Value}") ?? [])}");
             Console.Write("   Approve? (y/n): ");
 
             var input = Console.ReadLine()?.Trim().ToLowerInvariant();
@@ -61,17 +63,16 @@ foreach (var message in customerMessages)
 
             Console.WriteLine(approved ? "   V Approved." : "   X Denied.");
 
-            // Send the human's decision back to the agent using CreateResponse
-            var approvalMessage = new ChatMessage(ChatRole.User,
-                [request.CreateResponse(approved)]);
-
-            response = await agent.RunAsync([approvalMessage], session);
+            approvalResponses.Add(request.CreateResponse(approved));
         }
+
+        // Send all of this round's decisions back to the agent in one message
+        response = await agent.RunAsync([new ChatMessage(ChatRole.User, approvalResponses)], session);
 
         // Check if the new response has more approval requests
         approvalRequests = response.Messages
             .SelectMany(m => m.Contents)
-            .OfType<FunctionApprovalRequestContent>()
+            .OfType<ToolApprovalRequestContent>()
             .ToList();
     }
 

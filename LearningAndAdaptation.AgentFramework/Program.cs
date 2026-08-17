@@ -4,7 +4,7 @@ using Microsoft.Agents.AI.Workflows;
 using Shared;
 
 // -----------------------------------------------------------------------------
-// Learning & Adaptation pattern — Microsoft Agent Framework
+// Learning & Adaptation pattern â€” Microsoft Agent Framework
 //
 // Each turn runs a two-step workflow:
 //   AnswerExecutor  ? answers the question, injecting any already-learned rules
@@ -12,7 +12,7 @@ using Shared;
 //                      PolicyStore via structured JSON output
 //
 // Because PolicyStore is shared across runs, each turn's AnswerExecutor
-// automatically picks up every rule discovered in all previous turns —
+// automatically picks up every rule discovered in all previous turns â€”
 // so the agent genuinely adapts without any user intervention.
 // -----------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ string[] questions =
 for (var i = 0; i < questions.Length; i++)
 {
     Console.WriteLine($"\n{"-",60}");
-    Console.WriteLine($"  Turn {i + 1} — {questions[i]}");
+    Console.WriteLine($"  Turn {i + 1} â€” {questions[i]}");
     Console.WriteLine($"{"-",60}");
 
     var rulesBeforeTurn = PolicyStore.GetRules(sessionId);
@@ -73,11 +73,11 @@ for (var i = 0; i < questions.Length; i++)
                 {
                     Console.WriteLine("\n  [rules learned this turn]");
                     foreach (var rule in lr.Rules)
-                        Console.WriteLine($"    • {rule}");
+                        Console.WriteLine($"    â€¢ {rule}");
                 }
                 else
                 {
-                    Console.WriteLine("\n  [critique: no new rules — answer was already good]");
+                    Console.WriteLine("\n  [critique: no new rules â€” answer was already good]");
                 }
 
                 break;
