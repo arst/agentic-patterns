@@ -22,6 +22,7 @@ A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrection
 | GoalSetting(s)AndMonitoring | Goal decomposition with progress monitoring |
 | GuardRails | Input/output filtering, PII redaction, injection defense |
 | Handoff | Agents transferring the conversation to each other |
+| HostedTools | Server-side code interpreter and web search tools |
 | HumanInTheLoop | Tool-call approval gates |
 | InterAgentCommunication.A2A | Agent-to-agent communication over the A2A protocol |
 | LearningAndAdaptation | Rule learning across sessions |
@@ -37,9 +38,12 @@ A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrection
 | ReasoningAndActing | ReAct-style reason/act tool loops |
 | ResourceAwareOptimization | Model routing under a cost budget |
 | Routing | Intent routing to specialist agents (incl. a workflow variant) |
+| SelfConsistency | Sampled reasoning paths with majority voting |
 | SelfCorrectionLoop | Draft → evaluate → revise loops |
 | SelfNote | Margin-note taking to aid long-context answers |
+| SemanticCaching | Exact and similarity-based response caching |
 | ToolUse | Function calling basics |
+| TreeOfThoughts | Branching thought exploration with pruning |
 | Voting | Multi-agent voting with confidence weighting |
 
 ## Setup
