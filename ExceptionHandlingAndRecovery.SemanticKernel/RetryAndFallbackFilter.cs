@@ -51,7 +51,7 @@ public class RetryAndFallbackFilter : IFunctionInvocationFilter
                         Math.Pow(2, attempt) * 500 + Random.Shared.Next(0, 200));
 
                     _logger.LogInformation("[Retry] Waiting {Delay}ms before retry...", delay.TotalMilliseconds);
-                    await Task.Delay(delay);
+                    await Task.Delay(delay, context.CancellationToken);
                 }
             }
 
@@ -62,7 +62,8 @@ public class RetryAndFallbackFilter : IFunctionInvocationFilter
 
         // Extract a city name from the original arguments (simplified)
         var originalAddress = context.Arguments["address"]?.ToString() ?? "unknown";
-        var city = originalAddress.Split(',').Last().Trim(); // naive extraction
+        var parts = originalAddress.Split(',');
+        var city = (parts.Length >= 2 ? parts[^2] : parts[^1]).Trim(); // naive extraction: "street, city, country"
 
         // Override the result with the fallback output
         var fallbackResult = await context.Kernel

@@ -18,15 +18,17 @@ async Task<AgentResponse> RetryAndFallbackMiddleware(
         {
             Console.WriteLine($"[RunMiddleware] Attempt {attempt}/{maxRetries}");
 
+            // Fresh session per attempt so failed turns don't pollute history and get replayed on retry
+            var attemptSession = await innerAgent.CreateSessionAsync(cancellationToken: cancellationToken);
             var response = await innerAgent.RunAsync(
-                messages, session, options, cancellationToken);
+                messages, attemptSession, options, cancellationToken);
 
-            // Simplistic check for the error, it's better done with structured tool responses or another call to an LLM, but this is just an example
-            var responseText = string.Join(" ",
-                response.Messages.Select(m => m.Text));
-            var isError = responseText.Contains("ERROR", StringComparison.OrdinalIgnoreCase) ||
-                          responseText.Contains("unavailable", StringComparison.OrdinalIgnoreCase) ||
-                          responseText.Contains("unable", StringComparison.OrdinalIgnoreCase);
+            // Detect tool failures from the actual function results instead of guessing from response text
+            var isError = response.Messages
+                .SelectMany(m => m.Contents)
+                .OfType<FunctionResultContent>()
+                .Any(c => c.Exception is not null ||
+                          (c.Result?.ToString()?.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ?? false));
             if (isError &&
                 attempt < maxRetries)
             {
@@ -82,12 +84,9 @@ var agent = new ChatClientAgent(chatClient,
     .Use(RetryAndFallbackMiddleware, null)
     .Build();
 
-var session = await agent.CreateSessionAsync();
-
 Console.WriteLine("User: Find the precise location of '15 Rue de Rivoli, Paris, France'.\n");
 
 var result = await agent.RunAsync(
-    "Find the precise location of '15 Rue de Rivoli, Paris, France'.",
-    session);
+    "Find the precise location of '15 Rue de Rivoli, Paris, France'.");
 
 Console.WriteLine($"\nAgent response:\n{result}");

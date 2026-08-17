@@ -21,7 +21,9 @@
         Console.WriteLine("\n═══ Telemetry Summary ═══");
         Console.WriteLine($"Total LLM calls: {_calls.Count}");
         Console.WriteLine($"Total tokens: {_calls.Sum(c => c.InputTokens + c.OutputTokens)}");
-        Console.WriteLine($"Avg latency: {_calls.Average(c => c.LatencyMs):F0}ms");
+        Console.WriteLine(_calls.Count == 0
+            ? "Avg latency: no calls recorded"
+            : $"Avg latency: {_calls.Average(c => c.LatencyMs):F0}ms");
         Console.WriteLine($"Total cost estimate: " +
                           $"{_calls.Sum(c => (c.InputTokens + c.OutputTokens) / 1000.0 * 0.25):F3}¢");
 

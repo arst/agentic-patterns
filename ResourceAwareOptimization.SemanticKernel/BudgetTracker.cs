@@ -1,8 +1,9 @@
 using Microsoft.SemanticKernel;
+using OpenAI.Chat;
 
 namespace ResourceAwareOptimization.SemanticKernel;
 
-internal class BudgetTracker(int maxBudgetCents, double totalCostCents) : IFunctionInvocationFilter
+internal class BudgetTracker(int maxBudgetCents)
 {
     // Approximate cost per 1K tokens (input + output averaged)
     private static readonly Dictionary<string, double> CostPer1KTokens = new()
@@ -12,20 +13,19 @@ internal class BudgetTracker(int maxBudgetCents, double totalCostCents) : IFunct
         ["o4-mini"] = 1.10 // expensive reasoning
     };
 
-    public double TotalCostCents => totalCostCents;
-    public bool BudgetExceeded => totalCostCents >= maxBudgetCents;
+    public double TotalCostCents { get; private set; }
+    public bool BudgetExceeded => TotalCostCents >= maxBudgetCents;
 
-    public async Task OnFunctionInvocationAsync(
-        FunctionInvocationContext context, Func<FunctionInvocationContext, Task> next)
+    public void Record(string model, Microsoft.SemanticKernel.ChatMessageContent response)
     {
-        await next(context);
+        // The AzureOpenAI connector exposes token usage under the "Usage" metadata key
+        if (response.Metadata?.TryGetValue("Usage", out var usage) != true
+            || usage is not ChatTokenUsage tokens)
+            return;
 
-        // Extract token usage from the result metadata if available
-        if (context.Result.Metadata?.TryGetValue("Usage", out var usage) == true)
-        {
-            // Estimate cost from token count
-            var totalTokens = usage?.ToString();
-            Console.WriteLine($"  [Budget] Tokens used: {totalTokens}");
-        }
+        var cost = tokens.TotalTokenCount / 1000.0 * CostPer1KTokens.GetValueOrDefault(model);
+        TotalCostCents += cost;
+        Console.WriteLine(
+            $"  [Budget] {tokens.TotalTokenCount} tokens on {model}: +{cost:F3}¢ (total {TotalCostCents:F2}¢ / {maxBudgetCents}¢)");
     }
 }

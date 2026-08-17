@@ -16,7 +16,6 @@ internal sealed class RouterExecutor(
                        """;
 
         var result = await routerAgent.RunAsync<RouteDecision>(prompt);
-        var r = await context.ReadStateAsync<SupportRequest>("request");
 
         return result.Result;
     }

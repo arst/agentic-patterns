@@ -16,10 +16,10 @@ var chatClient = new AzureOpenAIClient(
 
 var intake = new IntakeExecutor();
 var router = new RouterExecutor(new ChatClientAgent(chatClient));
-var billing = new BillingExecutor(new ChatClientAgent(chatClient));
-var technical = new TechnicalExecutor(new ChatClientAgent(chatClient));
-var account = new AccountExecutor(new ChatClientAgent(chatClient));
-var general = new GeneralExecutor(new ChatClientAgent(chatClient));
+var billing = new SpecialistExecutor(new ChatClientAgent(chatClient), "billing");
+var technical = new SpecialistExecutor(new ChatClientAgent(chatClient), "technical");
+var account = new SpecialistExecutor(new ChatClientAgent(chatClient), "account");
+var general = new SpecialistExecutor(new ChatClientAgent(chatClient), "general");
 var responseComposer = new ResponseComposer();
 
 var workflow =

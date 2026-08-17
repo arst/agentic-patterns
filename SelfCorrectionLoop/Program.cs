@@ -22,9 +22,10 @@ ChatCompletionAgent evaluator = new()
                    4. Check: Does it mention eco-friendliness?
                    5. Check: Does it have a clear call to action?
 
-                   If ALL checks pass, respond with exactly: "APPROVED"
-                   If any check fails, respond with specific feedback for improvement.
-                   Never write the post yourself — only critique.
+                   If ALL checks pass, respond with "APPROVED" on the first line and nothing else.
+                   If any check fails, respond with "REVISE" on the first line,
+                   followed by specific feedback for improvement.
+                   Never write the post yourself â€” only critique.
                    """,
     Kernel = Settings.Kernel
 };
@@ -36,6 +37,7 @@ var requirements =
 
 const int maxIterations = 3;
 var currentDraft = "";
+var latestFeedback = "";
 
 for (var i = 1; i <= maxIterations; i++)
 {
@@ -44,7 +46,7 @@ for (var i = 1; i <= maxIterations; i++)
     // Generate (or revise)
     var genPrompt = i == 1
         ? requirements
-        : $"Requirements: {requirements}\n\nPrevious draft: {currentDraft}\n\nFeedback: {currentDraft}\nRevise the post to address the feedback.";
+        : $"Requirements: {requirements}\n\nPrevious draft: {currentDraft}\n\nFeedback: {latestFeedback}\nRevise the post to address the feedback.";
 
     var genResponse = "";
     await foreach (var chunk in generator.InvokeAsync(genPrompt))
@@ -59,9 +61,11 @@ for (var i = 1; i <= maxIterations; i++)
     await foreach (var chunk in evaluator.InvokeAsync(evalPrompt))
         evalResponse += chunk.Message;
 
-    Console.WriteLine($"  Evaluator: {evalResponse.Trim()}");
+    latestFeedback = evalResponse.Trim();
+    Console.WriteLine($"  Evaluator: {latestFeedback}");
 
-    if (evalResponse.Contains("APPROVED", StringComparison.OrdinalIgnoreCase))
+    var verdict = latestFeedback.Split('\n')[0].Trim();
+    if (verdict.StartsWith("APPROVED", StringComparison.OrdinalIgnoreCase))
     {
         Console.WriteLine($"\nApproved after {i} iteration(s).");
         break;

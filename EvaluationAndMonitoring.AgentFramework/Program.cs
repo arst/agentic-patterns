@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenTelemetry;
@@ -10,18 +9,8 @@ using Shared;
 
 var resource = ResourceBuilder.CreateDefault().AddService("AgentEvaluation");
 
-var agentActivitySource = new ActivitySource("AgentEvaluation");
-var agentMeter = new Meter("AgentEvaluation", "1.0.0");
-
-var llmCallLatency = agentMeter.CreateHistogram<double>(
-    "agent.llm.latency_ms", "ms", "Latency per LLM call");
-var llmTokensUsed = agentMeter.CreateCounter<long>(
-    "agent.llm.tokens", "{tokens}", "Total tokens consumed");
-var agentCallCount = agentMeter.CreateCounter<long>(
-    "agent.calls.count", "{calls}", "Total agent RunAsync calls");
-var agentE2eLatency = agentMeter.CreateHistogram<double>(
-    "agent.e2e.latency_ms", "ms", "End-to-end latency per agent call");
-
+// The built-in MEAI/Agent Framework OpenTelemetry instrumentation emits
+// gen_ai.* spans and metrics on the source name we pass to UseOpenTelemetry.
 using var traceProvider = Sdk.CreateTracerProviderBuilder()
     .SetResourceBuilder(resource)
     .AddSource("AgentEvaluation")
@@ -36,11 +25,9 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
 
 var telemetry = new AgentTelemetry();
 
-// IChatClient Middleware � Per-call telemetry
-// Intercepts every LLM call to record:
-//   - Latency per call
-//   - Token usage from ChatResponse.Usage
-//   - Model identifier
+// IChatClient Middleware — feeds the custom AgentTelemetry summary
+// (latency, token usage, model per LLM call). gen_ai spans/metrics come
+// from the built-in UseOpenTelemetry instrumentation below.
 
 var llmCallCounter = 0;
 
@@ -53,11 +40,6 @@ async Task<ChatResponse> TelemetryMiddleware(
     var sw = Stopwatch.StartNew();
     Interlocked.Increment(ref llmCallCounter);
 
-    // Start an OTel span for this LLM call
-    using var activity = agentActivitySource.StartActivity("llm.chat.completion", ActivityKind.Client);
-    activity?.SetTag("gen_ai.system", "openai");
-    activity?.SetTag("gen_ai.request.model", Settings.AzureOpenAi.ChatModelDeployment);
-
     var response = await client.GetResponseAsync(messages, options, cancellationToken);
 
     sw.Stop();
@@ -69,19 +51,6 @@ async Task<ChatResponse> TelemetryMiddleware(
     // Record into our custom telemetry collector
     telemetry.RecordCall(modelId, sw.Elapsed.TotalMilliseconds, inputTokens, outputTokens);
 
-    // Emit OTel metrics
-    llmCallLatency.Record(sw.Elapsed.TotalMilliseconds,
-        new KeyValuePair<string, object?>("model", modelId));
-    llmTokensUsed.Add(inputTokens + outputTokens,
-        new KeyValuePair<string, object?>("model", modelId));
-
-    // Enrich the OTel span with response metadata
-    activity?.SetTag("gen_ai.response.model", modelId);
-    activity?.SetTag("gen_ai.response.prompt_tokens", inputTokens);
-    activity?.SetTag("gen_ai.response.completion_tokens", outputTokens);
-    activity?.SetTag("gen_ai.response.finish_reason",
-        response.FinishReason?.ToString() ?? "unknown");
-
     Console.WriteLine(
         $"  [Telemetry] {modelId}: {sw.Elapsed.TotalMilliseconds:F0}ms, " +
         $"{inputTokens}+{outputTokens} tokens");
@@ -89,11 +58,10 @@ async Task<ChatResponse> TelemetryMiddleware(
     return response;
 }
 
-// Agent Run Middleware � End-to-end metrics + trajectory
-// Wraps the entire agent execution to measure:
+// Agent Run Middleware — feeds the custom trajectory record:
 //   - Total end-to-end latency (including tool calls, retries)
 //   - Number of LLM calls per user request
-//   - Full trajectory record (user query ? agent response)
+//   - Full trajectory record (user query -> agent response)
 
 async Task<AgentResponse> TrajectoryMiddleware(
     IEnumerable<ChatMessage> messages,
@@ -106,12 +74,6 @@ async Task<AgentResponse> TrajectoryMiddleware(
     var callsBefore = llmCallCounter;
     var sw = Stopwatch.StartNew();
 
-    // Start an OTel span for the full agent execution
-    using var activity = agentActivitySource.StartActivity("agent.run");
-    activity?.SetTag("agent.name", "SupportAgent");
-    activity?.SetTag("agent.query_length", userQuery.Length);
-    agentCallCount.Add(1);
-
     var response = await innerAgent.RunAsync(messages, session, options, cancellationToken);
 
     sw.Stop();
@@ -120,13 +82,6 @@ async Task<AgentResponse> TrajectoryMiddleware(
 
     // Record trajectory
     telemetry.RecordTrajectory(userQuery, responseText, sw.Elapsed.TotalMilliseconds, callsForThisRequest);
-
-    // Emit OTel metrics
-    agentE2eLatency.Record(sw.Elapsed.TotalMilliseconds);
-
-    // Enrich the OTel span
-    activity?.SetTag("agent.llm_calls", callsForThisRequest);
-    activity?.SetTag("agent.response_length", responseText.Length);
 
     Console.WriteLine(
         $"  [Trajectory] Total: {sw.Elapsed.TotalMilliseconds:F0}ms, " +
@@ -139,9 +94,10 @@ var client = Settings
     .ChatClient
     .AsBuilder()
     .Use(TelemetryMiddleware, null)
+    .UseOpenTelemetry(sourceName: "AgentEvaluation") // built-in gen_ai spans + metrics
     .Build();
 
-var agent = new ChatClientAgent(Settings.ChatClient,
+var agent = new ChatClientAgent(client,
         name: "SupportAgent",
         instructions: """
                       You are a helpful customer support agent for TechCorp.
@@ -151,6 +107,7 @@ var agent = new ChatClientAgent(Settings.ChatClient,
     )
     .AsBuilder()
     .Use(TrajectoryMiddleware, null)
+    .UseOpenTelemetry("AgentEvaluation") // built-in invoke_agent spans
     .Build();
 
 Console.WriteLine("---- Running agent with telemetry ----\n");

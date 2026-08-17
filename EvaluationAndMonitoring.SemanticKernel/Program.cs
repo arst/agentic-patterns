@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
@@ -20,36 +19,16 @@ AppContext.SetSwitch(
 using var traceProvider = Sdk.CreateTracerProviderBuilder()
     .SetResourceBuilder(resource)
     .AddSource("Microsoft.SemanticKernel*") // SK's built-in traces
-    .AddSource("AgentEvaluation") // Our custom traces
     .AddConsoleExporter() // Dev: console; Prod: OTLP
     .Build();
 
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
     .SetResourceBuilder(resource)
     .AddMeter("Microsoft.SemanticKernel*") // SK's built-in metrics
-    .AddMeter("AgentEvaluation") // Our custom metrics
     .AddConsoleExporter()
     .Build();
 
-// Custom Metrics via IFunctionInvocationFilter
-// While SK provides built-in telemetry, you often need custom metrics:
-//   - Per-tool-call latency histograms
-//   - Business-specific counters (e.g., "escalations to human")
-//   - Accumulated token costs
-
-var evalMeter = new Meter("AgentEvaluation", "1.0.0");
-var callLatency = evalMeter.CreateHistogram<double>(
-    "agent.call.latency_ms", "ms", "Latency per agent call");
-var totalTokens = evalMeter.CreateCounter<long>(
-    "agent.tokens.total", "{tokens}", "Total tokens consumed");
-var callCount = evalMeter.CreateCounter<long>(
-    "agent.calls.count", "{calls}", "Total agent calls");
-
-var evalActivitySource = new ActivitySource("AgentEvaluation");
-
 var builder = Settings.CreateKernelBuilder();
-builder.Services.AddSingleton<IFunctionInvocationFilter>(
-    new MetricsFilter(callLatency, totalTokens, callCount, evalActivitySource));
 
 using var loggerFactory = LoggerFactory.Create(b =>
 {
@@ -84,8 +63,6 @@ var testQueries = new[]
     "What's the meaning of life?"
 };
 
-var responses = new List<(string Query, string Response, double LatencyMs)>();
-
 foreach (var query in testQueries)
 {
     Console.WriteLine($"?? User: {query}");
@@ -96,7 +73,6 @@ foreach (var query in testQueries)
         responseText += chunk.Message.Content;
 
     sw.Stop();
-    responses.Add((query, responseText, sw.Elapsed.TotalMilliseconds));
     Console.WriteLine($" Agent: {responseText}");
     Console.WriteLine($"   {sw.Elapsed.TotalMilliseconds:F0}ms\n");
 }

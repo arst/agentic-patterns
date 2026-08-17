@@ -13,6 +13,7 @@ public class LocationPlugin
         if (Random.Shared.NextDouble() < 0.6)
             throw new HttpRequestException("503 — Geocoding service temporarily unavailable");
 
+        await Task.Delay(50); // simulate network latency
         return $"{{ \"address\": \"{address}\", \"lat\": 48.8566, \"lng\": 2.3522, \"confidence\": \"high\" }}";
     }
 

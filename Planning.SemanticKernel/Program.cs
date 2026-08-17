@@ -6,10 +6,9 @@ using Shared;
 
 var kernel = Settings.Kernel;
 
-kernel.ImportPluginFromType<TravelTools>();
+var tools = kernel.ImportPluginFromType<TravelTools>();
 
-var result = await InvokePromptAsync(
-    kernel,
+var result = await kernel.InvokePromptAsync(
     """"
     You are a planning agent. Produce a minimal ordered plan using ONLY these tools:
     - GetFlights(from,to,date)
@@ -27,19 +26,23 @@ var result = await InvokePromptAsync(
     new KernelArguments(new OpenAIPromptExecutionSettings
     {
         ResponseFormat = typeof(Plan)
-    }) { ["request"] = "Book a flight from NYC to Paris on 2024-12-01 and draft a confirmation email." });
-Console.WriteLine("=== Final Answer ===");
-var plan = JsonSerializer.Deserialize<Plan>(result);
-Console.WriteLine(plan);
+    }) { ["request"] = "Book a flight from NYC to Paris on 2026-12-01 and draft a confirmation email." });
 
-Console.WriteLine("\n=== Trace (messages include tool calls/results) ===");
+var plan = JsonSerializer.Deserialize<Plan>(result.ToString())!;
 
-static async Task<string> InvokePromptAsync(
-    Kernel kernel,
-    string promptTemplate,
-    KernelArguments args)
+Console.WriteLine("=== Plan ===");
+foreach (var s in plan.Steps)
+    Console.WriteLine($"{s.Id}. {s.Tool} - {s.Description}");
+
+Console.WriteLine("\n=== Execution ===");
+
+foreach (var step in plan.Steps.Take(5))
 {
-    var result = await kernel.InvokePromptAsync(promptTemplate, args);
+    var stepArgs = new KernelArguments();
+    foreach (var (key, value) in step.Args)
+        stepArgs[key] = value;
 
-    return result.ToString().Trim();
+    var output = await kernel.InvokeAsync(tools.Name, step.Tool, stepArgs);
+
+    Console.WriteLine($"\n[Step {step.Id}] {step.Tool} output:\n{output}");
 }

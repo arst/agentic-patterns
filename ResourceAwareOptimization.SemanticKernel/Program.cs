@@ -7,21 +7,21 @@ using Shared;
 
 var builder = Settings.CreateKernelBuilder();
 
-// Fast tier — cheap, low-latency, good for factual recall and simple tasks
+// Fast tier â€” cheap, low-latency, good for factual recall and simple tasks
 builder.AddAzureOpenAIChatCompletion(
     "gpt-4o-mini",
     Settings.AzureOpenAi.Endpoint,
     Settings.AzureOpenAi.ApiKey,
     "fast");
 
-// Reasoning tier — expensive, high-capability, for complex multi-step reasoning
+// Reasoning tier â€” expensive, high-capability, for complex multi-step reasoning
 builder.AddAzureOpenAIChatCompletion(
     "o4-mini",
     Settings.AzureOpenAi.Endpoint,
     Settings.AzureOpenAi.ApiKey,
     "reasoning");
 
-// Default tier — mid-range, used for the router/classifier itself
+// Default tier â€” mid-range, used for the router/classifier itself
 builder.AddAzureOpenAIChatCompletion(
     "gpt-4o",
     Settings.AzureOpenAi.Endpoint,
@@ -30,13 +30,20 @@ builder.AddAzureOpenAIChatCompletion(
 
 var kernel = builder.Build();
 
-var budgetTracker = new BudgetTracker(50, 0);
+// 2Â¢ budget â€” deliberately small so the demo actually trips it on the reasoning query
+var budgetTracker = new BudgetTracker(2);
 
-kernel.FunctionInvocationFilters.Add(budgetTracker);
+// Maps a service id back to its model for cost lookup
+var modelForService = new Dictionary<string, string>
+{
+    ["fast"] = "gpt-4o-mini",
+    ["reasoning"] = "o4-mini",
+    ["default"] = "gpt-4o"
+};
 
 string ClassifyQuery(string query)
 {
-    // Heuristic tier — zero LLM cost
+    // Heuristic tier â€” zero LLM cost
     var wordCount = query.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
 
     if (wordCount < 10 && !query.Contains("why", StringComparison.OrdinalIgnoreCase)
@@ -83,12 +90,13 @@ async Task<string> HandleQueryAsync(string userQuery)
 
             var settings = new OpenAIPromptExecutionSettings
             {
-                ServiceId = sid,
                 Temperature = tier == "reasoning" ? 0.2 : 0.7
             };
 
             var response = await chatService.GetChatMessageContentAsync(
                 history, settings, kernel);
+
+            budgetTracker.Record(modelForService[sid], response);
 
             Console.WriteLine($"  [Router] Success with: {sid}");
             return response.Content ?? "No response generated.";
@@ -118,9 +126,9 @@ foreach (var query in queries)
 
     if (budgetTracker.BudgetExceeded)
     {
-        Console.WriteLine("\n?Budget limit reached. Switching all remaining queries to fast tier.");
+        Console.WriteLine("\n?Budget limit reached. Skipping remaining queries.");
         break;
     }
 }
 
-Console.WriteLine($"\nTotal estimated cost: {budgetTracker.TotalCostCents:F2}¢");
+Console.WriteLine($"\nTotal estimated cost: {budgetTracker.TotalCostCents:F2}Â¢");

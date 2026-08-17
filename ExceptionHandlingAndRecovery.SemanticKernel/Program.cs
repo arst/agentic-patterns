@@ -25,7 +25,7 @@ try
 }
 catch (Exception ex)
 {
-    // Terminal fallback — if even the fallback fails, escalate
+    // Terminal fallback â€” if even the fallback fails, escalate
     Console.WriteLine($"\n[Escalation] All recovery strategies exhausted: {ex.Message}");
     Console.WriteLine("   ? Routing to human operator for manual resolution.");
 }

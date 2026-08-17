@@ -52,12 +52,15 @@ foreach (var (label, input) in testCases)
     Console.WriteLine($"User: {input}");
     Console.WriteLine($"{'=',-60}");
 
+    // User input is passed as a template variable, not interpolated into the template:
+    // the default SK template engine encodes variable values, so injected role tags
+    // like <message role="system"> are treated as data instead of rewriting roles.
     var result = await kernel.InvokePromptAsync(
-        $"""
-         <message role="system">{systemPrompt}</message>
-         <message role="user">{input}</message>
-         """,
-        new KernelArguments(settings));
+        $$$"""
+           <message role="system">{{{systemPrompt}}}</message>
+           <message role="user">{{$input}}</message>
+           """,
+        new KernelArguments(settings) { ["input"] = input });
 
     Console.WriteLine($"Agent: {result}");
 }

@@ -11,7 +11,8 @@ await using var mcpClient = await McpClient.CreateAsync(
     {
         Name = "MCPServer",
         Command = "npx",
-        Arguments = ["-y", "--verbose", "@modelcontextprotocol/server-github"]
+        // Official MCP demo server: runs over stdio, needs no credentials.
+        Arguments = ["-y", "@modelcontextprotocol/server-everything"]
     }));
 
 // 2) Discover tools
@@ -20,7 +21,7 @@ var tools = await mcpClient.ListToolsAsync().ConfigureAwait(false);
 // 3) Register MCP tools as SK functions (agent can tool-call)
 var kernel = Settings.Kernel;
 
-// This pattern (MCP tools -> Kernel functions) is used in the official SK MCP sample. :contentReference[oaicite:5]{index=5}
+// This pattern (MCP tools -> Kernel functions) is used in the official SK MCP sample.
 kernel.Plugins.AddFromFunctions(
     "McpTools",
     tools.Select(aiFunction => aiFunction.AsKernelFunction()));
@@ -38,13 +39,13 @@ var exec = new OpenAIPromptExecutionSettings
 // 5) Agent uses MCP tools as needed
 var agent = new ChatCompletionAgent
 {
-    Name = "GitHubAgent",
+    Name = "McpAgent",
     Instructions = "Use MCP tools when needed. Be concise and cite tool results in your reasoning.",
     Kernel = kernel,
     Arguments = new KernelArguments(exec)
 };
 
-var prompt = "Summarize the last four commits to the microsoft/semantic-kernel repository.";
-var response = await agent.InvokeAsync(prompt).FirstAsync();
+var prompt = "Use the 'add' tool to compute 1234 + 5678, then use the 'echo' tool to repeat the result.";
 
-Console.WriteLine(response.Message.Content);
+await foreach (var response in agent.InvokeAsync(prompt))
+    Console.WriteLine(response.Message.Content);

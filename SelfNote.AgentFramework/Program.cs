@@ -12,20 +12,19 @@ using Shared;
 
 // Agent 1: reads context, produces margin notes only
 var noteAgent = new ChatClientAgent(Settings.ChatClient,
-    name: "AnswerAgent",
+    name: "NoteAgent",
     instructions: """
-                  You are a knowledgeable assistant. You will be given an annotated context
-                  (original text interleaved with margin notes) and a question.
+                  You are a careful academic reader. Your job is to read a provided context
+                  and write concise margin notes for each section.
 
-                  Follow these steps explicitly:
-                  1. Write a [Note on Question] that reflects on what the question is really
-                     asking and which parts of the annotated context are most relevant.
-                  2. Then write [Final Answer] using the annotated context to inform your response.
-
-                  Format:
-                  [Note on Question]: <your reflection on the question>
-
-                  [Final Answer]: <your answer, grounded in the annotated context>
+                  Rules:
+                  - Write notes ONLY on the context provided. Do NOT try to answer any question.
+                  - For each section, identify: key facts, implications, and potential connections.
+                  - Format your notes as:
+                    [Note on Section 1]: <your note>
+                    [Note on Section 2]: <your note>
+                    ... and so on for each section present.
+                  - Be concise but substantive. Each note should be 1-3 sentences.
                   """);
 var answerAgent = new ChatClientAgent(Settings.ChatClient,
     name: "AnswerAgent",
@@ -116,17 +115,13 @@ async Task<string> RunSelfNoteAsync(
 
     Console.WriteLine("AnswerAgent generating self-noted answer\n");
 
-    var answerResponse = await answering.RunAsync([
-            new ChatMessage(ChatRole.System,
-                "You are a knowledgeable assistant. Use the provided annotated context to answer the question."),
-            new ChatMessage(ChatRole.User,
-                $"""
-                 Annotated context:
-                 {interleavedContext}
+    var answerResponse = await answering.RunAsync(
+        $"""
+         Annotated context:
+         {interleavedContext}
 
-                 Question: {q}
-                 """)
-        ],
+         Question: {q}
+         """,
         options: lowTempOptions
     );
 
