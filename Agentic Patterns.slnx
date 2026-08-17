@@ -10,6 +10,11 @@
     <Project Path="ReasoningAndActing/ReasoningAndActing.csproj" />
     <Project Path="SelfCorrectionLoop/SelfCorrectionLoop.csproj" />
   </Folder>
+  <Project Path="ContextCompaction.AgentFramework/ContextCompaction.AgentFramework.csproj" />
+  <Project Path="DurableExecution.AgentFramework/DurableExecution.AgentFramework.csproj" />
+  <Project Path="Handoff.AgentFramework/Handoff.AgentFramework.csproj" />
+  <Project Path="MCP.AgentFramework/MCP.AgentFramework.csproj" />
+  <Project Path="Magentic.AgentFramework/Magentic.AgentFramework.csproj" />
   <Project Path="ConfidenceReporting.AgentFramework/ConfidenceReporting.AgentFramework.csproj" />
   <Project Path="ConfidenceReporting.SemanticKernel/ConfidenceReporting.SemanticKernel.csproj" />
   <Project Path="EvaluationAndMonitoring.AgentFramework/EvaluationAndMonitoring.AgentFramework.csproj" />

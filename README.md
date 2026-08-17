@@ -5,7 +5,7 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `MCP.SemanticKernel`).
+A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, and the Agent-Framework-only workflow patterns `Magentic`, `Handoff`, `DurableExecution`, `ContextCompaction`).
 
 ## Patterns
 
@@ -13,16 +13,20 @@ A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrection
 |---|---|
 | ChainofThoughts | Step-by-step reasoning in a single prompt |
 | ConfidenceReporting | Self-reported + probe-based confidence scoring |
+| ContextCompaction | Compaction strategies for long-running agent context |
+| DurableExecution | Workflow checkpointing and resume across restarts |
 | EvaluationAndMonitoring | Telemetry, metrics, and tracing around agent runs |
 | ExceptionHandlingAndRecovery | Retry, fallback, and graceful degradation |
 | ExpeL | Learning insights from experience across episodes |
 | ExplorationAndDiscovery | Generate → critique → evolve idea loops |
 | GoalSetting(s)AndMonitoring | Goal decomposition with progress monitoring |
 | GuardRails | Input/output filtering, PII redaction, injection defense |
+| Handoff | Agents transferring the conversation to each other |
 | HumanInTheLoop | Tool-call approval gates |
 | InterAgentCommunication.A2A | Agent-to-agent communication over the A2A protocol |
 | LearningAndAdaptation | Rule learning across sessions |
 | MCP | Consuming Model Context Protocol tool servers |
+| Magentic | Manager-driven open-ended multi-agent orchestration |
 | MemoryManagement | Session persistence and conversation memory |
 | MultiAgentCollaboration | Group-chat orchestration |
 | Parallelization | Concurrent fan-out / fan-in over agents |

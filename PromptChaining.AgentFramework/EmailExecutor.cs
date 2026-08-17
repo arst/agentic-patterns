@@ -17,11 +17,13 @@ internal class EmailExecutor(AIAgent emailAgent)
                       """;
 
         var response = await emailAgent.RunAsync(prompt);
-        await context.SendMessageAsync(response.Text);
+        await context.YieldOutputAsync(response.Text);
     }
 
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
     {
-        return protocolBuilder;
+        return protocolBuilder
+            .ConfigureRoutes(r => r.AddHandler<string>(HandleAsync))
+            .YieldsOutputType(typeof(string));
     }
 }

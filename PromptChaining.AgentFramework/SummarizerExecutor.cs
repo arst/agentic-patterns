@@ -30,6 +30,8 @@ internal class SummarizerExecutor(AIAgent summarizerAgent)
 
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
     {
-        return protocolBuilder;
+        return protocolBuilder
+            .ConfigureRoutes(r => r.AddHandler<InputWithText>(HandleAsync))
+            .SendsMessageType(typeof(string));
     }
 }

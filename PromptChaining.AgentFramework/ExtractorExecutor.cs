@@ -22,6 +22,8 @@ internal class ExtractorExecutor(IChatClient chatClient)
 
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)
     {
-        return protocolBuilder;
+        return protocolBuilder
+            .ConfigureRoutes(r => r.AddHandler<string>(HandleAsync))
+            .SendsMessageType(typeof(InputWithText));
     }
 }
