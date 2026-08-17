@@ -1,0 +1,7 @@
+{
+  "enabledPlugins": {
+    "dotnet@dotnet-agent-skills": true,
+    "dotnet-advanced@dotnet-agent-skills": true,
+    "dotnet-ai@dotnet-agent-skills": true
+  }
+}
