@@ -1,4 +1,7 @@
+using System.Text.Json;
+using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.Agents;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Shared;
 
 var kernel = Settings.Kernel;
@@ -11,12 +14,12 @@ ChatCompletionAgent researcher = new()
                    about a given topic. For each hypothesis:
 
                    1. State the hypothesis clearly and concisely.
-                   2. Explain the reasoning � what existing knowledge supports this idea?
+                   2. Explain the reasoning — what existing knowledge supports this idea?
                    3. Describe how it could be tested or validated.
                    4. Rate your own confidence (low/medium/high).
 
                    Generate 3 distinct hypotheses that vary in approach and boldness.
-                   Be creative � explore unconventional angles, not just obvious ideas.
+                   Be creative — explore unconventional angles, not just obvious ideas.
 
                    Format each hypothesis as:
                    ## Hypothesis N: [title]
@@ -42,9 +45,9 @@ ChatCompletionAgent critic = new()
                    5. Score it 1-10 on overall promise.
 
                    Be constructive but rigorous. Don't accept vague claims.
-                   Identify the SINGLE most promising hypothesis and explain why.
-
-                   End with: "MOST PROMISING: Hypothesis N" and "OVERALL QUALITY: [low/medium/high]"
+                   Provide your full evaluation as feedback, identify the SINGLE most
+                   promising hypothesis (and explain why), and rate the overall quality
+                   of the set as low, medium or high.
                    """,
     Kernel = kernel
 };
@@ -62,7 +65,7 @@ ChatCompletionAgent evolver = new()
                    1. Take the most promising hypothesis identified by the critic.
                    2. Address each weakness the critic identified.
                    3. Strengthen the reasoning and evidence.
-                   4. Explore one UNEXPECTED ANGLE � combine it with an idea from a different field.
+                   4. Explore one UNEXPECTED ANGLE — combine it with an idea from a different field.
                    5. Produce a refined, stronger version of the hypothesis.
 
                    Also produce ONE entirely new hypothesis inspired by the gaps the critic found.
@@ -101,38 +104,46 @@ for (var iteration = 1; iteration <= maxIterations; iteration++)
         : $"Research topic: {topic}\n\nPrevious round's evolved hypotheses:\n{currentHypotheses}\n\n" +
           "Build on these. Generate 3 NEW hypotheses that explore DIFFERENT directions.";
 
-    var researcherOutput = "";
-    await foreach (var chunk in researcher.InvokeAsync(genPrompt))
-        researcherOutput += chunk.Message.Content;
+    var researcherOutput = (await researcher.InvokeAsync(genPrompt).FirstAsync()).Message.Content;
     Console.WriteLine(researcherOutput);
 
     Console.WriteLine("\n\n[Critic] Evaluating hypotheses...\n");
 
-    var criticOutput = "";
-    await foreach (var chunk in critic.InvokeAsync(
-                       $"Research topic: {topic}\n\nHypotheses to evaluate:\n{researcherOutput}"))
-        criticOutput += chunk.Message.Content;
-    Console.WriteLine(criticOutput);
+    var criticResponse = await critic.InvokeAsync(
+            $"Research topic: {topic}\n\nHypotheses to evaluate:\n{researcherOutput}",
+            options: new AgentInvokeOptions
+            {
+                KernelArguments = new KernelArguments(new OpenAIPromptExecutionSettings
+                {
+                    ResponseFormat = typeof(Critique)
+                })
+            })
+        .FirstAsync();
+    var critique = JsonSerializer.Deserialize<Critique>(criticResponse.Message.Content!)
+                   ?? throw new InvalidOperationException("Critic returned invalid JSON.");
+    Console.WriteLine(critique.Feedback);
+    Console.WriteLine($"MOST PROMISING: {critique.MostPromising}");
+    Console.WriteLine($"OVERALL QUALITY: {critique.Quality}");
 
-    if (criticOutput.Contains("OVERALL QUALITY: high", StringComparison.OrdinalIgnoreCase)
+    if (critique.Quality.Equals("high", StringComparison.OrdinalIgnoreCase)
         && iteration > 1)
     {
-        Console.WriteLine("\nHigh quality reached � stopping exploration.");
+        Console.WriteLine("\nHigh quality reached — stopping exploration.");
         break;
     }
 
     Console.WriteLine("\n\n[Evolver] Refining hypotheses...\n");
 
-    var evolverOutput = "";
-    await foreach (var chunk in evolver.InvokeAsync(
-                       $"Research topic: {topic}\n\n" +
-                       $"Original hypotheses:\n{researcherOutput}\n\n" +
-                       $"Critic's evaluation:\n{criticOutput}\n\n" +
-                       "Evolve the most promising hypothesis and generate one new one."))
-        evolverOutput += chunk.Message.Content;
+    var evolverOutput = (await evolver.InvokeAsync(
+            $"Research topic: {topic}\n\n" +
+            $"Original hypotheses:\n{researcherOutput}\n\n" +
+            $"Critic's evaluation:\n{critique.Feedback}\n" +
+            $"Most promising hypothesis: {critique.MostPromising}\n\n" +
+            "Evolve the most promising hypothesis and generate one new one.")
+        .FirstAsync()).Message.Content;
     Console.WriteLine(evolverOutput);
 
-    currentHypotheses = evolverOutput;
+    currentHypotheses = evolverOutput ?? "";
 }
 
 // ----------------------------------------------
@@ -143,3 +154,5 @@ Console.WriteLine($"\n{'-',0}-- Final Discovery Summary ---\n");
 Console.WriteLine("The exploration cycle has produced the following refined hypotheses:");
 Console.WriteLine(currentHypotheses);
 Console.WriteLine("\n?? These are AI-generated hypotheses requiring human validation and experimental verification.");
+
+internal sealed record Critique(string Feedback, string MostPromising, string Quality);

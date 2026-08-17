@@ -34,7 +34,8 @@ public class WeatherAgentHandler : IAgentHandler
                            cancellationToken: cancellationToken))
         {
             var content = response.Message.Content;
-            artifactParts.Add(Part.FromText(content!));
+            if (!string.IsNullOrEmpty(content))
+                artifactParts.Add(Part.FromText(content));
         }
 
         await updater.AddArtifactAsync(artifactParts, cancellationToken: cancellationToken);

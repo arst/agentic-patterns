@@ -19,14 +19,6 @@ public class CritiqueExecutor(ChatClientAgent agent) : Executor("critique")
 
     private async ValueTask<LearnedRules> HandleAsync(AnswerPayload payload, IWorkflowContext context)
     {
-        const string schema =
-            """
-            {
-              "critique": "<2-3 sentence evaluation summary>",
-              "rules": ["<rule 1>", "<rule 2>"]
-            }
-            """;
-
         var critiquePrompt =
             $"""
              You just gave this answer to a user:
@@ -38,13 +30,11 @@ public class CritiqueExecutor(ChatClientAgent agent) : Executor("critique")
                • Depth       – did it explain the "why", not just the "what"?
                • Conciseness – was there any fluff or repetition?
 
-             Output ONLY valid JSON matching this schema — no markdown fences, no extra text:
-             """ + "\n" + schema + """
-
-                                   Rules must be short, imperative, actionable improvements for FUTURE answers,
-                                   e.g. "Lead with a one-sentence summary before diving into detail."
-                                   If the answer was already excellent, return an empty array for "rules".
-                                   """;
+             Summarize your critique in 2-3 sentences.
+             Rules must be short, imperative, actionable improvements for FUTURE answers,
+             e.g. "Lead with a one-sentence summary before diving into detail."
+             If the answer was already excellent, return no rules.
+             """;
 
         var response = await agent.RunAsync<CritiqueResult>(critiquePrompt);
         var result = response.Result;

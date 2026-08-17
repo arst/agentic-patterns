@@ -3,7 +3,8 @@ using Microsoft.SemanticKernel.Agents;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Shared;
 
-var kernel = Settings.Kernel;
+// Local kernel so the shared Settings.Kernel singleton isn't mutated by the plugin import
+var kernel = Settings.CreateKernelBuilder().Build();
 
 kernel.ImportPluginFromType<WeatherPlugin>();
 

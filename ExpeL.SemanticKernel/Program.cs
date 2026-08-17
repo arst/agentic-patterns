@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Shared;
 
 var kernel = Settings.Kernel;
@@ -84,7 +83,7 @@ async Task RunTaskWithExpeL(
     ExpeLMemory memory,
     int maxAttempts)
 {
-    var lowTemp = new OpenAIPromptExecutionSettings { Temperature = 0.2 };
+    var lowTemp = new AzureOpenAIPromptExecutionSettings { Temperature = 0.2 };
 
     for (var attempt = 1; attempt <= maxAttempts; attempt++)
     {
@@ -165,10 +164,10 @@ async Task ExtractAndUpdateInsightsAsync(
     var candidateInsights = await ExtractCandidateInsightsAsync(
         svc, successfulTrials, failedTrials, memory.Insights);
 
-    Console.WriteLine($"Candidate insights extracted:\n{candidateInsights}\n");
+    Console.WriteLine("Candidate insights extracted:\n" + string.Join("\n",
+        candidateInsights.Ops.Select(o => $"{o.Op} {o.Id}: {o.Rule}")) + "\n");
 
-    // Apply AGREE/EDIT/REMOVE/ADD operations
-    // Parse the LLM's structured output and mutate the rule set.
+    // Apply AGREE/EDIT/REMOVE/ADD operations to mutate the rule set.
     ApplyInsightOperations(memory, candidateInsights);
 
     Console.WriteLine("Updated insight set:");
@@ -177,7 +176,7 @@ async Task ExtractAndUpdateInsightsAsync(
     Console.WriteLine();
 }
 
-async Task<string> ExtractCandidateInsightsAsync(
+async Task<InsightOperations> ExtractCandidateInsightsAsync(
     IChatCompletionService svc,
     List<Trial> successes,
     List<Trial> failures,
@@ -223,80 +222,69 @@ async Task<string> ExtractCandidateInsightsAsync(
          {existingRules}
 
          === AVAILABLE OPERATIONS ===
-         AGREE <RULE NUMBER>: <EXISTING RULE>        (rule is strongly relevant — keep as-is)
-         REMOVE <RULE NUMBER>: <EXISTING RULE>       (contradictory, duplicated, or no longer useful)
-         EDIT <RULE NUMBER>: <NEW MODIFIED RULE>     (rule needs broadening or improving)
-         ADD <NEW RULE NUMBER>: <NEW RULE>           (new distinct insight not covered by existing rules)
+         AGREE — an existing rule (by its id) is strongly relevant, keep and upvote it.
+         REMOVE — an existing rule (by its id) is contradictory, duplicated, or no longer useful.
+         EDIT — replace an existing rule's text (by its id) with an improved, broader rule.
+         ADD — add a new distinct rule not covered by existing rules (no id needed).
 
          Rules that are not AGREE'd, EDIT'd, or REMOVE'd are automatically copied unchanged.
-         Output ONLY the operation lines, one per line. No preamble, no explanation.
          """);
 
-    var settings = new OpenAIPromptExecutionSettings { Temperature = 0.3 };
+    var settings = new AzureOpenAIPromptExecutionSettings
+    {
+        Temperature = 0.3,
+        ResponseFormat = typeof(InsightOperations)
+    };
     var response = await svc.GetChatMessageContentAsync(history, settings);
-    return response.Content?.Trim() ?? "";
+    return JsonSerializer.Deserialize<InsightOperations>(response.Content ?? "{}")
+           ?? new InsightOperations([]);
 }
 
 
-// INSIGHT OPERATIONS PARSER
-// Parses the LLM's structured output and mutates the rule set.
+// INSIGHT OPERATIONS
+// Applies the LLM's structured operations to the rule set.
 // AGREE → upvote score
 // REMOVE → remove from list
 // EDIT → replace rule text, reset score
 // ADD → insert new rule with score 0
-void ApplyInsightOperations(ExpeLMemory memory, string operationsText)
+void ApplyInsightOperations(ExpeLMemory memory, InsightOperations operations)
 {
-    foreach (var line in operationsText.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+    foreach (var op in operations.Ops)
     {
-        var trimmed = line.Trim();
-
-        // AGREE <N>: <rule>
-        var agreeMatch = Regex.Match(trimmed, @"^AGREE\s+(\d+):", RegexOptions.IgnoreCase);
-        if (agreeMatch.Success && int.TryParse(agreeMatch.Groups[1].Value, out var agreeId))
+        switch (op.Op.ToUpperInvariant())
         {
-            var insight = memory.Insights.FirstOrDefault(i => i.Id == agreeId);
-            if (insight != null)
-            {
-                insight.Score++;
-                Console.WriteLine($"  AGREE Rule {agreeId} → score now {insight.Score}");
-            }
+            case "AGREE" when op.Id is { } agreeId:
+                var agreed = memory.Insights.FirstOrDefault(i => i.Id == agreeId);
+                if (agreed != null)
+                {
+                    agreed.Score++;
+                    Console.WriteLine($"  AGREE Rule {agreeId} → score now {agreed.Score}");
+                }
 
-            continue;
-        }
+                break;
 
-        // REMOVE <N>: <rule>
-        var removeMatch = Regex.Match(trimmed, @"^REMOVE\s+(\d+):", RegexOptions.IgnoreCase);
-        if (removeMatch.Success && int.TryParse(removeMatch.Groups[1].Value, out var removeId))
-        {
-            var removed = memory.Insights.RemoveAll(i => i.Id == removeId);
-            if (removed > 0)
-                Console.WriteLine($"  REMOVE Rule {removeId}");
-            continue;
-        }
+            case "REMOVE" when op.Id is { } removeId:
+                if (memory.Insights.RemoveAll(i => i.Id == removeId) > 0)
+                    Console.WriteLine($"  REMOVE Rule {removeId}");
+                break;
 
-        // EDIT <N>: <new rule text>
-        var editMatch = Regex.Match(trimmed, @"^EDIT\s+(\d+):\s*(.+)", RegexOptions.IgnoreCase);
-        if (editMatch.Success && int.TryParse(editMatch.Groups[1].Value, out var editId))
-        {
-            var insight = memory.Insights.FirstOrDefault(i => i.Id == editId);
-            if (insight != null)
-            {
-                insight.Rule = editMatch.Groups[2].Value.Trim();
-                insight.Score = 0; // reset score on edit — re-prove its value
-                Console.WriteLine($"  EDIT Rule {editId}: {insight.Rule}");
-            }
+            case "EDIT" when op.Id is { } editId && !string.IsNullOrWhiteSpace(op.Rule):
+                var edited = memory.Insights.FirstOrDefault(i => i.Id == editId);
+                if (edited != null)
+                {
+                    edited.Rule = op.Rule.Trim();
+                    edited.Score = 0; // reset score on edit — re-prove its value
+                    Console.WriteLine($"  EDIT Rule {editId}: {edited.Rule}");
+                }
 
-            continue;
-        }
+                break;
 
-        // ADD <N>: <new rule text>
-        var addMatch = Regex.Match(trimmed, @"^ADD\s+(\d+):\s*(.+)", RegexOptions.IgnoreCase);
-        if (addMatch.Success)
-        {
-            var newId = memory.Insights.Count == 0 ? 1 : memory.Insights.Max(i => i.Id) + 1;
-            var newRule = addMatch.Groups[2].Value.Trim();
-            memory.Insights.Add(new Insight { Id = newId, Rule = newRule, Score = 0 });
-            Console.WriteLine($"  ADD Rule {newId}: {newRule}");
+            case "ADD" when !string.IsNullOrWhiteSpace(op.Rule):
+                var newId = memory.Insights.Count == 0 ? 1 : memory.Insights.Max(i => i.Id) + 1;
+                var newRule = op.Rule.Trim();
+                memory.Insights.Add(new Insight { Id = newId, Rule = newRule, Score = 0 });
+                Console.WriteLine($"  ADD Rule {newId}: {newRule}");
+                break;
         }
     }
 

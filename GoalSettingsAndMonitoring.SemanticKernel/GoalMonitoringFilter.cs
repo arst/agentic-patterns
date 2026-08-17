@@ -1,6 +1,6 @@
 ﻿using Microsoft.SemanticKernel;
 
-namespace GoalSettingAndMonitoring.SemanticKernel;
+namespace GoalSettingsAndMonitoring.SemanticKernel;
 
 public class GoalMonitoringFilter : IAutoFunctionInvocationFilter
 {
@@ -15,11 +15,11 @@ public class GoalMonitoringFilter : IAutoFunctionInvocationFilter
         if (context.Function.Name != "EvaluateGoals") return;
 
         _iteration++;
-        var result = context.Result.ToString();
+        var result = context.Result.GetValue<GoalEvaluationResult>();
 
         Console.WriteLine($"[Monitor] Iteration {_iteration}/{MaxIterations}");
 
-        if (result.Contains("\"allGoalsMet\": true"))
+        if (result?.AllGoalsMet == true)
         {
             Console.WriteLine("[Monitor] Goals achieved — terminating loop.");
             context.Terminate = true;

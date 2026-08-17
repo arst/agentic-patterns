@@ -1,5 +1,6 @@
-﻿using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.OpenAI;
+﻿using System.Text.Json;
+using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Shared;
 
 var kernel = Settings.Kernel;
@@ -13,27 +14,27 @@ var agents = new[]
 {
     new AgentConfig(
         "Analyst",
-        "You are a precise analytical reasoner. Evaluate the question step by step and give a definitive answer. End with 'ANSWER: <your answer>' on the last line.",
+        "You are a precise analytical reasoner. Evaluate the question step by step and give a definitive answer. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it.",
         0.1f // Low — deterministic, analytical
     ),
     new AgentConfig(
         "Generalist",
-        "You are a knowledgeable generalist. Think broadly and answer confidently. End with 'ANSWER: <your answer>' on the last line.",
+        "You are a knowledgeable generalist. Think broadly and answer confidently. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it.",
         0.4f // Medium — balanced
     ),
     new AgentConfig(
         "Devil's Advocate",
-        "You are a critical thinker who challenges assumptions. Consider alternative perspectives before settling on an answer. End with 'ANSWER: <your answer>' on the last line.",
+        "You are a critical thinker who challenges assumptions. Consider alternative perspectives before settling on an answer. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it.",
         0.6f // Higher — more exploratory
     ),
     new AgentConfig(
         "Specialist",
-        "You are a domain expert. Use precise, technical reasoning and give a definitive answer. End with 'ANSWER: <your answer>' on the last line.",
+        "You are a domain expert. Use precise, technical reasoning and give a definitive answer. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it.",
         0.2f
     ),
     new AgentConfig(
         "Synthesiser",
-        "You are an integrative thinker who considers multiple angles before concluding. End with 'ANSWER: <your answer>' on the last line.",
+        "You are an integrative thinker who considers multiple angles before concluding. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it.",
         0.5f
     )
 };
@@ -60,13 +61,13 @@ async Task<CoordinationResult> RunDemocraticAsync(
     IChatCompletionService svc,
     AgentConfig[] agentPool,
     string task,
-    ConsensusMode mode,
-    CancellationToken ct = default)
+    ConsensusMode mode)
 {
     // All agents reason independently in parallel
     // Each gets its own ChatHistory — no cross-contamination.
     // Task.WhenAll ensures genuine parallelism; the slowest
-    // agent gates the result, so use a timeout in production.
+    // agent gates the result, so a real timeout caps the wait.
+    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
     Console.WriteLine($"Running {agentPool.Length} agents in parallel...\n");
 
@@ -76,24 +77,28 @@ async Task<CoordinationResult> RunDemocraticAsync(
         history.AddSystemMessage(agent.SystemPrompt);
         history.AddUserMessage(task);
 
-        var settings = new OpenAIPromptExecutionSettings
+        // Structured output — the connector enforces the Vote schema
+        var settings = new AzureOpenAIPromptExecutionSettings
         {
-            Temperature = agent.Temperature
+            Temperature = agent.Temperature,
+            ResponseFormat = typeof(Vote)
         };
 
         try
         {
             var response = await svc.GetChatMessageContentAsync(
-                history, settings, cancellationToken: ct);
-            var text = response.Content ?? "";
+                history, settings, cancellationToken: cts.Token);
+            var vote = JsonSerializer.Deserialize<Vote>(response.Content ?? "{}");
+            if (vote is null) return null;
 
-            Console.WriteLine($"[{agent.Name}] ({agent.Temperature:F1}°): {text}\n");
+            Console.WriteLine(
+                $"[{agent.Name}] ({agent.Temperature:F1}°, confidence {vote.Confidence:F2}): {vote.Answer} — {vote.Reasoning}\n");
 
             return new AgentVote(
                 agent.Name,
-                text,
-                ExtractAnswer(text),
-                ExtractConfidence(text)
+                $"Answer: {vote.Answer}\nReasoning: {vote.Reasoning}",
+                vote.Answer,
+                vote.Confidence
             );
         }
         catch (OperationCanceledException)
@@ -231,7 +236,7 @@ async Task<CoordinationResult> ApplySynthesisLLMAsync(
          Synthesise these into a single authoritative answer.
          """);
 
-    var settings = new OpenAIPromptExecutionSettings { Temperature = 0.2f };
+    var settings = new AzureOpenAIPromptExecutionSettings { Temperature = 0.2f };
     var response = await svc.GetChatMessageContentAsync(synthesisHistory, settings);
     var synthesis = response.Content ?? "";
 
@@ -245,31 +250,6 @@ async Task<CoordinationResult> ApplySynthesisLLMAsync(
         votes.ToDictionary(v => v.AgentName, _ => 1),
         "V Synthesised from all agents"
     );
-}
-
-string ExtractAnswer(string response)
-{
-    var lines = response.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-    var answerLine = lines.LastOrDefault(l =>
-        l.StartsWith("ANSWER:", StringComparison.OrdinalIgnoreCase));
-
-    return answerLine != null
-        ? answerLine["ANSWER:".Length..].Trim()
-        : response.Split('.')[0].Trim(); // fallback: first sentence
-}
-
-double ExtractConfidence(string response)
-{
-    var lower = response.ToLowerInvariant();
-    if (lower.Contains("certainly") || lower.Contains("definitely") || lower.Contains("absolutely"))
-        return 0.95;
-    if (lower.Contains("i believe") || lower.Contains("i think") || lower.Contains("likely"))
-        return 0.65;
-    if (lower.Contains("possibly") || lower.Contains("might") || lower.Contains("perhaps"))
-        return 0.40;
-    if (lower.Contains("unclear") || lower.Contains("not sure") || lower.Contains("uncertain"))
-        return 0.25;
-    return 0.75; // default: moderately confident
 }
 
 void PrintResult(CoordinationResult result)

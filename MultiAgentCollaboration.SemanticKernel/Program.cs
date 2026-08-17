@@ -25,11 +25,9 @@ var reviewer = new ChatCompletionAgent
     Kernel = kernel
 };
 
-ChatHistory history = [];
-
+// ResponseCallback is the only hook this orchestration exposes for observing intermediate messages
 ValueTask responseCallback(ChatMessageContent msg)
 {
-    history.Add(msg);
     Console.WriteLine($"{msg.AuthorName}: {msg.Content}");
     return ValueTask.CompletedTask;
 }

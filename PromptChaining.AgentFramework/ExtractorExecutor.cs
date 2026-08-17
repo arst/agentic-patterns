@@ -7,18 +7,17 @@ namespace PromptChaining.AgentFramework;
 internal class ExtractorExecutor(IChatClient chatClient)
     : Executor("Extractor")
 {
+    private readonly ChatClientAgent _agent = new(chatClient, name: "ExtractorAgent",
+        instructions: """
+                      You are an information extraction engine.
+                      Extract people, organizations, and topics from the text.
+                      """);
+
     [MessageHandler]
     private async ValueTask HandleAsync(string input, IWorkflowContext context)
     {
-        var agent = new ChatClientAgent(chatClient, name: "ExtractorAgent",
-            instructions: """
-                          You are an information extraction engine.
-                          Extract people, organizations, and topics from the text.
-                          Output ONLY valid JSON: { "people": [...], "orgs": [...], "topics": [...] }
-                          """);
-
-        var response = await agent.RunAsync(input);
-        await context.SendMessageAsync(new InputWithText(response.Text, input));
+        var response = await _agent.RunAsync<ExtractedEntities>(input);
+        await context.SendMessageAsync(new InputWithText(response.Result, input));
     }
 
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocolBuilder)

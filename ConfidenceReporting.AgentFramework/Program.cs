@@ -1,5 +1,4 @@
 using System.ClientModel;
-using System.Text.Json;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -11,16 +10,12 @@ var chatClient = Settings.ChatClient;
 
 var question = "What is the capital of Australia?";
 
-// Agent for self-reported confidence — instructions enforce JSON output
+// Agent for self-reported confidence — structured output enforces the shape
 AIAgent selfReportAgent = new ChatClientAgent(chatClient, name: "SelfReporter",
     instructions: """
-                  You are a helpful assistant. Always respond in JSON with this exact schema:
-                  {
-                    "answer": "<your answer>",
-                    "confidence": <float between 0.0 and 1.0>,
-                    "reasoning": "<one sentence why you are or aren't confident>"
-                  }
-                  Return ONLY the JSON object, no markdown, no extra text.
+                  You are a helpful assistant. Answer the question, report your honest
+                  confidence between 0.0 and 1.0, and give one sentence of reasoning
+                  for why you are or aren't confident.
                   """);
 
 // For logprobs we need the raw OpenAI ChatClient (IChatClient doesn't expose logprobs)
@@ -29,16 +24,11 @@ var openAiChatClient = new AzureOpenAIClient(
         new ApiKeyCredential(Settings.AzureOpenAi.ApiKey))
     .GetChatClient(Settings.AzureOpenAi.ChatModelDeployment);
 
-// Middleware that orchestrates all three confidence techniques
-async Task<AgentResponse> ConfidenceMiddleware(
-    IEnumerable<ChatMessage> messages,
-    AgentSession? session,
-    AgentRunOptions? options,
-    AIAgent innerAgent,
-    CancellationToken cancellationToken)
-{
-    var q = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text ?? "";
+await RunConfidencePipelineAsync(question);
 
+// Runs all three confidence techniques and prints the combined verdict
+async Task RunConfidencePipelineAsync(string q)
+{
     Console.WriteLine($"Question: {q}\n");
 
     var selfReported = await GetSelfReportedConfidenceAsync(q);
@@ -58,33 +48,16 @@ async Task<AgentResponse> ConfidenceMiddleware(
     Console.WriteLine(
         $"► Combined confidence:    {combinedConfidence:P0}   → {GetConfidenceLabel(combinedConfidence)}");
 
-    return new AgentResponse([
-        new ChatMessage(ChatRole.Assistant,
-            $"Answer: {selfReported.Answer} (combined confidence: {combinedConfidence:P0})")
-    ]);
+    Console.WriteLine(
+        $"\nAnswer: {selfReported.Answer} (combined confidence: {combinedConfidence:P0})");
 }
-
-// Build the coordinator agent — its middleware handles the entire confidence pipeline.
-// The inner agent is never actually called; the middleware handles everything.
-var confidenceAgent = new ChatClientAgent(chatClient,
-        name: "ConfidenceReporter",
-        instructions: "You assess answer confidence using multiple techniques.")
-    .AsBuilder()
-    .Use(ConfidenceMiddleware, null)
-    .Build();
-
-var result = await confidenceAgent.RunAsync(question);
-Console.WriteLine($"\n{result}");
 
 // ── Self-reported confidence via agent ──────────────────────────────────────
 
 async Task<SelfReportedResult> GetSelfReportedConfidenceAsync(string q)
 {
-    var agentResult = await selfReportAgent.RunAsync(q);
-    var raw = agentResult.ToString() ?? "{}";
-
-    var parsed = JsonSerializer.Deserialize<SelfReportedResponse>(raw)
-                 ?? new SelfReportedResponse();
+    var agentResult = await selfReportAgent.RunAsync<SelfReportedResponse>(q);
+    var parsed = agentResult.Result;
 
     var hedgingWords = new[]
     {
@@ -146,7 +119,7 @@ async Task<ConsistencyResult> GetConsistencySamplingConfidenceAsync(string q, in
             new ChatMessage(ChatRole.User, q)
         ], new ChatOptions { Temperature = 0.9f });
 
-        return response.Messages[0].Text.Trim().ToLowerInvariant() ?? "";
+        return response.Text.Trim().ToLowerInvariant();
     });
 
     var results = await Task.WhenAll(tasks);

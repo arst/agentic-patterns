@@ -38,7 +38,6 @@ public class HumanApprovalFilter : IAutoFunctionInvocationFilter
                 context.Function,
                 "APPROVAL_DENIED: The human operator did not approve this action. " +
                 "Inform the customer that the action requires manual review and will be processed later.");
-            //context.Terminate = true;
         }
     }
 }

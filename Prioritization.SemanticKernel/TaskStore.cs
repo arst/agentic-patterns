@@ -3,7 +3,7 @@
 internal static class TaskStore
 {
     private static readonly ConcurrentDictionary<string, ProjectTask> _tasks = new();
-    private static int _nextId = 1;
+    private static int _nextId;
 
     public static ProjectTask Create(string description)
     {

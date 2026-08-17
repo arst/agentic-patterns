@@ -24,7 +24,12 @@ kernel.Plugins.AddFromFunctions("RemoteAgents", [
                     Parts = [new Part { Text = query }]
                 }
             });
-            return response.Task?.Artifacts?[0].Parts[0].Text;
+            // ponytail: Microsoft.SemanticKernel.Agents.A2A 1.79.0-alpha targets A2A 0.3.1-preview and
+            // breaks at runtime against the A2A 1.0.0-preview2 pinned here, so we keep the manual protocol
+            // code; swap to its A2AAgent once the wrapper catches up with the 1.0 protocol surface.
+            return response.Task?.Artifacts is [{ Parts: [{ Text: { Length: > 0 } text }, ..] }, ..]
+                ? text
+                : "The WeatherExpert agent returned no answer.";
         },
         "GetWeatherForecast",
         "Get a weather forecast from the remote WeatherExpert agent. Use this for any weather-related questions.")

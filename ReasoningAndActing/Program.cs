@@ -4,7 +4,8 @@ using Microsoft.SemanticKernel.Connectors.OpenAI;
 using ReasoningAndActing;
 using Shared;
 
-var reactKernel = Settings.Kernel;
+// Local kernel so the shared Settings.Kernel singleton stays unmodified
+var reactKernel = Settings.CreateKernelBuilder().Build();
 
 // Register tools the agent can use mid-reasoning
 reactKernel.Plugins.AddFromType<ResearchTools>();
@@ -22,14 +23,17 @@ reactHistory.AddSystemMessage("""
                               5. Synthesize all gathered information into a final answer.
 
                               Always explain your reasoning between tool calls.
+                              Use at most 10 tool calls before giving your final answer.
                               """);
 
 reactHistory.AddUserMessage(
-    "Which country has a larger population — Canada or Australia? " +
+    "Which country has a larger population â€” Canada or Australia? " +
     "And what is the approximate ratio?");
 
 var reactSettings = new OpenAIPromptExecutionSettings
 {
+    // SK 1.79 exposes no max-auto-invoke option on FunctionChoiceBehavior/FunctionChoiceBehaviorOptions,
+    // so the tool-call loop is capped via the "at most 10 tool calls" instruction above.
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
 

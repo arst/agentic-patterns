@@ -1,14 +1,17 @@
 ﻿using System.ComponentModel;
+using Microsoft.SemanticKernel;
 
-namespace GoalSettingsAndMonitoring.AgentFramework;
+namespace GoalSettingsAndMonitoring.SemanticKernel;
+
+public record GoalEvaluationResult(bool AllGoalsMet, string Feedback);
 
 public class CodeGenerationPlugin
 {
+    [KernelFunction]
     [Description(
         "Evaluate the generated code against the defined goals. " +
-        "Returns a JSON object with 'allGoalsMet' (bool) and 'feedback' (string). " +
         "Call this AFTER generating or refining code.")]
-    public static Task<string> EvaluateGoals(string code)
+    public GoalEvaluationResult EvaluateGoals(string code)
     {
         // In production: use a separate LLM call, run unit tests, or compile the code.
         // Here we do simple deterministic checks to demonstrate the pattern.
@@ -31,7 +34,6 @@ public class CodeGenerationPlugin
 
         Console.WriteLine($"  [GoalCheck] {(allMet ? "ALL GOALS MET" : $"{unmet.Count} goal(s) unmet")}");
 
-        return Task.FromResult(
-            $$"""{ "allGoalsMet": {{allMet.ToString().ToLower()}}, "feedback": "{{feedback}}" }""");
+        return new GoalEvaluationResult(allMet, feedback);
     }
 }

@@ -5,6 +5,8 @@ using Shared;
 
 const int maxIterations = 5;
 
+var plugin = new GoalEvaluationPlugin();
+
 async Task<AgentResponse> GoalDirectedMiddleware(
     IEnumerable<ChatMessage> messages,
     AgentSession? session,
@@ -18,23 +20,19 @@ async Task<AgentResponse> GoalDirectedMiddleware(
     {
         Console.WriteLine($"  [GoalMonitor] Iteration {iteration}/{maxIterations}");
 
-        var responseText = string.Join(" ",
-            response.Messages.Select(m => m.Text ?? ""));
-
-        if (responseText.Contains("\"allGoalsMet\": true") ||
-            responseText.Contains("All goals met", StringComparison.OrdinalIgnoreCase))
+        if (plugin.LastResult?.AllGoalsMet == true)
         {
-            Console.WriteLine("  [GoalMonitor] Goals achieved — returning result.");
-            return response; // Early return — middleware terminates the loop
+            Console.WriteLine("  [GoalMonitor] Goals achieved â€” returning result.");
+            return response; // Early return â€” middleware terminates the loop
         }
 
         if (iteration >= maxIterations)
         {
-            Console.WriteLine("  [GoalMonitor] Max iterations — returning best effort.");
+            Console.WriteLine("  [GoalMonitor] Max iterations â€” returning best effort.");
             return response;
         }
 
-        Console.WriteLine("[GoalMonitor] Goals not met — requesting refinement...\n");
+        Console.WriteLine("[GoalMonitor] Goals not met â€” requesting refinement...\n");
 
         var refinementMessage = new ChatMessage(ChatRole.User,
             "The goals are not fully met. Review the EvaluateGoals feedback and refine your code. " +
@@ -60,10 +58,10 @@ var agent = new ChatClientAgent(chatClient,
           1. Generate or refine C# code for the requested task.
           2. ALWAYS call EvaluateGoals with your generated code.
           3. If goals are not met, read the feedback and refine.
-          4. Present final code only after EvaluateGoals confirms allGoalsMet: true.
+          4. Present final code only after EvaluateGoals confirms all goals are met.
           """,
         "GoalDrivenCodeAgent",
-        tools: [AIFunctionFactory.Create(CodeGenerationPlugin.EvaluateGoals)])
+        tools: [AIFunctionFactory.Create(plugin.EvaluateGoals)])
     .AsBuilder()
     .Use(GoalDirectedMiddleware, null)
     .Build();
@@ -72,7 +70,7 @@ var session = await agent.CreateSessionAsync();
 
 Console.WriteLine("User: Write a C# method that parses a string to an integer safely.\n");
 
-// Single call — the goal-directed middleware handles all iterations internally
+// Single call â€” the goal-directed middleware handles all iterations internally
 var result = await agent.RunAsync(
     "Write a C# method that parses a string to an integer safely.",
     session);

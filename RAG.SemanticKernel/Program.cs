@@ -2,12 +2,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.InMemory;
-using Microsoft.SemanticKernel.Data;
 using RAG.SemanticKernel;
 using Shared;
-
-#pragma warning disable SKEXP0001
-
 
 var builder = Settings.CreateKernelBuilder();
 var kernel = builder.Build();
@@ -29,7 +25,7 @@ var policyChunks = new[]
     {
         Id = "remote-2", Source = "remote-work-policy-2025.pdf",
         Content =
-            "Remote workers must maintain a dedicated workspace with reliable internet (minimum 50 Mbps). The company provides a one-time €500 home office stipend."
+            "Remote workers must maintain a dedicated workspace with reliable internet (minimum 50 Mbps). The company provides a one-time â‚¬500 home office stipend."
     },
     new
     {
@@ -47,7 +43,7 @@ var policyChunks = new[]
     {
         Id = "expense-1", Source = "expense-policy-2025.pdf",
         Content =
-            "Business travel expenses require pre-approval for amounts exceeding €500. Economy class is standard for flights under 6 hours. Meal reimbursement is capped at €50/day."
+            "Business travel expenses require pre-approval for amounts exceeding â‚¬500. Economy class is standard for flights under 6 hours. Meal reimbursement is capped at â‚¬50/day."
     }
 };
 
@@ -65,10 +61,24 @@ for (var i = 0; i < policyChunks.Length; i++)
 
 Console.WriteLine($"Indexed {policyChunks.Length} policy chunks into the vector store.\n");
 
-var textSearch = new VectorStoreTextSearch<PolicyChunk>(collection, embeddingService);
+kernel.Plugins.AddFromFunctions("Policies", [
+    KernelFunctionFactory.CreateFromMethod(
+        async (string query) =>
+        {
+            var queryEmbedding = await embeddingService.GenerateAsync(query);
+            var results = new List<string>();
+            await foreach (var result in collection.SearchAsync(queryEmbedding.Vector, 3))
+            {
+                if (result.Score is < 0.5) continue; // cosine similarity: skip weakly related chunks
 
-var searchPlugin = textSearch.CreateWithGetTextSearchResults("SearchPolicies");
-kernel.Plugins.Add(searchPlugin);
+                results.Add($"[{result.Record.Source}] {result.Record.Content}");
+            }
+
+            return results.Count > 0 ? string.Join("\n", results) : "No relevant policy found.";
+        },
+        "SearchPolicies",
+        "Searches the company policy documents and returns the most relevant excerpts with their source names.")
+]);
 
 var chat = kernel.GetRequiredService<IChatCompletionService>();
 var settings = new PromptExecutionSettings
@@ -99,5 +109,5 @@ foreach (var question in questions)
     var response = await chat.GetChatMessageContentAsync(history, settings, kernel);
 
     Console.WriteLine($"Agent: {response.Content}\n");
-    history.AddMessage(response.Role, response.Content ?? "");
+    history.Add(response);
 }

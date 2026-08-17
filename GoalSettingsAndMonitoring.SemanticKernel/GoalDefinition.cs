@@ -1,4 +1,4 @@
-﻿namespace GoalSettingAndMonitoring.SemanticKernel;
+﻿namespace GoalSettingsAndMonitoring.SemanticKernel;
 
 public static class GoalDefinition
 {

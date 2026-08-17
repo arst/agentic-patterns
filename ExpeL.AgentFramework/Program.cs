@@ -1,5 +1,4 @@
 ﻿using System.Text.Json;
-using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
@@ -26,8 +25,7 @@ AIAgent insightAgent = new ChatClientAgent(
                   Your rules must be GENERAL and HIGH LEVEL — applicable across different tasks,
                   not just the specific examples shown.
                   Focus on reasoning patterns, edge case handling, and implementation quality habits.
-                  Output ONLY operation lines (AGREE / REMOVE / EDIT / ADD), one per line.
-                  No preamble, no explanation, no markdown.
+                  Propose operations (AGREE / REMOVE / EDIT / ADD) on the rule set.
                   """
 );
 
@@ -36,9 +34,8 @@ AIAgent evaluatorAgent = new ChatClientAgent(
     name: "EvaluatorAgent",
     instructions: """
                   You are a strict code reviewer. Evaluate whether the provided code correctly
-                  solves the given task. Respond with JSON only:
-                  {"passed": true/false, "reason": "<one sentence>"}
-                  Be strict — incomplete implementations, missing edge cases, or pseudocode = false.
+                  solves the given task, with a one-sentence reason.
+                  Be strict — incomplete implementations, missing edge cases, or pseudocode = failed.
                   """
 );
 
@@ -184,7 +181,7 @@ async Task ExtractAndUpdateInsightsAsync(
     var medTemp = new ChatClientAgentRunOptions(
         new ChatOptions { Temperature = 0.35f });
 
-    var operationsText = await insightAgt.RunAsync(
+    var operationsResponse = await insightAgt.RunAsync<InsightOperations>(
         $"""
          By examining and contrasting the successful trials against the failed trials,
          and the list of existing rules, perform operations so that the updated rule list
@@ -201,16 +198,18 @@ async Task ExtractAndUpdateInsightsAsync(
          {existingRules}
 
          === AVAILABLE OPERATIONS ===
-         AGREE <RULE NUMBER>: <EXISTING RULE>
-         REMOVE <RULE NUMBER>: <EXISTING RULE>
-         EDIT <RULE NUMBER>: <NEW MODIFIED RULE>
-         ADD <NEW RULE NUMBER>: <NEW RULE>
+         AGREE — an existing rule (by its id) is strongly relevant, keep and upvote it.
+         REMOVE — an existing rule (by its id) is contradictory, duplicated, or no longer useful.
+         EDIT — replace an existing rule's text (by its id) with an improved, broader rule.
+         ADD — add a new distinct rule not covered by existing rules (no id needed).
          """,
         options: medTemp
     );
+    var operations = operationsResponse.Result;
 
-    Console.WriteLine($"Operations:\n{operationsText.Text}\n");
-    ApplyInsightOperations(memory, operationsText.Text ?? "");
+    Console.WriteLine("Operations:\n" + string.Join("\n",
+        operations.Ops.Select(o => $"{o.Op} {o.Id}: {o.Rule}")) + "\n");
+    ApplyInsightOperations(memory, operations);
 
     Console.WriteLine("Updated insights:");
     foreach (var ins in memory.Insights.OrderByDescending(i => i.Score))
@@ -218,54 +217,44 @@ async Task ExtractAndUpdateInsightsAsync(
     Console.WriteLine();
 }
 
-void ApplyInsightOperations(ExpeLMemory memory, string operationsText)
+void ApplyInsightOperations(ExpeLMemory memory, InsightOperations operations)
 {
-    foreach (var line in operationsText.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+    foreach (var op in operations.Ops)
     {
-        var trimmed = line.Trim();
-
-        var agreeMatch = Regex.Match(trimmed, @"^AGREE\s+(\d+):", RegexOptions.IgnoreCase);
-        if (agreeMatch.Success && int.TryParse(agreeMatch.Groups[1].Value, out var agreeId))
+        switch (op.Op.ToUpperInvariant())
         {
-            var ins = memory.Insights.FirstOrDefault(i => i.Id == agreeId);
-            if (ins != null)
-            {
-                ins.Score++;
-                Console.WriteLine($"  AGREE {agreeId} → {ins.Score}");
-            }
+            case "AGREE" when op.Id is { } agreeId:
+                var agreed = memory.Insights.FirstOrDefault(i => i.Id == agreeId);
+                if (agreed != null)
+                {
+                    agreed.Score++;
+                    Console.WriteLine($"  AGREE {agreeId} → {agreed.Score}");
+                }
 
-            continue;
-        }
+                break;
 
-        var removeMatch = Regex.Match(trimmed, @"^REMOVE\s+(\d+):", RegexOptions.IgnoreCase);
-        if (removeMatch.Success && int.TryParse(removeMatch.Groups[1].Value, out var removeId))
-        {
-            if (memory.Insights.RemoveAll(i => i.Id == removeId) > 0)
-                Console.WriteLine($"  REMOVE {removeId}");
-            continue;
-        }
+            case "REMOVE" when op.Id is { } removeId:
+                if (memory.Insights.RemoveAll(i => i.Id == removeId) > 0)
+                    Console.WriteLine($"  REMOVE {removeId}");
+                break;
 
-        var editMatch = Regex.Match(trimmed, @"^EDIT\s+(\d+):\s*(.+)", RegexOptions.IgnoreCase);
-        if (editMatch.Success && int.TryParse(editMatch.Groups[1].Value, out var editId))
-        {
-            var ins = memory.Insights.FirstOrDefault(i => i.Id == editId);
-            if (ins != null)
-            {
-                ins.Rule = editMatch.Groups[2].Value.Trim();
-                ins.Score = 0;
-                Console.WriteLine($"  EDIT {editId}: {ins.Rule}");
-            }
+            case "EDIT" when op.Id is { } editId && !string.IsNullOrWhiteSpace(op.Rule):
+                var edited = memory.Insights.FirstOrDefault(i => i.Id == editId);
+                if (edited != null)
+                {
+                    edited.Rule = op.Rule.Trim();
+                    edited.Score = 0;
+                    Console.WriteLine($"  EDIT {editId}: {edited.Rule}");
+                }
 
-            continue;
-        }
+                break;
 
-        var addMatch = Regex.Match(trimmed, @"^ADD\s+(\d+):\s*(.+)", RegexOptions.IgnoreCase);
-        if (addMatch.Success)
-        {
-            var newId = memory.Insights.Count == 0 ? 1 : memory.Insights.Max(i => i.Id) + 1;
-            var newRule = addMatch.Groups[2].Value.Trim();
-            memory.Insights.Add(new Insight { Id = newId, Rule = newRule, Score = 0 });
-            Console.WriteLine($"  ADD {newId}: {newRule}");
+            case "ADD" when !string.IsNullOrWhiteSpace(op.Rule):
+                var newId = memory.Insights.Count == 0 ? 1 : memory.Insights.Max(i => i.Id) + 1;
+                var newRule = op.Rule.Trim();
+                memory.Insights.Add(new Insight { Id = newId, Rule = newRule, Score = 0 });
+                Console.WriteLine($"  ADD {newId}: {newRule}");
+                break;
         }
     }
 
@@ -300,7 +289,7 @@ string BuildInjectedPrompt(string taskDescription, ExpeLMemory memory)
 
 // LLM-BASED EVALUATOR
 // For open-ended tasks where heuristics are insufficient.
-// The EvaluatorAgent returns structured JSON.
+// The EvaluatorAgent returns a structured EvalResult.
 
 async Task<bool> EvaluateWithLLMAsync(
     AIAgent evalAgt,
@@ -308,35 +297,22 @@ async Task<bool> EvaluateWithLLMAsync(
     string agentOutput,
     Trial trial)
 {
-    var jsonOptions = new ChatClientAgentRunOptions(new ChatOptions
-    {
-        ResponseFormat = ChatResponseFormat.Json,
-        Temperature = 0.1f
-    });
+    var lowTemp = new ChatClientAgentRunOptions(new ChatOptions { Temperature = 0.1f });
 
-    var evalResponse = await evalAgt.RunAsync(
+    var evalResponse = await evalAgt.RunAsync<EvalResult>(
         $"""
          Task: {taskDescription}
 
          Submitted code:
          {agentOutput}
          """,
-        options: jsonOptions
+        options: lowTemp
     );
 
-    try
-    {
-        var result = JsonSerializer.Deserialize<EvalResult>(
-            evalResponse.Text ?? "{}") ?? new EvalResult();
-        trial.EvaluationDetails = result.Reason;
-        Console.WriteLine($"LLM eval: {result.Reason}");
-        return result.Passed;
-    }
-    catch
-    {
-        trial.EvaluationDetails = "LLM eval parse failed";
-        return false;
-    }
+    var result = evalResponse.Result;
+    trial.EvaluationDetails = result.Reason;
+    Console.WriteLine($"LLM eval: {result.Reason}");
+    return result.Passed;
 }
 
 // HEURISTIC EVALUATORS

@@ -11,5 +11,6 @@ public sealed class PolicyDocument
     [VectorStoreData(IsFullTextIndexed = true)]
     public string? Text { get; init; }
 
-    [VectorStoreVector(1536)] public ReadOnlyMemory<float> TextEmbedding { get; init; }
+    // string-typed vector property: the store's EmbeddingGenerator embeds it on upsert/search
+    [VectorStoreVector(1536)] public string? TextEmbedding { get; init; }
 }

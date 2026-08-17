@@ -1,5 +1,4 @@
 using Microsoft.Agents.AI;
-using Microsoft.Extensions.AI;
 using Shared;
 
 var chatClient = Settings.ChatClient;
@@ -13,7 +12,7 @@ AIAgent researcher = new ChatClientAgent(chatClient, name: "Researcher",
                   4. Rate confidence (low/medium/high).
 
                   Generate 3 distinct hypotheses varying in approach and boldness.
-                  Be creative � explore unconventional angles.
+                  Be creative — explore unconventional angles.
 
                   Format each as:
                   ## Hypothesis N: [title]
@@ -32,8 +31,9 @@ AIAgent critic = new ChatClientAgent(chatClient, name: "Critic",
                   4. WEAKNESSES: Gaps, assumptions, potential flaws?
                   5. Score 1-10 on overall promise.
 
-                  Be constructive but rigorous. Identify the SINGLE most promising hypothesis.
-                  End with: "MOST PROMISING: Hypothesis N" and "OVERALL QUALITY: [low/medium/high]"
+                  Be constructive but rigorous. Provide your full evaluation as feedback,
+                  identify the SINGLE most promising hypothesis, and rate the overall
+                  quality of the set as low, medium or high.
                   """);
 
 AIAgent evolver = new ChatClientAgent(chatClient, name: "Evolver",
@@ -61,80 +61,60 @@ AIAgent evolver = new ChatClientAgent(chatClient, name: "Evolver",
 
 const int maxIterations = 2;
 
-async Task<AgentResponse> ExplorationMiddleware(
-    IEnumerable<ChatMessage> messages,
-    AgentSession? session,
-    AgentRunOptions? options,
-    AIAgent innerAgent,
-    CancellationToken cancellationToken)
+var topic = "What are novel approaches to reducing antibiotic resistance " +
+            "in hospital settings that don't involve developing new antibiotics?";
+var currentHypotheses = "";
+var lastCritique = "";
+
+Console.WriteLine($"Research Topic: {topic}\n");
+
+for (var iteration = 1; iteration <= maxIterations; iteration++)
 {
-    var topic = messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text ?? "";
-    var currentHypotheses = "";
-    var lastCritique = "";
+    Console.WriteLine($"\n--- Iteration {iteration}/{maxIterations} ---\n");
+    Console.WriteLine("[Researcher] Generating hypotheses...\n");
 
-    Console.WriteLine($"Research Topic: {topic}\n");
+    var genPrompt = iteration == 1
+        ? $"Research topic: {topic}\n\nGenerate 3 novel hypotheses."
+        : $"Research topic: {topic}\n\nPrevious evolved hypotheses:\n{currentHypotheses}\n\n" +
+          "Build on these. Generate 3 NEW hypotheses in DIFFERENT directions.";
 
-    for (var iteration = 1; iteration <= maxIterations; iteration++)
+    var researcherResult = await researcher.RunAsync(genPrompt);
+    var researcherOutput = researcherResult.Text;
+    Console.WriteLine(researcherOutput);
+
+    Console.WriteLine("\n\n[Critic] Evaluating hypotheses...\n");
+
+    var criticResult = await critic.RunAsync<Critique>(
+        $"Research topic: {topic}\n\nHypotheses to evaluate:\n{researcherOutput}");
+    var critique = criticResult.Result;
+    Console.WriteLine(critique.Feedback);
+    Console.WriteLine($"MOST PROMISING: {critique.MostPromising}");
+    Console.WriteLine($"OVERALL QUALITY: {critique.Quality}");
+    lastCritique = critique.Feedback;
+
+    if (critique.Quality.Equals("high", StringComparison.OrdinalIgnoreCase)
+        && iteration > 1)
     {
-        Console.WriteLine($"\n--- Iteration {iteration}/{maxIterations} ---\n");
-        Console.WriteLine("[Researcher] Generating hypotheses...\n");
-
-        var genPrompt = iteration == 1
-            ? $"Research topic: {topic}\n\nGenerate 3 novel hypotheses."
-            : $"Research topic: {topic}\n\nPrevious evolved hypotheses:\n{currentHypotheses}\n\n" +
-              "Build on these. Generate 3 NEW hypotheses in DIFFERENT directions.";
-
-        var researcherResult = await researcher.RunAsync(genPrompt);
-        var researcherOutput = researcherResult.ToString() ?? "";
-        Console.WriteLine(researcherOutput);
-
-        Console.WriteLine("\n\n[Critic] Evaluating hypotheses...\n");
-
-        var criticResult = await critic.RunAsync(
-            $"Research topic: {topic}\n\nHypotheses to evaluate:\n{researcherOutput}");
-        var criticOutput = criticResult.ToString() ?? "";
-        Console.WriteLine(criticOutput);
-        lastCritique = criticOutput;
-
-        if (criticOutput.Contains("OVERALL QUALITY: high", StringComparison.OrdinalIgnoreCase)
-            && iteration > 1)
-        {
-            Console.WriteLine("\nHigh quality reached � stopping exploration.");
-            break;
-        }
-
-        Console.WriteLine("\n\n[Evolver] Refining hypotheses...\n");
-
-        var evolverResult = await evolver.RunAsync(
-            $"Research topic: {topic}\n\n" +
-            $"Original hypotheses:\n{researcherOutput}\n\n" +
-            $"Critic's evaluation:\n{criticOutput}\n\n" +
-            "Evolve the most promising hypothesis and generate one new one.");
-        currentHypotheses = evolverResult.ToString() ?? "";
-        Console.WriteLine(currentHypotheses);
+        Console.WriteLine("\nHigh quality reached — stopping exploration.");
+        break;
     }
 
-    var summary = $"## Exploration Complete\n\n" +
-                  $"### Final Hypotheses\n{currentHypotheses}\n\n" +
-                  $"### Last Critique\n{lastCritique}\n\n" +
-                  "These are AI-generated hypotheses requiring human validation.";
+    Console.WriteLine("\n\n[Evolver] Refining hypotheses...\n");
 
-    return new AgentResponse([new ChatMessage(ChatRole.Assistant, summary)]);
+    var evolverResult = await evolver.RunAsync(
+        $"Research topic: {topic}\n\n" +
+        $"Original hypotheses:\n{researcherOutput}\n\n" +
+        $"Critic's evaluation:\n{critique.Feedback}\n" +
+        $"Most promising hypothesis: {critique.MostPromising}\n\n" +
+        "Evolve the most promising hypothesis and generate one new one.");
+    currentHypotheses = evolverResult.Text;
+    Console.WriteLine(currentHypotheses);
 }
 
-// Build the coordinator agent � its middleware handles the entire exploration cycle
-// The innerAgent is never actually called (the middleware handles everything),
-// but we need a base agent to attach middleware to.
-var explorationAgent = new ChatClientAgent(chatClient,
-        name: "ExplorationCoordinator",
-        instructions: "You coordinate research exploration.")
-    .AsBuilder()
-    .Use(ExplorationMiddleware, null)
-    .Build();
+Console.WriteLine("\n--- Final Discovery Summary ---\n");
+Console.WriteLine($"## Exploration Complete\n\n" +
+                  $"### Final Hypotheses\n{currentHypotheses}\n\n" +
+                  $"### Last Critique\n{lastCritique}\n\n" +
+                  "These are AI-generated hypotheses requiring human validation.");
 
-var result = await explorationAgent.RunAsync(
-    "What are novel approaches to reducing antibiotic resistance " +
-    "in hospital settings that don't involve developing new antibiotics?");
-
-Console.WriteLine($"\n{'-',0}--- Final Discovery Summary ---\n");
-Console.WriteLine(result);
+internal sealed record Critique(string Feedback, string MostPromising, string Quality);

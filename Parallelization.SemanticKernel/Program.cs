@@ -36,22 +36,15 @@ async Task<string> RunAgentAsync(ChatCompletionAgent agent, string input)
     return $"## {agent.Name}{Environment.NewLine}{string.Join(Environment.NewLine, responses)}";
 }
 
-try
+var tasks = new[]
 {
-    var tasks = new[]
-    {
-        RunAgentAsync(researcher, prompt),
-        RunAgentAsync(marketer, prompt),
-        RunAgentAsync(legal, prompt)
-    };
+    RunAgentAsync(researcher, prompt),
+    RunAgentAsync(marketer, prompt),
+    RunAgentAsync(legal, prompt)
+};
 
-    var outputs = await Task.WhenAll(tasks);
+var outputs = await Task.WhenAll(tasks);
 
-    Console.WriteLine(string.Join(
-        $"{Environment.NewLine}{Environment.NewLine}---{Environment.NewLine}{Environment.NewLine}",
-        outputs));
-}
-catch (Exception ex)
-{
-    Console.WriteLine(ex.ToString());
-}
+Console.WriteLine(string.Join(
+    $"{Environment.NewLine}{Environment.NewLine}---{Environment.NewLine}{Environment.NewLine}",
+    outputs));

@@ -4,16 +4,18 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
 
+// Specialized reasoning tier; the fast/default tier comes from shared config
+const string ReasoningModelDeployment = "o4-mini";
+var fastModelDeployment = Settings.AzureOpenAi.ChatModelDeployment;
+
 var credential = new ApiKeyCredential(Settings.AzureOpenAi.ApiKey);
 var azureClient = new AzureOpenAIClient(new Uri(Settings.AzureOpenAi.Endpoint), credential);
 
-var fastClient = azureClient
-    .GetChatClient("gpt-4o-mini")
-    .AsIChatClient();
+var fastModel = (Client: azureClient.GetChatClient(fastModelDeployment).AsIChatClient(),
+    ModelId: fastModelDeployment);
 
-var reasoningClient = azureClient
-    .GetChatClient("o4-mini")
-    .AsIChatClient();
+var reasoningModel = (Client: azureClient.GetChatClient(ReasoningModelDeployment).AsIChatClient(),
+    ModelId: ReasoningModelDeployment);
 var budget = new BudgetState(50);
 
 static string ClassifyQuery(IEnumerable<ChatMessage> messages)
@@ -41,21 +43,19 @@ async Task<ChatResponse> RoutingMiddleware(
     Console.WriteLine($"  [Router] Classified as: {tier}");
 
     // Build a fallback chain based on classification
-    IChatClient[] chain = tier == "reasoning"
-        ? [reasoningClient, fastClient]
-        : [fastClient, reasoningClient];
+    var chain = tier == "reasoning"
+        ? new[] { reasoningModel, fastModel }
+        : new[] { fastModel, reasoningModel };
 
     // If budget is exceeded, force the cheapest model
     if (budget.Exceeded)
     {
-        Console.WriteLine("  [Router] Budget exceeded — forcing fast tier.");
-        chain = [fastClient];
+        Console.WriteLine("  [Router] Budget exceeded â€” forcing fast tier.");
+        chain = [fastModel];
     }
 
-    foreach (var client in chain)
+    foreach (var (client, modelId) in chain)
     {
-        var modelId = client == reasoningClient ? "o4-mini" : "gpt-4o-mini";
-
         try
         {
             Console.WriteLine($"  [Router] Trying: {modelId}");
@@ -69,13 +69,14 @@ async Task<ChatResponse> RoutingMiddleware(
             Console.WriteLine($"  [Router] Success with: {modelId}");
             return response;
         }
-        catch (Exception ex)
+        // Only transient failures (HTTP errors, timeouts, network) should trigger the fallback tier
+        catch (Exception ex) when (ex is ClientResultException or HttpRequestException or TaskCanceledException)
         {
             Console.WriteLine($"  [Fallback] {modelId} failed: {ex.Message}");
         }
     }
 
-    // All models failed — call the original pipeline as last resort
+    // All models failed â€” call the original pipeline as last resort
     Console.WriteLine("  [Fallback] All tier models failed. Trying original pipeline.");
     return await chatClient.GetResponseAsync(messages, options, cancellationToken);
 }
@@ -102,8 +103,7 @@ async Task<AgentResponse> BudgetEnforcementMiddleware(
     return response;
 }
 
-var client = azureClient.GetChatClient("gpt-4o-mini")
-    .AsIChatClient()
+var client = fastModel.Client
     .AsBuilder()
     .Use(RoutingMiddleware, null)
     .Build();
@@ -135,4 +135,4 @@ foreach (var query in queries)
     Console.WriteLine($"Agent: {result}");
 }
 
-Console.WriteLine($"\nTotal estimated cost: {budget.TotalCostCents:F2}¢");
+Console.WriteLine($"\nTotal estimated cost: {budget.TotalCostCents:F2}Â¢");

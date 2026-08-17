@@ -14,7 +14,7 @@ var azureClient = new AzureOpenAIClient(new Uri(Settings.AzureOpenAi.Endpoint),
     new ApiKeyCredential(Settings.AzureOpenAi.ApiKey));
 
 var embeddingGenerator = azureClient
-    .GetEmbeddingClient("text-embedding-3-small")
+    .GetEmbeddingClient(Settings.AzureOpenAi.EmbeddingModelDeployment)
     .AsIEmbeddingGenerator();
 
 var vectorStore = new InMemoryVectorStore(new InMemoryVectorStoreOptions { EmbeddingGenerator = embeddingGenerator });
@@ -26,25 +26,22 @@ var policies = new (string Id, string Source, string Text)[]
     ("remote-1", "Remote Work Policy 2025",
         "Employees may work remotely up to 3 days per week. Manager approval is required for full remote. Remote work agreements must be renewed annually."),
     ("remote-2", "Remote Work Policy 2025",
-        "Remote workers must maintain a dedicated workspace with reliable internet (min 50 Mbps). The company provides a one-time €500 home office stipend."),
+        "Remote workers must maintain a dedicated workspace with reliable internet (min 50 Mbps). The company provides a one-time â‚¬500 home office stipend."),
     ("pto-1", "Leave Policy 2025",
         "Full-time employees receive 25 days of paid time off per year. Unused PTO can be carried over up to 5 days into the next calendar year."),
     ("pto-2", "Leave Policy 2025",
         "Parental leave is 16 weeks fully paid for the primary caregiver and 6 weeks for the secondary caregiver. Applies to both birth and adoption."),
     ("expense-1", "Expense Policy 2025",
-        "Business travel requires pre-approval for amounts exceeding €500. Economy class is standard for flights under 6 hours. Meal reimbursement capped at €50/day.")
+        "Business travel requires pre-approval for amounts exceeding â‚¬500. Economy class is standard for flights under 6 hours. Meal reimbursement capped at â‚¬50/day.")
 };
 
-var texts = policies.Select(p => p.Text).ToList();
-var embeddings = await embeddingGenerator.GenerateAsync(texts);
-
-for (var i = 0; i < policies.Length; i++)
+foreach (var (id, source, text) in policies)
     await collection.UpsertAsync(new PolicyDocument
     {
-        Id = policies[i].Id,
-        SourceName = policies[i].Source,
-        Text = policies[i].Text,
-        TextEmbedding = embeddings[i].Vector
+        Id = id,
+        SourceName = source,
+        Text = text,
+        TextEmbedding = text // embedded by the collection's EmbeddingGenerator
     });
 
 Console.WriteLine($"Indexed {policies.Length} policy documents.\n");
@@ -52,21 +49,18 @@ Console.WriteLine($"Indexed {policies.Length} policy documents.\n");
 async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchPoliciesAsync(
     string query, CancellationToken cancellationToken)
 {
-    // Embed the query and search the vector store
-    var queryEmbedding = await embeddingGenerator.GenerateAsync(query, cancellationToken: cancellationToken);
-
-    var searchResults = collection.SearchAsync(
-        queryEmbedding.Vector,
-        3,
-        cancellationToken: cancellationToken);
-
+    // The collection embeds the query text itself via its EmbeddingGenerator
     var results = new List<TextSearchProvider.TextSearchResult>();
-    await foreach (var result in searchResults)
+    await foreach (var result in collection.SearchAsync(query, 3, cancellationToken: cancellationToken))
+    {
+        if (result.Score is < 0.5) continue; // cosine similarity: skip weakly related chunks
+
         results.Add(new TextSearchProvider.TextSearchResult
         {
             Text = result.Record.Text ?? "",
             SourceName = result.Record.SourceName
         });
+    }
 
     return results;
 }

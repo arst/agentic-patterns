@@ -12,7 +12,7 @@ async Task<AgentResponse> InputGuardMiddleware(
     var lastUserMsg = messages.LastOrDefault(m => m.Role == ChatRole.User);
     var userText = lastUserMsg?.Text ?? "";
 
-    // Block prompt injection attempts — return early, skip the agent entirely
+    // Block prompt injection attempts â€” return early, skip the agent entirely
     if (SafetyChecks.IsInjection(userText))
     {
         Console.WriteLine("  [InputGuard] BLOCKED: Prompt injection detected.");
@@ -84,7 +84,7 @@ async Task<AgentResponse> OutputGuardMiddleware(
 
     if (responseText.Length > 2000)
     {
-        Console.WriteLine("  [OutputGuard] Response too long — truncating.");
+        Console.WriteLine("  [OutputGuard] Response too long â€” truncating.");
         return new AgentResponse([
             new ChatMessage(ChatRole.Assistant,
                 responseText[..2000] + "\n\n[Response truncated for safety.]")
@@ -98,7 +98,7 @@ async Task<AgentResponse> OutputGuardMiddleware(
 // Execution order: InputGuard ? OutputGuard ? PiiGuard ? LLM -> PiiGuard
 var chatClient = Settings.ChatClient
     .AsBuilder()
-    // Layer 3: IChatClient middleware — PII redaction at the LLM boundary
+    // Layer 3: IChatClient middleware â€” PII redaction at the LLM boundary
     .Use(PiiGuardMiddleware, null)
     .Build();
 var agent = new ChatClientAgent(chatClient,
@@ -119,7 +119,7 @@ var agent = new ChatClientAgent(chatClient,
                       """
     )
     .AsBuilder()
-    // Layer 1a: Input guard (outermost — runs first)
+    // Layer 1a: Input guard (outermost â€” runs first)
     .Use(InputGuardMiddleware, null)
     // Layer 1b: Output guard (runs after agent, before returning to caller)
     .Use(OutputGuardMiddleware, null)
@@ -143,8 +143,6 @@ var testCases = new (string Label, string Input)[]
         "How do I reset my TechCorp device?")
 };
 
-var session = await agent.CreateSessionAsync();
-
 foreach (var (label, input) in testCases)
 {
     Console.WriteLine($"\n{'=',-60}");
@@ -152,6 +150,8 @@ foreach (var (label, input) in testCases)
     Console.WriteLine($"User: {input}");
     Console.WriteLine($"{'=',-60}");
 
+    // Fresh session per test case so earlier turns don't pollute later ones
+    var session = await agent.CreateSessionAsync();
     var result = await agent.RunAsync(input, session);
     Console.WriteLine($"Agent: {result}");
 }

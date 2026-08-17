@@ -42,5 +42,5 @@ foreach (var userMessage in userMessages)
     var response = await chat.GetChatMessageContentAsync(history, settings, kernel);
 
     Console.WriteLine($"\nAgent: {response.Content}");
-    history.AddMessage(response.Role, response.Content ?? "");
+    history.Add(response);
 }

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Workflows;
 
@@ -10,11 +9,9 @@ internal class SummarizerExecutor(AIAgent summarizerAgent)
     [MessageHandler]
     private async ValueTask HandleAsync(InputWithText message, IWorkflowContext context)
     {
-        using var doc = JsonDocument.Parse(message.RawJson);
-        var root = doc.RootElement;
-        var people = string.Join(", ", root.GetProperty("people").EnumerateArray().Select(e => e.GetString()));
-        var orgs = string.Join(", ", root.GetProperty("orgs").EnumerateArray().Select(e => e.GetString()));
-        var topics = string.Join(", ", root.GetProperty("topics").EnumerateArray().Select(e => e.GetString()));
+        var people = string.Join(", ", message.Entities.People);
+        var orgs = string.Join(", ", message.Entities.Orgs);
+        var topics = string.Join(", ", message.Entities.Topics);
 
         var prompt = $"""
                       Summarize the text in 5 bullet points.

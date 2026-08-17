@@ -23,13 +23,6 @@ AIAgent router = new ChatClientAgent(
                       - Account: login, access, permissions, profile
                       - General: everything else
 
-                      Return a JSON object matching this schema:
-                      {
-                        "route": "Billing|Technical|Account|General",
-                        "reason": "short explanation",
-                        "confidence": 0.0
-                      }
-
                       Rules:
                       - Pick ONE route only.
                       - Confidence: 0 to 1.
@@ -82,8 +75,7 @@ Console.WriteLine();
 if (decision.Confidence <= 0.55)
 {
     var clarification = await general.RunAsync(
-        $"Ask one clarifying question to route this request correctly:\n\nUser: {userMessage}",
-        session
+        $"Ask one clarifying question to route this request correctly:\n\nUser: {userMessage}"
     );
 
     Console.WriteLine(clarification.Text);
@@ -98,9 +90,9 @@ var target = decision.Route switch
     _ => general
 };
 
+// Stateless specialist run — the router's session (and its triage context) stays with the router
 var response = await target.RunAsync(
     userMessage,
-    session,
     cancellationToken: CancellationToken.None
 );
 

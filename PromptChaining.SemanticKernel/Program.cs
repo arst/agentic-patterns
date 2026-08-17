@@ -38,17 +38,11 @@ async Task<ExtractedEntities> ExtractEntities(Kernel kernel1, string s)
     var extractPrompt = """
                         You are an information extraction engine.
                         Extract people, organizations, and topics from the text.
-                        Output ONLY valid JSON matching this schema:
-                        {
-                          "people": ["..."],
-                          "orgs": ["..."],
-                          "topics": ["..."]
-                        }
 
                         TEXT:
                         {{$text}}
                         """;
-    var entitiesJson1 = await InvokePromptAsync(
+    var entitiesJson = await InvokePromptAsync(
         kernel1,
         extractPrompt,
         new KernelArguments(new OpenAIPromptExecutionSettings
@@ -56,20 +50,8 @@ async Task<ExtractedEntities> ExtractEntities(Kernel kernel1, string s)
             ResponseFormat = typeof(ExtractedEntities)
         }) { ["text"] = s });
 
-    ExtractedEntities extractedEntities;
-    try
-    {
-        extractedEntities = JsonSerializer.Deserialize<ExtractedEntities>(entitiesJson1,
-                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-                            ?? throw new JsonException("Null JSON result.");
-    }
-    catch (Exception ex)
-    {
-        // Guardrail: step-local failure handling (retry step 1, tighten prompt, log, etc.)
-        throw new InvalidOperationException("Step 1 failed: invalid JSON entities output.", ex);
-    }
-
-    return extractedEntities;
+    return JsonSerializer.Deserialize<ExtractedEntities>(entitiesJson)
+           ?? throw new InvalidOperationException("Step 1 failed: invalid JSON entities output.");
 }
 
 async Task<string> GenerateSummary(Kernel kernel2, string input1, ExtractedEntities entities1)

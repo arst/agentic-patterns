@@ -20,7 +20,7 @@
   <Project Path="ExpeL.SemanticKernel/ExpeL.SemanticKernel.csproj" />
   <Project Path="ExplorationAndDiscovery.AgentFramework/ExplorationAndDiscovery.AgentFramework.csproj" />
   <Project Path="ExplorationAndDiscovery.SemanticKernel/ExplorationAndDiscovery.SemanticKernel.csproj" />
-  <Project Path="GoalSettingAndMonitoring.SemanticKernel/GoalSettingAndMonitoring.SemanticKernel.csproj" />
+  <Project Path="GoalSettingsAndMonitoring.SemanticKernel/GoalSettingsAndMonitoring.SemanticKernel.csproj" />
   <Project Path="GoalSettingsAndMonitoring.AgentFramework/GoalSettingsAndMonitoring.AgentFramework.csproj" />
   <Project Path="GuardRails.AgentFramework/GuardRails.AgentFramework.csproj" />
   <Project Path="GuardRails.SemanticKernel/GuardRails.SemanticKernel.csproj" />

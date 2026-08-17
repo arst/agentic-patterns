@@ -1,4 +1,6 @@
+using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Shared;
 
 var chatClient = Settings.ChatClient;
@@ -18,6 +20,7 @@ var planner = new ChatClientAgent(
                   Rules:
                   - Use as few steps as possible (max 5).
                   - Ensure later steps only depend on outputs from earlier steps.
+                  - To pass an earlier step's output as an arg value, use the placeholder {{stepN}}, e.g. "confirmation": "{{step2}}".
                   - Do not invent tool names.
                   """
 );
@@ -33,22 +36,29 @@ Console.WriteLine("=== Plan ===");
 foreach (var s in plan.Steps)
     Console.WriteLine($"{s.Id}. {s.Tool} - {s.Description}");
 
+var tools = new Dictionary<string, AIFunction>(StringComparer.OrdinalIgnoreCase)
+{
+    ["GetFlights"] = AIFunctionFactory.Create(GetFlights, "GetFlights"),
+    ["BookFlight"] = AIFunctionFactory.Create(BookFlight, "BookFlight"),
+    ["DraftEmail"] = AIFunctionFactory.Create(DraftEmail, "DraftEmail")
+};
+
 var memory = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-foreach (var step in plan.Steps)
+foreach (var step in plan.Steps.Take(5)) // enforce the max-5-steps rule
 {
-    var output = step.Tool switch
-    {
-        "GetFlights" => GetFlights(
-            step.Args["from"],
-            step.Args["to"],
-            step.Args["date"]),
-        "BookFlight" => BookFlight(step.Args["flightId"]),
-        "DraftEmail" => DraftEmail(step.Args["confirmation"]),
-        _ => throw new InvalidOperationException($"Tool not allowed: {step.Tool}")
-    };
+    if (!tools.TryGetValue(step.Tool, out var tool))
+        throw new InvalidOperationException($"Tool not allowed: {step.Tool}");
 
-    memory[$"step_{step.Id}"] = output;
+    // Substitute {{stepN}} placeholders with earlier step outputs from memory.
+    var stepArgs = new AIFunctionArguments(step.Args.ToDictionary(
+        kv => kv.Key,
+        object? (kv) => Regex.Replace(kv.Value, @"\{\{step(\d+)\}\}",
+            m => memory.GetValueOrDefault(m.Groups[1].Value, m.Value))));
+
+    var output = (await tool.InvokeAsync(stepArgs))?.ToString() ?? "";
+
+    memory[step.Id.ToString()] = output;
     Console.WriteLine($"\n[Step {step.Id}] {step.Tool} output:\n{output}");
 }
 

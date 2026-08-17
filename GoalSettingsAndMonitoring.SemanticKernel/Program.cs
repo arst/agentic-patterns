@@ -1,4 +1,4 @@
-using GoalSettingAndMonitoring.SemanticKernel;
+using GoalSettingsAndMonitoring.SemanticKernel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -31,7 +31,7 @@ var history = new ChatHistory(
       3. If goals are not met, read the feedback and refine your code.
       4. Repeat until all goals are met.
 
-      Do NOT present a final answer until EvaluateGoals returns allGoalsMet: true.
+      Do NOT present a final answer until EvaluateGoals confirms all goals are met.
       """);
 
 Console.WriteLine("User: Write a C# method that parses a string to an integer safely.\n");

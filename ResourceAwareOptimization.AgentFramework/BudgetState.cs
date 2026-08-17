@@ -19,7 +19,7 @@ internal class BudgetState(double maxBudgetCents)
             };
             var totalTokens = (usage.InputTokenCount ?? 0) + (usage.OutputTokenCount ?? 0);
             var cost = totalTokens / 1000.0 * costPer1K;
-            Interlocked.Exchange(ref _totalCostCents, _totalCostCents + cost);
+            _totalCostCents += cost; // single-threaded demo, no synchronization needed
             Console.WriteLine(
                 $"  [Budget] {modelId}: {totalTokens} tokens, " +
                 $"~{cost:F3}¢ (total: {_totalCostCents:F2}¢ / {maxBudgetCents}¢)");

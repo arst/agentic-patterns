@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.AzureOpenAI;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using OpenAI.Chat;
 using Shared;
@@ -33,26 +34,21 @@ async Task<SelfReportedResult> GetSelfReportedConfidenceAsync(
 {
     var history = new ChatHistory();
     history.AddSystemMessage("""
-                             You are a helpful assistant. Always respond in JSON with this exact schema:
-                             {
-                               "answer": "<your answer>",
-                               "confidence": <float between 0.0 and 1.0>,
-                               "reasoning": "<one sentence why you are or aren't confident>"
-                             }
-                             Return ONLY the JSON object, no markdown, no extra text.
+                             You are a helpful assistant. Answer the question, report your honest
+                             confidence between 0.0 and 1.0, and give one sentence of reasoning
+                             for why you are or aren't confident.
                              """);
     history.AddUserMessage(q);
 
-    // Tell SK we want JSON back
-    var settings = new OpenAIPromptExecutionSettings
+    // Structured output — the connector enforces the SelfReportedResponse schema
+    var settings = new AzureOpenAIPromptExecutionSettings
     {
-        ResponseFormat = "json_object"
+        ResponseFormat = typeof(SelfReportedResponse)
     };
 
     var response = await svc.GetChatMessageContentAsync(history, settings);
-    var raw = response.Content ?? "{}";
 
-    var parsed = JsonSerializer.Deserialize<SelfReportedResponse>(raw)
+    var parsed = JsonSerializer.Deserialize<SelfReportedResponse>(response.Content ?? "{}")
                  ?? new SelfReportedResponse();
 
     // Bonus: detect hedging language in the answer itself

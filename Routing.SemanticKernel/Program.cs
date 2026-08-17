@@ -66,8 +66,10 @@ ChatHistory history = [];
 ValueTask responseCallback(ChatMessageContent msg)
 {
     history.Add(msg);
-    Console.WriteLine(
-        $"{msg.AuthorName ?? msg.Role.ToString()}: {msg.Content ?? (msg as OpenAIChatMessageContent)!.ToolCalls[0].FunctionName}");
+    var text = msg.Content
+               ?? (msg as OpenAIChatMessageContent)?.ToolCalls.FirstOrDefault()?.FunctionName
+               ?? "[tool call]";
+    Console.WriteLine($"{msg.AuthorName ?? msg.Role.ToString()}: {text}");
     return ValueTask.CompletedTask;
 }
 
@@ -76,7 +78,9 @@ userInputs.Enqueue("I was charged twice on my last invoice.");
 
 ValueTask<ChatMessageContent> interactiveCallback()
 {
-    var input = userInputs.Dequeue();
+    var input = userInputs.TryDequeue(out var queued)
+        ? queued
+        : "That's all I needed, thank you.";
     Console.WriteLine($"\nUser: {input}");
     return ValueTask.FromResult(new ChatMessageContent(AuthorRole.User, input));
 }

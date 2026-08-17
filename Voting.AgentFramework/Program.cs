@@ -13,35 +13,35 @@ var voterAgents = new[]
         Settings.ChatClient,
         name: "Analyst",
         instructions:
-        "You are a precise analytical reasoner. Evaluate the question step by step and give a definitive answer. End with 'ANSWER: <your answer>' on the last line."
+        "You are a precise analytical reasoner. Evaluate the question step by step and give a definitive answer. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it."
     ), Temperature: 0.1f),
 
     (Agent: new ChatClientAgent(
         Settings.ChatClient,
         name: "Generalist",
         instructions:
-        "You are a knowledgeable generalist. Think broadly and answer confidently. End with 'ANSWER: <your answer>' on the last line."
+        "You are a knowledgeable generalist. Think broadly and answer confidently. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it."
     ), Temperature: 0.4f),
 
     (Agent: new ChatClientAgent(
         Settings.ChatClient,
         name: "DevilsAdvocate",
         instructions:
-        "You are a critical thinker who challenges assumptions. Consider alternatives before concluding. End with 'ANSWER: <your answer>' on the last line."
+        "You are a critical thinker who challenges assumptions. Consider alternatives before concluding. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it."
     ), Temperature: 0.6f),
 
     (Agent: new ChatClientAgent(
         Settings.ChatClient,
         name: "Specialist",
         instructions:
-        "You are a domain expert. Use precise, technical reasoning. End with 'ANSWER: <your answer>' on the last line."
+        "You are a domain expert. Use precise, technical reasoning. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it."
     ), Temperature: 0.2f),
 
     (Agent: new ChatClientAgent(
         Settings.ChatClient,
         name: "Integrator",
         instructions:
-        "You are an integrative thinker who weighs multiple angles before concluding. End with 'ANSWER: <your answer>' on the last line."
+        "You are an integrative thinker who weighs multiple angles before concluding. Give your final answer, your reasoning, and your honest confidence between 0.0 and 1.0 — do not inflate it."
     ), Temperature: 0.5f)
 };
 
@@ -83,12 +83,14 @@ async Task<CoordinationResult> RunDemocraticAsync(
     (ChatClientAgent Agent, float Temperature)[] pool,
     AIAgent synthAgent,
     string task,
-    ConsensusMode mode,
-    CancellationToken ct = default)
+    ConsensusMode mode)
 {
     // STEP 1: All agents reason in parallel
     // MAF agents are stateless — the same instance is safe to
     // call concurrently. Per-run temperature via ChatClientAgentRunOptions.
+
+    // Real timeout — slow agents are cancelled and excluded from the vote
+    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
     Console.WriteLine($"Running {pool.Length} agents in parallel...\n");
 
@@ -102,17 +104,18 @@ async Task<CoordinationResult> RunDemocraticAsync(
 
         try
         {
-            var response = await agent.RunAsync(task, options: runOptions,
-                cancellationToken: ct);
-            var text = response.Text ?? "";
+            var response = await agent.RunAsync<Vote>(task, options: runOptions,
+                cancellationToken: cts.Token);
+            var vote = response.Result;
 
-            Console.WriteLine($"[{agent.Name}] ({temperature:F1}°): {text}\n");
+            Console.WriteLine(
+                $"[{agent.Name}] ({temperature:F1}°, confidence {vote.Confidence:F2}): {vote.Answer} — {vote.Reasoning}\n");
 
             return new AgentVote(
                 agent.Name!,
-                text,
-                ExtractAnswer(text),
-                ExtractConfidence(text)
+                $"Answer: {vote.Answer}\nReasoning: {vote.Reasoning}",
+                vote.Answer,
+                vote.Confidence
             );
         }
         catch (OperationCanceledException)
@@ -237,27 +240,6 @@ async Task<CoordinationResult> ApplySynthesisAsync(
         votes.ToDictionary(v => v.AgentName, _ => 1),
         "V Synthesised from all agents"
     );
-}
-
-string ExtractAnswer(string response)
-{
-    var lines = response.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-    var answerLine = lines.LastOrDefault(l =>
-        l.StartsWith("ANSWER:", StringComparison.OrdinalIgnoreCase));
-
-    return answerLine != null
-        ? answerLine["ANSWER:".Length..].Trim()
-        : response.Split('.')[0].Trim();
-}
-
-double ExtractConfidence(string response)
-{
-    var lower = response.ToLowerInvariant();
-    if (lower.Contains("certainly") || lower.Contains("definitely")) return 0.95;
-    if (lower.Contains("i believe") || lower.Contains("i think")) return 0.65;
-    if (lower.Contains("possibly") || lower.Contains("might")) return 0.40;
-    if (lower.Contains("unclear") || lower.Contains("not sure")) return 0.25;
-    return 0.75;
 }
 
 void PrintResult(CoordinationResult result)
