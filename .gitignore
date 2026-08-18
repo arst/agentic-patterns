@@ -420,3 +420,8 @@ FodyWeavers.xsd
 # Claude Code: share project settings, keep local/session files out
 .claude/*
 !.claude/settings.json
+
+# IDE / local tool state
+.idea/
+.serena/
+**/.claude/settings.local.json

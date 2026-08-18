@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//d/projects/Misc/agentic-patterns/**)",
-      "Bash(dotnet build:*)"
-    ]
-  }
-}
