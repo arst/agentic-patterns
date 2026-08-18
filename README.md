@@ -13,6 +13,8 @@ The fastest way in is the local browser app: it lists every pattern, explains wh
 use it, and how the sample works (with a diagram and the source files), and runs any sample live
 with its console output streamed into the page.
 
+![The Pattern Explorer running the Middleware sample](docs/pattern-explorer.png)
+
 ```bash
 dotnet run --project PatternExplorer
 # then open http://localhost:5080
