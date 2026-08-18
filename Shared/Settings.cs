@@ -46,6 +46,10 @@ public static class Settings
             .AddAzureOpenAIChatCompletion(
                 AzureOpenAi.ChatModelDeployment,
                 AzureOpenAi.Endpoint,
+                AzureOpenAi.ApiKey)
+            .AddAzureOpenAIEmbeddingGenerator(
+                AzureOpenAi.EmbeddingModelDeployment,
+                AzureOpenAi.Endpoint,
                 AzureOpenAi.ApiKey);
     }
 }

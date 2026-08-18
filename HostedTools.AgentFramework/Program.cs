@@ -5,16 +5,19 @@
 // Azure OpenAI deployments that support the Responses API with hosted tools.
 
 using System.ClientModel;
-using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using OpenAI;
 using Shared;
 
 #pragma warning disable OPENAI001 // Responses API is marked evaluation-only in the OpenAI SDK
 
-var chatClient = new AzureOpenAIClient(
-        new Uri(Settings.AzureOpenAi.Endpoint),
-        new ApiKeyCredential(Settings.AzureOpenAi.ApiKey))
+// The plain OpenAI client against Azure's v1 endpoint ({endpoint}/openai/v1) — the GA surface
+// for the Responses API. (Azure.AI.OpenAI 2.9.0-beta.1's GetResponsesClient() is binary-
+// incompatible with the OpenAI 2.12 that MEAI 10.9 requires: MissingMethodException.)
+var chatClient = new OpenAIClient(
+        new ApiKeyCredential(Settings.AzureOpenAi.ApiKey),
+        new OpenAIClientOptions { Endpoint = new Uri(new Uri(Settings.AzureOpenAi.Endpoint), "openai/v1") })
     .GetResponsesClient()
     .AsIChatClient(Settings.AzureOpenAi.ChatModelDeployment);
 

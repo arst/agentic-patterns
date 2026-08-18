@@ -1,17 +1,12 @@
+using System.Numerics.Tensors;
 using Microsoft.Extensions.AI;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.InMemory;
-using RAG.SemanticKernel;
 using Shared;
 
 var builder = Settings.CreateKernelBuilder();
 var kernel = builder.Build();
 var embeddingService = kernel.GetRequiredService<IEmbeddingGenerator<string, Embedding<float>>>();
-
-var vectorStore = new InMemoryVectorStore();
-var collection = vectorStore.GetCollection<string, PolicyChunk>("company_policies");
-await collection.EnsureCollectionExistsAsync();
 
 var policyChunks = new[]
 {
@@ -47,32 +42,26 @@ var policyChunks = new[]
     }
 };
 
-var contents = policyChunks.Select(c => c.Content).ToList();
-var embeddings = await embeddingService.GenerateAsync(contents);
+// ponytail: 5 chunks need a List + cosine loop, not a vector store.
+// (Microsoft.SemanticKernel.Connectors.InMemory 1.74.0-preview is runtime-incompatible with the
+// VectorData.Abstractions 10.x this package graph resolves to — TypeLoadException on SearchAsync.)
+var embeddings = await embeddingService.GenerateAsync(policyChunks.Select(c => c.Content).ToList());
+var index = embeddings.Zip(policyChunks, (e, c) => (c.Source, c.Content, e.Vector)).ToList();
 
-for (var i = 0; i < policyChunks.Length; i++)
-    await collection.UpsertAsync(new PolicyChunk
-    {
-        Id = policyChunks[i].Id,
-        Source = policyChunks[i].Source,
-        Content = policyChunks[i].Content,
-        Embedding = embeddings[i]
-    });
-
-Console.WriteLine($"Indexed {policyChunks.Length} policy chunks into the vector store.\n");
+Console.WriteLine($"Indexed {policyChunks.Length} policy chunks.\n");
 
 kernel.Plugins.AddFromFunctions("Policies", [
     KernelFunctionFactory.CreateFromMethod(
         async (string query) =>
         {
-            var queryEmbedding = await embeddingService.GenerateAsync(query);
-            var results = new List<string>();
-            await foreach (var result in collection.SearchAsync(queryEmbedding.Vector, 3))
-            {
-                if (result.Score is < 0.5) continue; // cosine similarity: skip weakly related chunks
-
-                results.Add($"[{result.Record.Source}] {result.Record.Content}");
-            }
+            var queryVector = (await embeddingService.GenerateAsync(query)).Vector;
+            var results = index
+                .Select(p => (p.Source, p.Content, Score: TensorPrimitives.CosineSimilarity(p.Vector.Span, queryVector.Span)))
+                .Where(p => p.Score >= 0.5f) // cosine similarity: skip weakly related chunks
+                .OrderByDescending(p => p.Score)
+                .Take(3)
+                .Select(p => $"[{p.Source}] {p.Content}")
+                .ToList();
 
             return results.Count > 0 ? string.Join("\n", results) : "No relevant policy found.";
         },

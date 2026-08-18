@@ -1,9 +1,8 @@
 using System.ClientModel;
+using System.Numerics.Tensors;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
-using Microsoft.SemanticKernel.Connectors.InMemory;
-using RAG.AgentFramework;
 using Shared;
 using TextSearchProvider = Microsoft.Agents.AI.TextSearchProvider;
 using TextSearchProviderOptions = Microsoft.Agents.AI.TextSearchProviderOptions;
@@ -16,10 +15,6 @@ var azureClient = new AzureOpenAIClient(new Uri(Settings.AzureOpenAi.Endpoint),
 var embeddingGenerator = azureClient
     .GetEmbeddingClient(Settings.AzureOpenAi.EmbeddingModelDeployment)
     .AsIEmbeddingGenerator();
-
-var vectorStore = new InMemoryVectorStore(new InMemoryVectorStoreOptions { EmbeddingGenerator = embeddingGenerator });
-var collection = vectorStore.GetCollection<string, PolicyDocument>("company_policies");
-await collection.EnsureCollectionExistsAsync();
 
 var policies = new (string Id, string Source, string Text)[]
 {
@@ -35,34 +30,25 @@ var policies = new (string Id, string Source, string Text)[]
         "Business travel requires pre-approval for amounts exceeding €500. Economy class is standard for flights under 6 hours. Meal reimbursement capped at €50/day.")
 };
 
-foreach (var (id, source, text) in policies)
-    await collection.UpsertAsync(new PolicyDocument
-    {
-        Id = id,
-        SourceName = source,
-        Text = text,
-        TextEmbedding = text // embedded by the collection's EmbeddingGenerator
-    });
+// ponytail: 5 chunks need a List + cosine loop, not a vector store.
+// (Microsoft.SemanticKernel.Connectors.InMemory 1.74.0-preview is runtime-incompatible with the
+// VectorData.Abstractions 10.x this package graph resolves to — TypeLoadException on SearchAsync.)
+var index = (await embeddingGenerator.GenerateAsync(policies.Select(p => p.Text)))
+    .Zip(policies, (e, p) => (p.Source, p.Text, e.Vector)).ToList();
 
 Console.WriteLine($"Indexed {policies.Length} policy documents.\n");
 
 async Task<IEnumerable<TextSearchProvider.TextSearchResult>> SearchPoliciesAsync(
     string query, CancellationToken cancellationToken)
 {
-    // The collection embeds the query text itself via its EmbeddingGenerator
-    var results = new List<TextSearchProvider.TextSearchResult>();
-    await foreach (var result in collection.SearchAsync(query, 3, cancellationToken: cancellationToken))
-    {
-        if (result.Score is < 0.5) continue; // cosine similarity: skip weakly related chunks
-
-        results.Add(new TextSearchProvider.TextSearchResult
-        {
-            Text = result.Record.Text ?? "",
-            SourceName = result.Record.SourceName
-        });
-    }
-
-    return results;
+    var queryVector = (await embeddingGenerator.GenerateAsync(query, cancellationToken: cancellationToken)).Vector;
+    return index
+        .Select(p => (p.Source, p.Text, Score: TensorPrimitives.CosineSimilarity(p.Vector.Span, queryVector.Span)))
+        .Where(p => p.Score >= 0.5f) // cosine similarity: skip weakly related chunks
+        .OrderByDescending(p => p.Score)
+        .Take(3)
+        .Select(p => new TextSearchProvider.TextSearchResult { Text = p.Text, SourceName = p.Source })
+        .ToList();
 }
 
 var textSearchOptions = new TextSearchProviderOptions
