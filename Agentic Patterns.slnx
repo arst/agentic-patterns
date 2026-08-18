@@ -8,12 +8,17 @@
   <Folder Name="/ReasoningTechniques/">
     <Project Path="ChainofThoughts/ChainofThoughts.csproj" />
     <Project Path="ReasoningAndActing/ReasoningAndActing.csproj" />
+    <Project Path="Reflexion/Reflexion.csproj" />
     <Project Path="SelfConsistency/SelfConsistency.csproj" />
     <Project Path="SelfCorrectionLoop/SelfCorrectionLoop.csproj" />
     <Project Path="TreeOfThoughts/TreeOfThoughts.csproj" />
   </Folder>
+  <Project Path="AgenticRAG.AgentFramework/AgenticRAG.AgentFramework.csproj" />
   <Project Path="ContextCompaction.AgentFramework/ContextCompaction.AgentFramework.csproj" />
+  <Project Path="Debate.AgentFramework/Debate.AgentFramework.csproj" />
   <Project Path="DurableExecution.AgentFramework/DurableExecution.AgentFramework.csproj" />
+  <Project Path="DurableHumanInTheLoop.AgentFramework/DurableHumanInTheLoop.AgentFramework.csproj" />
+  <Project Path="Middleware.AgentFramework/Middleware.AgentFramework.csproj" />
   <Project Path="Handoff.AgentFramework/Handoff.AgentFramework.csproj" />
   <Project Path="MCP.AgentFramework/MCP.AgentFramework.csproj" />
   <Project Path="Magentic.AgentFramework/Magentic.AgentFramework.csproj" />

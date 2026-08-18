@@ -5,16 +5,19 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, and the Agent-Framework-only workflow patterns `Magentic`, `Handoff`, `DurableExecution`, `ContextCompaction`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`).
 
 ## Patterns
 
 | Pattern | What it demonstrates |
 |---|---|
+| AgenticRAG | Retrieval as an agent tool: query rewriting, result grading, re-retrieval |
 | ChainofThoughts | Step-by-step reasoning in a single prompt |
 | ConfidenceReporting | Self-reported + probe-based confidence scoring |
 | ContextCompaction | Compaction strategies for long-running agent context |
+| Debate | Opposing agents argue over rounds, a judge rules |
 | DurableExecution | Workflow checkpointing and resume across restarts |
+| DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
 | EvaluationAndMonitoring | Telemetry, metrics, and tracing around agent runs |
 | ExceptionHandlingAndRecovery | Retry, fallback, and graceful degradation |
 | ExpeL | Learning insights from experience across episodes |
@@ -29,6 +32,7 @@ A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrection
 | MCP | Consuming Model Context Protocol tool servers |
 | Magentic | Manager-driven open-ended multi-agent orchestration |
 | MemoryManagement | Session persistence and conversation memory |
+| Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | MultiAgentCollaboration | Group-chat orchestration |
 | Parallelization | Concurrent fan-out / fan-in over agents |
 | Planning | Typed plan generation + execution |
@@ -36,6 +40,7 @@ A few patterns exist in only one flavor (e.g. `ChainofThoughts`, `SelfCorrection
 | PromptChaining | Multi-step prompt pipelines (workflow-based in AF) |
 | RAG | Retrieval-augmented generation over a vector store |
 | ReasoningAndActing | ReAct-style reason/act tool loops |
+| Reflexion | Episodic retry: attempt → verify → self-reflect → retry with reflections |
 | ResourceAwareOptimization | Model routing under a cost budget |
 | Routing | Intent routing to specialist agents (incl. a workflow variant) |
 | SelfConsistency | Sampled reasoning paths with majority voting |
@@ -57,6 +62,8 @@ cd Shared
 dotnet user-secrets set "AzureOpenAi:Endpoint" "https://<resource>.openai.azure.com/"
 dotnet user-secrets set "AzureOpenAi:ApiKey" "<key>"
 dotnet user-secrets set "AzureOpenAi:ChatModelDeployment" "<deployment>"
+# needed by the RAG/SemanticCaching samples:
+dotnet user-secrets set "AzureOpenAi:EmbeddingModelDeployment" "<embedding-deployment>"
 ```
 
 ## Run a sample
