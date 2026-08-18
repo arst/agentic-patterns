@@ -7,6 +7,24 @@ A collection of agentic patterns, each implemented twice for comparison:
 
 A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`).
 
+## Pattern Explorer
+
+The fastest way in is the local browser app: it lists every pattern, explains what it is, when to
+use it, and how the sample works (with a diagram and the source files), and runs any sample live
+with its console output streamed into the page.
+
+```bash
+dotnet run --project PatternExplorer
+# then open http://localhost:5080
+```
+
+Running a sample from the UI spawns `dotnet run` for that project and calls your Azure OpenAI
+deployment, exactly as running it from the terminal would. Samples that ask for approval get an
+input box wired to the process's stdin; the A2A sample starts its server first automatically.
+
+The write-ups live in `PatternExplorer/patterns/*.md` — one file per pattern, re-read on every
+request, so edits show up on refresh.
+
 ## Patterns
 
 | Pattern | What it demonstrates |

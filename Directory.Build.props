@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <ItemGroup Condition="'$(MSBuildProjectName)' != 'Shared'">
+    <ItemGroup Condition="'$(MSBuildProjectName)' != 'Shared' AND '$(MSBuildProjectName)' != 'PatternExplorer'">
         <Content Include="$(MSBuildThisFileDirectory)settings\appsettings.json">
             <Link>appsettings.json</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

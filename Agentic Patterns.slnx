@@ -19,6 +19,7 @@
   <Project Path="DurableExecution.AgentFramework/DurableExecution.AgentFramework.csproj" />
   <Project Path="DurableHumanInTheLoop.AgentFramework/DurableHumanInTheLoop.AgentFramework.csproj" />
   <Project Path="Middleware.AgentFramework/Middleware.AgentFramework.csproj" />
+  <Project Path="PatternExplorer/PatternExplorer.csproj" />
   <Project Path="Handoff.AgentFramework/Handoff.AgentFramework.csproj" />
   <Project Path="MCP.AgentFramework/MCP.AgentFramework.csproj" />
   <Project Path="Magentic.AgentFramework/Magentic.AgentFramework.csproj" />

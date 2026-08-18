@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Agentic Patterns Explorer</title>
+    <link rel="icon" href="data:,"/>
+    <link rel="stylesheet" href="app.css"/>
+</head>
+<body>
+<aside>
+    <h1>Agentic Patterns</h1>
+    <input id="filter" type="search" placeholder="Filter patterns..." autocomplete="off"/>
+    <nav id="list"></nav>
+</aside>
+
+<main>
+    <div id="empty" class="empty">Pick a pattern on the left.</div>
+
+    <article id="pattern" hidden>
+        <h2 id="title"></h2>
+        <p id="summary" class="summary"></p>
+
+        <div class="toolbar">
+            <div id="flavors" class="flavors"></div>
+            <button id="run" class="run">Run this sample</button>
+            <span id="note" class="note"></span>
+        </div>
+
+        <div id="doc" class="doc"></div>
+
+        <h3 class="sources-heading">Source</h3>
+        <div id="sources" class="sources"></div>
+        <pre id="source-view" class="source-view" hidden></pre>
+    </article>
+</main>
+
+<section id="terminal-panel" hidden>
+    <header>
+        <span id="terminal-title">Output</span>
+        <span id="status" class="status"></span>
+        <button id="cancel" class="ghost">Stop</button>
+        <button id="close-terminal" class="ghost">Close</button>
+    </header>
+    <pre id="terminal"></pre>
+    <form id="stdin-form" hidden>
+        <input id="stdin" type="text" placeholder="Type a reply and press Enter (goes to the sample's stdin)" autocomplete="off"/>
+        <button type="submit">Send</button>
+    </form>
+</section>
+
+<script src="vendor/marked.min.js"></script>
+<script src="vendor/mermaid.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
