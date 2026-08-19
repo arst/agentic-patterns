@@ -55,6 +55,7 @@
   <Project Path="Planning.SemanticKernel/Planning.SemanticKernel.csproj" />
   <Project Path="Prioritization.AgentFramework/Prioritization.AgentFramework.csproj" />
   <Project Path="Prioritization.SemanticKernel/Prioritization.SemanticKernel.csproj" />
+  <Project Path="ProgressiveToolDisclosure.AgentFramework/ProgressiveToolDisclosure.AgentFramework.csproj" />
   <Project Path="PromptChaining.AgentFramework/PromptChaining.AgentFramework.csproj" />
   <Project Path="PromptChaining.SemanticKernel/PromptChaining.SemanticKernel.csproj" />
   <Project Path="RAG.AgentFramework/RAG.AgentFramework.csproj" />

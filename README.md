@@ -5,7 +5,7 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`).
 
 ## Pattern Explorer
 
@@ -58,6 +58,7 @@ request, so edits show up on refresh.
 | Parallelization | Concurrent fan-out / fan-in over agents |
 | Planning | Typed plan generation + execution |
 | Prioritization | Task triage with tools |
+| ProgressiveToolDisclosure | Search-then-bind tool loading instead of carrying the whole catalog |
 | PromptChaining | Multi-step prompt pipelines (workflow-based in AF) |
 | RAG | Retrieval-augmented generation over a vector store |
 | ReasoningAndActing | ReAct-style reason/act tool loops |
