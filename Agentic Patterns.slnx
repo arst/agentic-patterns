@@ -14,6 +14,7 @@
     <Project Path="TreeOfThoughts/TreeOfThoughts.csproj" />
   </Folder>
   <Project Path="AgenticRAG.AgentFramework/AgenticRAG.AgentFramework.csproj" />
+  <Project Path="CacheAwareContext.AgentFramework/CacheAwareContext.AgentFramework.csproj" />
   <Project Path="CodeAct.AgentFramework/CodeAct.AgentFramework.csproj" />
   <Project Path="ContextCompaction.AgentFramework/ContextCompaction.AgentFramework.csproj" />
   <Project Path="ContextOffloading.AgentFramework/ContextOffloading.AgentFramework.csproj" />
