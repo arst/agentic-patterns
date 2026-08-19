@@ -71,6 +71,7 @@
   <Project Path="SelfNote.AgentFramework/SelfNote.AgentFramework.csproj" />
   <Project Path="SelfNote.SemanticKernel/SelfNote.SemanticKernel.csproj" />
   <Project Path="Shared/Shared.csproj" />
+  <Project Path="SkillLearning.AgentFramework/SkillLearning.AgentFramework.csproj" />
   <Project Path="ToolUse.AgentFramework/ToolUse.AgentFramework.csproj" />
   <Project Path="ToolUse.SemanticKernel/ToolUse.SemanticKernel.csproj" />
   <Project Path="Voting.AgentFramework/Voting.AgentFramework.csproj" />

@@ -5,7 +5,7 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`).
 
 ## Pattern Explorer
 
@@ -72,6 +72,7 @@ request, so edits show up on refresh.
 | SelfCorrectionLoop | Draft → evaluate → revise loops |
 | SelfNote | Margin-note taking to aid long-context answers |
 | SemanticCaching | Exact and similarity-based response caching |
+| SkillLearning | Distill a trial-and-error trajectory into a SKILL.md future agents load on demand |
 | ToolUse | Function calling basics |
 | TreeOfThoughts | Branching thought exploration with pruning |
 | Voting | Multi-agent voting with confidence weighting |
