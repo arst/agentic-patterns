@@ -61,6 +61,7 @@
   <Project Path="PromptChaining.SemanticKernel/PromptChaining.SemanticKernel.csproj" />
   <Project Path="RAG.AgentFramework/RAG.AgentFramework.csproj" />
   <Project Path="RAG.SemanticKernel/RAG.SemanticKernel.csproj" />
+  <Project Path="RalphLoop.AgentFramework/RalphLoop.AgentFramework.csproj" />
   <Project Path="ResourceAwareOptimization.AgentFramework/ResourceAwareOptimization.AgentFramework.csproj" />
   <Project Path="ResourceAwareOptimization.SemanticKernel/ResourceAwareOptimization.SemanticKernel.csproj" />
   <Project Path="Routing.AgentFramework.Workflow/Routing.AgentFramework.Workflow.csproj" />
