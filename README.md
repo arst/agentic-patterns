@@ -5,7 +5,7 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`).
 
 ## Pattern Explorer
 
@@ -33,6 +33,7 @@ request, so edits show up on refresh.
 |---|---|
 | AgenticRAG | Retrieval as an agent tool: query rewriting, result grading, re-retrieval |
 | ChainofThoughts | Step-by-step reasoning in a single prompt |
+| CodeAct | One code-execution tool instead of many bound tools; results stay in the script |
 | ConfidenceReporting | Self-reported + probe-based confidence scoring |
 | ContextCompaction | Compaction strategies for long-running agent context |
 | Debate | Opposing agents argue over rounds, a judge rules |
