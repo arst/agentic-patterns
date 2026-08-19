@@ -5,7 +5,7 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`).
 
 ## Pattern Explorer
 
@@ -36,6 +36,7 @@ request, so edits show up on refresh.
 | CodeAct | One code-execution tool instead of many bound tools; results stay in the script |
 | ConfidenceReporting | Self-reported + probe-based confidence scoring |
 | ContextCompaction | Compaction strategies for long-running agent context |
+| ContextOffloading | Bulky tool results offloaded to files, recoverable via a read-back tool |
 | Debate | Opposing agents argue over rounds, a judge rules |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
