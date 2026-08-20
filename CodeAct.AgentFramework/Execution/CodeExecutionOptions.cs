@@ -9,8 +9,8 @@ public sealed record CodeExecutionOptions
     public string ContainerImage { get; init; } = "agentic-patterns-codeact-sandbox";
 
     /// <summary>
-    /// First of the two required opt-ins for host execution (the CLI flag). The second is
-    /// the acknowledgement environment variable — see <see cref="CodeRunnerFactory"/>.
+    /// First of the two required opt-ins for host execution (CLI flag or environment variable).
+    /// The second is the acknowledgement environment variable — see <see cref="CodeRunnerFactory"/>.
     /// </summary>
     public bool AllowUnsafeHostExecution { get; init; }
 

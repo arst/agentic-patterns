@@ -29,6 +29,9 @@ AzureOpenAi__ApiKey=<key>
 AzureOpenAi__ChatModelDeployment=<deployment>
 AzureOpenAi__EmbeddingModelDeployment=<embedding-deployment>
 # Mem0__ApiKey=<key> # only for the Semantic Kernel memory sample
+# CodeAct inside the outer Pattern Explorer container (deliberate double opt-in):
+# AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION=true
+# AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION=I_UNDERSTAND_THIS_RUNS_UNTRUSTED_CODE_ON_MY_HOST
 ```
 
 ```bash
@@ -48,9 +51,9 @@ docker run --rm --init \
 The image contains the .NET 10 SDK, prebuilt samples, and Node.js with npm/npx. It runs as a
 non-root user; the command above also binds only to loopback and drops Linux capabilities. Do
 not expose Pattern Explorer directly to the internet: its run endpoints intentionally execute
-samples with the supplied credentials. CodeAct is unavailable in the container by design;
-mounting the host Docker socket would give the app control of the host daemon, so run that sample
-from a local checkout with Docker or Podman instead.
+samples with the supplied credentials. Enabling the two optional CodeAct variables runs generated
+code directly inside this outer container instead of a nested Docker sandbox. The generated code
+therefore shares the container's credentials, filesystem, and network access.
 
 Running a sample from the UI spawns `dotnet run` for that project and calls your Azure OpenAI
 deployment, exactly as running it from the terminal would. Samples that ask for approval get an
@@ -143,7 +146,7 @@ executes generated code, shell commands, or dynamically selected tools:
 
 Concretely, for the `CodeAct` sample:
 
-- **The sandbox is mandatory.** Generated code runs in a locked-down local container;
+- **The sandbox is the default.** Generated code runs in a locked-down local container;
   Docker or Podman is required. On first run the sample builds the sandbox image itself
   from `CodeAct.AgentFramework/Sandbox/Dockerfile` — a pinned .NET SDK with a NuGet cache
   pre-warmed at build time, so at run time the container needs (and gets) no network.
@@ -157,7 +160,8 @@ Concretely, for the `CodeAct` sample:
 - **Execution fails closed.** No container runtime means the sample refuses to run —
   there is no silent fallback to host execution. Running generated code on the host
   requires a deliberate double opt-in (`--allow-unsafe-host-execution` plus an
-  acknowledgement environment variable) and exists only for demonstration.
+  acknowledgement environment variable). Pattern Explorer's image accepts
+  `AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION=true` instead of the CLI flag.
 - **The included sandbox is a teaching boundary, not a production one.** Production
   systems should use a disposable worker, VM/microVM, or hardened sandbox service with
   no ambient credentials. Never execute model-generated code in the application process

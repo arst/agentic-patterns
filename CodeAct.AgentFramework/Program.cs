@@ -19,7 +19,7 @@ using Shared;
 // opt-in means the sample refuses to run rather than degrading to host execution.
 var runner = CodeRunnerFactory.Create(new CodeExecutionOptions
 {
-    AllowUnsafeHostExecution = args.Contains("--allow-unsafe-host-execution")
+    AllowUnsafeHostExecution = CodeRunnerFactory.IsUnsafeHostExecutionRequested(args)
 });
 
 const string question =

@@ -14,13 +14,16 @@ public class CodeActExecutionTests
 
     // xunit runs tests in one class sequentially, so mutating the process environment
     // here cannot race another test in this class.
-    private static T WithAcknowledgement<T>(string? value, Func<T> body)
+    private static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
     {
-        var original = Environment.GetEnvironmentVariable(CodeRunnerFactory.UnsafeAcknowledgementVariable);
-        Environment.SetEnvironmentVariable(CodeRunnerFactory.UnsafeAcknowledgementVariable, value);
+        var original = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(name, value);
         try { return body(); }
-        finally { Environment.SetEnvironmentVariable(CodeRunnerFactory.UnsafeAcknowledgementVariable, original); }
+        finally { Environment.SetEnvironmentVariable(name, original); }
     }
+
+    private static T WithAcknowledgement<T>(string? value, Func<T> body) =>
+        WithEnvironmentVariable(CodeRunnerFactory.UnsafeAcknowledgementVariable, value, body);
 
     // ---- runner selection ----
 
@@ -68,6 +71,15 @@ public class CodeActExecutionTests
             Assert.IsType<ContainerCodeRunner>(
                 CodeRunnerFactory.Create(Options with { AllowUnsafeHostExecution = true },
                     containerRuntimeAvailable: true)));
+
+    [Fact]
+    public void UnsafeExecutionCanBeRequestedByFlagOrEnvironmentVariable()
+    {
+        Assert.True(CodeRunnerFactory.IsUnsafeHostExecutionRequested([CodeRunnerFactory.UnsafeEnableFlag]));
+        Assert.True(WithEnvironmentVariable(CodeRunnerFactory.UnsafeEnableVariable,
+            CodeRunnerFactory.UnsafeEnableValue,
+            () => CodeRunnerFactory.IsUnsafeHostExecutionRequested([])));
+    }
 
     // ---- container arguments: least privilege, pinned flag by flag ----
 

@@ -62,7 +62,7 @@ flowchart LR
 A `CallCounter` (delegating `IChatClient`) counts model round-trips, and both rounds
 print their `AgentResponse.Usage` token totals for a side-by-side comparison.
 
-## Security: the sandbox is mandatory
+## Security: sandbox by default
 
 This pattern executes model-generated code, which must be treated as hostile. The rule
 this repo applies to every pattern that executes generated code, shell commands, or
@@ -75,7 +75,8 @@ dynamically selected tools:
 execution**: with Docker (or Podman via `CodeExecutionOptions.ContainerRuntime`) present
 you get `ContainerCodeRunner`; without it the sample throws before the first model call.
 Running model code on the host requires a deliberate double opt-in — the
-`--allow-unsafe-host-execution` flag AND
+`--allow-unsafe-host-execution` flag (or
+`AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION=true` for Pattern Explorer's Docker image) AND
 `AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION=I_UNDERSTAND_THIS_RUNS_UNTRUSTED_CODE_ON_MY_HOST` —
 so nobody lands in unsafe mode just because Docker happened to be stopped.
 
