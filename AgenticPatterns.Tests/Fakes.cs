@@ -35,7 +35,9 @@ internal sealed class FixedEmbeddingGenerator(Dictionary<string, float[]> vector
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new GeneratedEmbeddings<Embedding<float>>(
             values.Select(v => new Embedding<float>(
-                vectors.TryGetValue(v, out var vec) ? vec : [1f, 0f, 0f]))));
+                // Default is orthogonal to every registered vector — an unregistered
+                // input must never accidentally look similar to a registered one.
+                vectors.TryGetValue(v, out var vec) ? vec : [0f, 0f, 1f]))));
 
     public object? GetService(Type serviceType, object? serviceKey = null) => null;
 

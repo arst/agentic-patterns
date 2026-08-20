@@ -52,6 +52,7 @@ var agent = new ChatClientAgent(Settings.ChatClient,
 // when the artifact each task promises actually exists and is non-empty.
 string[] artifacts = ["research.md", "itinerary.md", "summary.md"];
 List<string> missing = [.. artifacts];
+var planDone = false;
 
 for (var iteration = 1; iteration <= 8; iteration++)
 {
@@ -63,7 +64,7 @@ for (var iteration = 1; iteration <= 8; iteration++)
         .SelectMany(m => m.Contents).OfType<FunctionCallContent>().Count();
     Console.WriteLine($"Iteration {iteration}: {response.Text.ReplaceLineEndings(" ").Trim()}  [{toolCalls} tool calls, context discarded]");
 
-    var planDone = !File.ReadAllText(Path.Combine(workDir, "PLAN.md")).Contains("- [ ]");
+    planDone = !File.ReadAllText(Path.Combine(workDir, "PLAN.md")).Contains("- [ ]");
     missing = [.. artifacts.Where(f => new FileInfo(Path.Combine(workDir, f)) is not { Exists: true, Length: > 0 })];
 
     if (planDone && missing.Count == 0)
@@ -82,8 +83,9 @@ for (var iteration = 1; iteration <= 8; iteration++)
     }
 }
 
-if (missing.Count > 0)
-    Console.WriteLine($"\nFAILED: plan not satisfied — missing or empty: {string.Join(", ", missing)}");
+if (!planDone || missing.Count > 0)
+    Console.WriteLine($"\nFAILED: plan not satisfied — " +
+        (missing.Count > 0 ? $"missing or empty: {string.Join(", ", missing)}" : "unchecked tasks remain"));
 
 Console.WriteLine($"\n---- PLAN.md ----\n{File.ReadAllText(Path.Combine(workDir, "PLAN.md"))}");
 Console.WriteLine($"\n---- PROGRESS.md (how iterations talked to each other) ----\n{File.ReadAllText(Path.Combine(workDir, "PROGRESS.md"))}");

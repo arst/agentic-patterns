@@ -56,13 +56,13 @@ await foreach (var evt in run.WatchStreamAsync().ConfigureAwait(false))
             break;
         case RequestInfoEvent requestInfo when requestInfo.Request.TryGetDataAs<MagenticPlanReviewRequest>(out var review):
         {
-            Console.Write("[review] plan sign-off requested. Approve? (y/yes = approve, other text = revision feedback, empty/EOF = reject): ");
+            Console.Write("[review] plan sign-off requested. Approve? (y/yes = approve, n/no/empty/EOF = reject, other text = revision feedback): ");
             var answer = Console.ReadLine()?.Trim();
             if (answer?.ToLowerInvariant() is "y" or "yes")
             {
                 await run.SendResponseAsync(requestInfo.Request.CreateResponse(review!.Approve()));
             }
-            else if (!string.IsNullOrEmpty(answer))
+            else if (!string.IsNullOrEmpty(answer) && answer.ToLowerInvariant() is not ("n" or "no"))
             {
                 Console.WriteLine("[review] sending revision feedback to the manager\n");
                 await run.SendResponseAsync(requestInfo.Request.CreateResponse(review!.Revise(answer)));

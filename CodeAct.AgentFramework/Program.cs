@@ -65,7 +65,10 @@ Report("CodeAct", codeActMeter, codeActResponse);
 }
 finally
 {
-    Directory.Delete(workDir, recursive: true);
+    // Best effort — a cleanup failure must never mask the real exception
+    try { Directory.Delete(workDir, recursive: true); }
+    catch (IOException) { }
+    catch (UnauthorizedAccessException) { }
 }
 
 return;
@@ -106,6 +109,7 @@ async Task<string> ExecuteCSharp(string code)
     catch (OperationCanceledException)
     {
         process.Kill(entireProcessTree: true);
+        process.WaitForExit(); // release file handles so the workdir can be deleted
         return "Script timed out after 2 minutes and was killed.";
     }
 

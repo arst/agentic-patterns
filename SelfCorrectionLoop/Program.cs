@@ -41,6 +41,7 @@ const int maxIterations = 3;
 const int charLimit = 150;
 var currentDraft = "";
 var latestFeedback = "";
+string? approvedDraft = null;
 var drafts = new List<(string Draft, double Score)>();
 
 for (var i = 1; i <= maxIterations; i++)
@@ -80,6 +81,7 @@ for (var i = 1; i <= maxIterations; i++)
     var verdict = latestFeedback.Split('\n')[0].Trim();
     if (verdict.StartsWith("APPROVED", StringComparison.OrdinalIgnoreCase))
     {
+        approvedDraft = currentDraft;
         Console.WriteLine($"\nApproved after {i} iteration(s).");
         break;
     }
@@ -88,5 +90,6 @@ for (var i = 1; i <= maxIterations; i++)
         Console.WriteLine("\nMax iterations reached. Using best draft.");
 }
 
-var (finalPost, _) = DraftSelection.Best(drafts, charLimit);
+// An approved draft always wins; best-by-score is only the fallback when nothing was approved.
+var finalPost = approvedDraft ?? DraftSelection.Best(drafts, charLimit).Draft;
 Console.WriteLine($"\nFinal post: {finalPost}");

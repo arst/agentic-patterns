@@ -89,6 +89,14 @@ for (var depth = 1; depth <= MaxDepth && solved is null; depth++)
                 continue;
             }
 
+            // A host-verified "done" IS the answer — the evaluator gets no veto over arithmetic.
+            if (thought.StartsWith("done", StringComparison.OrdinalIgnoreCase))
+            {
+                solved = new ScoredPath(newSteps, 1.0);
+                Console.WriteLine($"  + [host: verified] {thought}");
+                break;
+            }
+
             var evalResponse = await evaluator.RunAsync<ThoughtEvaluation>(
                 $"""
                  Puzzle: {Task}
@@ -106,18 +114,17 @@ for (var depth = 1; depth <= MaxDepth && solved is null; depth++)
             if (!pruned)
                 candidates.Add(new ScoredPath(newSteps, eval.Score));
         }
+
+        if (solved is not null) break;
     }
+
+    if (solved is not null) break;
 
     if (candidates.Count == 0)
     {
         Console.WriteLine("  All branches pruned — no solution found.");
         break;
     }
-
-    // Every surviving "done" candidate is host-verified, so accepting it here is safe.
-    // Checked before beam truncation so a verified solution can't be dropped by the beam.
-    solved = candidates.FirstOrDefault(c =>
-        c.Steps[^1].StartsWith("done", StringComparison.OrdinalIgnoreCase));
 
     beam = candidates.OrderByDescending(c => c.Score).Take(BeamWidth).ToList();
     Console.WriteLine($"  Beam kept: {string.Join(" | ", beam.Select(b => $"{b.Score:F2} {b.Steps[^1]}"))}\n");

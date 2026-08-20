@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace TreeOfThoughts;
@@ -42,8 +43,10 @@ internal static class Solver24
                 return false;
             }
 
-            double a = double.Parse(m.Groups[1].Value), b = double.Parse(m.Groups[3].Value),
-                claimed = double.Parse(m.Groups[4].Value);
+            // Invariant culture: "0.75" must never parse as 75 on comma-decimal locales
+            double a = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture),
+                b = double.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture),
+                claimed = double.Parse(m.Groups[4].Value, CultureInfo.InvariantCulture);
             if (!Remove(remaining, a))
             {
                 reason = $"{a} is not among the remaining numbers";

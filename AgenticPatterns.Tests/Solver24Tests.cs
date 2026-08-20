@@ -64,6 +64,13 @@ public class Solver24Tests
     }
 
     [Fact]
+    public void FractionalStep_ParsesCultureInvariantly()
+    {
+        // Division makes fractional intermediates legitimate; "2.25" must never parse as 225
+        Assert.True(Solver24.Verify(["9 / 4 = 2.25 (remaining: 2.25, 10, 13)"], Numbers, out var reason), reason);
+    }
+
+    [Fact]
     public void ValidPrefixWithoutDone_IsAccepted()
     {
         Assert.True(Solver24.Verify(["13 - 9 = 4 (remaining: 4, 10, 4)"], Numbers, out _));

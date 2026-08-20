@@ -53,6 +53,23 @@ public class SemanticCachingTests
     }
 
     [Fact]
+    public async Task SameQuery_DifferentConversationHistory_IsAMiss()
+    {
+        var inner = new ScriptedChatClient(Reply("contextual answer"), Reply("fresh answer"));
+        var cache = MakeCache(inner);
+
+        await cache.GetResponseAsync(
+        [
+            new(ChatRole.User, "Earlier question"),
+            new(ChatRole.Assistant, "Earlier answer"),
+            new(ChatRole.User, "What is the capital of France?")
+        ]);
+        await cache.GetResponseAsync([new(ChatRole.User, "What is the capital of France?")]);
+
+        Assert.Equal(2, inner.Calls); // different history must never share an answer
+    }
+
+    [Fact]
     public async Task DifferentQuery_SameContext_IsAMiss()
     {
         var inner = new ScriptedChatClient(Reply("Paris"), Reply("Mount Everest"));

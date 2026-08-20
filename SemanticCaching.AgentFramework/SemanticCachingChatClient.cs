@@ -62,8 +62,14 @@ public sealed class SemanticCachingChatClient(
         return response;
     }
 
-    // Everything that changes what a valid answer looks like belongs in the key.
-    private static string ContextKey(IEnumerable<ChatMessage> messages, ChatOptions? options) =>
-        string.Join("\n", messages.Where(m => m.Role == ChatRole.System).Select(m => m.Text)) +
-        $"|{options?.ModelId}|{options?.Temperature}|{options?.ResponseFormat}";
+    // Everything that changes what a valid answer looks like belongs in the key: the system
+    // prompt, every prior turn, and the options. Only the final user message (the embedded
+    // query) is excluded — that's what the similarity search matches on.
+    private static string ContextKey(IEnumerable<ChatMessage> messages, ChatOptions? options)
+    {
+        var list = messages.ToList();
+        var lastUser = list.FindLastIndex(m => m.Role == ChatRole.User);
+        return string.Join("\n", list.Where((m, i) => i != lastUser).Select(m => $"{m.Role}:{m.Text}")) +
+               $"|{options?.ModelId}|{options?.Temperature}|{options?.ResponseFormat}";
+    }
 }
