@@ -16,7 +16,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.MapGet("/api/patterns", () => Catalog.Load(patternsDir)
-    .Select(p => new { p.Id, p.Meta.Title, p.Meta.Summary, p.Meta.Category, p.Meta.Projects }));
+    .Select(p => new { p.Id, p.Meta.Title, p.Meta.Summary, p.Meta.Category, p.Meta.Projects, p.Meta.Risk }));
 
 app.MapGet("/api/patterns/{id}", (string id) =>
 {
@@ -30,6 +30,7 @@ app.MapGet("/api/patterns/{id}", (string id) =>
         pattern.Meta.Summary,
         pattern.Meta.Category,
         pattern.Meta.Projects,
+        pattern.Meta.Risk,
         pattern.Body,
         Sources = pattern.Meta.Projects.ToDictionary(
             p => p.Flavor,

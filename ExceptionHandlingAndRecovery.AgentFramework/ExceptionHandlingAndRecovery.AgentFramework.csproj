@@ -12,4 +12,8 @@
         <PackageReference Include="Microsoft.Agents.AI"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="AgenticPatterns.Tests"/>
+    </ItemGroup>
+
 </Project>

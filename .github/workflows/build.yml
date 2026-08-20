@@ -14,3 +14,4 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet build "Agentic Patterns.slnx" --configuration Release
+      - run: dotnet test "Agentic Patterns.slnx" --configuration Release --no-build

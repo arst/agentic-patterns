@@ -3,6 +3,7 @@
   "title": "CodeAct",
   "summary": "One code-execution tool instead of many bound tools — intermediate results stay inside the script.",
   "category": "Fundamentals",
+  "risk": "Runs model-written C# directly on this machine — no sandbox, network or filesystem limits.",
   "projects": [ { "flavor": "AgentFramework", "path": "CodeAct.AgentFramework" } ]
 }
 ---

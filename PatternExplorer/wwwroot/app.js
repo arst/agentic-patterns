@@ -80,6 +80,8 @@ async function select(id) {
     $('pattern').hidden = false;
     $('title').textContent = current.title;
     $('summary').textContent = current.summary;
+    $('risk').hidden = !current.risk;
+    $('risk').textContent = current.risk ? `⚠ ${current.risk}` : '';
     $('doc').innerHTML = marked.parse(current.body);
     mermaid.run({ nodes: $('doc').querySelectorAll('pre.mermaid') });
 

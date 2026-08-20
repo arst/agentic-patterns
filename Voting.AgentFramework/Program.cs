@@ -138,11 +138,8 @@ async Task<CoordinationResult> RunDemocraticAsync(
 
     Console.WriteLine($"Votes collected: {votes.Count}/{pool.Length}\n");
 
-    // No votes at all -> abstain explicitly instead of crashing in a consensus mechanism
-    if (votes.Count == 0)
-        return new CoordinationResult(
-            task, "No answer — every voter failed or timed out.",
-            0, mode, [], "! Abstained — no votes cast");
+    if (Consensus.AbstainIfEmpty(votes, task, mode) is { } abstained)
+        return abstained;
 
     //STEP 2: Apply consensus mechanism
     return mode switch

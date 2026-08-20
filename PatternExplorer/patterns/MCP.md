@@ -3,6 +3,7 @@
   "title": "Model Context Protocol",
   "summary": "Discover tools from an external MCP server at runtime instead of compiling them in.",
   "category": "Fundamentals",
+  "risk": "Downloads and runs an external MCP server via npx (unpinned); its tools act with your local privileges.",
   "projects": [
     { "flavor": "AgentFramework", "path": "MCP.AgentFramework", "note": "Needs npx on PATH - the MCP server is fetched with npx on first run." },
     { "flavor": "SemanticKernel", "path": "MCP.SemanticKernel", "note": "Needs npx on PATH - the MCP server is fetched with npx on first run." }

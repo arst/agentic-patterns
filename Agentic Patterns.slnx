@@ -13,6 +13,7 @@
     <Project Path="SelfCorrectionLoop/SelfCorrectionLoop.csproj" />
     <Project Path="TreeOfThoughts/TreeOfThoughts.csproj" />
   </Folder>
+  <Project Path="AgenticPatterns.Tests/AgenticPatterns.Tests.csproj" />
   <Project Path="AgenticRAG.AgentFramework/AgenticRAG.AgentFramework.csproj" />
   <Project Path="CacheAwareContext.AgentFramework/CacheAwareContext.AgentFramework.csproj" />
   <Project Path="CodeAct.AgentFramework/CodeAct.AgentFramework.csproj" />

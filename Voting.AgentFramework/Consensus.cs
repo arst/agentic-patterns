@@ -2,6 +2,13 @@ namespace Voting.AgentFramework;
 
 internal static class Consensus
 {
+    /// <summary>No votes at all -> abstain explicitly instead of crashing in a consensus mechanism.</summary>
+    public static CoordinationResult? AbstainIfEmpty(List<AgentVote> votes, string task, ConsensusMode mode) =>
+        votes.Count == 0
+            ? new CoordinationResult(task, "No answer — every voter failed or timed out.",
+                0, mode, [], "! Abstained — no votes cast")
+            : null;
+
     public static CoordinationResult MajorityVote(List<AgentVote> votes, string task)
     {
         var groups = votes
