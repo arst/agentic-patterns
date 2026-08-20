@@ -2,7 +2,7 @@
 {
   "title": "Prompt Chaining",
   "summary": "Split one hard request into ordered steps, each feeding its output into the next.",
-  "category": "Fundamentals",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "PromptChaining.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "PromptChaining.SemanticKernel" }

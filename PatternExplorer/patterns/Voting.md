@@ -2,7 +2,7 @@
 {
   "title": "Voting",
   "summary": "Ask several deliberately different agents the same question, then combine their answers into one.",
-  "category": "Multi-agent",
+  "category": "Reasoning & generation",
   "projects": [
     { "flavor": "AgentFramework", "path": "Voting.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "Voting.SemanticKernel" }

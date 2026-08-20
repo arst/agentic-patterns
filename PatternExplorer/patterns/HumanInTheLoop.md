@@ -2,7 +2,7 @@
 {
   "title": "Human in the Loop",
   "summary": "Pause before a risky tool call and let a person approve or deny it before it runs.",
-  "category": "Fundamentals",
+  "category": "Production controls",
   "projects": [
     { "flavor": "AgentFramework", "path": "HumanInTheLoop.AgentFramework", "interactive": true },
     { "flavor": "SemanticKernel", "path": "HumanInTheLoop.SemanticKernel", "interactive": true }
@@ -19,6 +19,18 @@ nothing happens until they say yes.
 
 A denial is not an error — it is a result. The agent is told the action was refused and continues
 the conversation gracefully, which is what keeps the pattern usable rather than merely safe.
+
+Human oversight has three operating modes; they are deployment choices, not separate workflow
+patterns:
+
+| Mode | Behavior |
+|---|---|
+| Human in the loop | Execution pauses for a decision before the protected action runs. |
+| Human on the loop | Execution continues within host-enforced limits while a person monitors and can intervene. |
+| Human out of the loop | No per-action approval; deterministic policy, bounded execution, and audit controls govern the run. |
+
+This sample demonstrates **human in the loop**. Moving to on- or out-of-the-loop operation must
+not grant the model more authority; Tool Authorization and execution budgets still apply.
 
 ## When to use it
 

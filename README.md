@@ -64,6 +64,9 @@ request, so edits show up on refresh.
 
 ## Patterns
 
+Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestration**,
+**Knowledge & state**, and **Production controls**.
+
 | Pattern | What it demonstrates |
 |---|---|
 | AgenticRAG | Retrieval as an agent tool: query rewriting, result grading, re-retrieval |

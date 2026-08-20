@@ -2,7 +2,7 @@
 {
   "title": "Reflexion",
   "summary": "Fail a task, write down why in words, and retry from scratch with that reflection in memory.",
-  "category": "Reasoning",
+  "category": "Reasoning & generation",
   "projects": [ { "flavor": "AgentFramework", "path": "Reflexion" } ]
 }
 ---

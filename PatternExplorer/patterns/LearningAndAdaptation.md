@@ -2,7 +2,7 @@
 {
   "title": "Learning and Adaptation",
   "summary": "After every answer the agent critiques itself, saves behavioural rules, and follows them next turn.",
-  "category": "Learning & goals",
+  "category": "Knowledge & state",
   "projects": [
     { "flavor": "AgentFramework", "path": "LearningAndAdaptation.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "LearningAndAdaptation.SemanticKernel" }

@@ -2,7 +2,7 @@
 {
   "title": "Evaluation, Monitoring, and Trace Replay",
   "summary": "Observe agent runs, record model trajectories, and replay captured outputs without live calls.",
-  "category": "Reliability & operations",
+  "category": "Production controls",
   "projects": [
     { "flavor": "AgentFramework", "path": "EvaluationAndMonitoring.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "EvaluationAndMonitoring.SemanticKernel" }

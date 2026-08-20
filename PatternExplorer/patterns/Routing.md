@@ -2,7 +2,7 @@
 {
   "title": "Routing",
   "summary": "Classify the request first, then hand it to the one specialist that should answer it.",
-  "category": "Fundamentals",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "Routing.AgentFramework" },
     { "flavor": "AgentFramework.Workflow", "path": "Routing.AgentFramework.Workflow" },

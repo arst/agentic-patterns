@@ -2,7 +2,7 @@
 {
   "title": "Semantic Caching",
   "summary": "Reuse a cached answer when the new question means the same thing, not just when it matches.",
-  "category": "Knowledge & context",
+  "category": "Knowledge & state",
   "projects": [ { "flavor": "AgentFramework", "path": "SemanticCaching.AgentFramework" } ]
 }
 ---

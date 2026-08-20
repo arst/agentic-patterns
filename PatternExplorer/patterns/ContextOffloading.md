@@ -2,7 +2,7 @@
 {
   "title": "Context Offloading",
   "summary": "Bulky tool results go to files; the context keeps a stub — and the agent can always read the data back.",
-  "category": "Knowledge & context",
+  "category": "Knowledge & state",
   "projects": [ { "flavor": "AgentFramework", "path": "ContextOffloading.AgentFramework" } ]
 }
 ---

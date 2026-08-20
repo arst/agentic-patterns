@@ -2,7 +2,7 @@
 {
   "title": "Prioritization",
   "summary": "Give the agent ranking criteria and a task store, then let it re-rank the queue when urgency changes.",
-  "category": "Learning & goals",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "Prioritization.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "Prioritization.SemanticKernel" }

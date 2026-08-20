@@ -2,7 +2,7 @@
 {
   "title": "Chain of Thought",
   "summary": "Ask the model to show its work step by step before committing to a final answer.",
-  "category": "Reasoning",
+  "category": "Reasoning & generation",
   "projects": [ { "flavor": "SemanticKernel", "path": "ChainofThoughts" } ]
 }
 ---

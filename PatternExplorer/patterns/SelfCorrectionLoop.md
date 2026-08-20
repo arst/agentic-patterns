@@ -2,7 +2,7 @@
 {
   "title": "Evaluator-Optimizer / Self-Correction Loop",
   "summary": "A generator revises against typed evaluator feedback while host code owns deterministic acceptance checks.",
-  "category": "Reasoning",
+  "category": "Reasoning & generation",
   "projects": [
     { "flavor": "AgentFramework", "path": "SelfCorrectionLoop.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "SelfCorrectionLoop" }

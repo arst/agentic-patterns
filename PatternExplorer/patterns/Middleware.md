@@ -2,7 +2,7 @@
 {
   "title": "Middleware",
   "summary": "Wrap an agent in a pipeline that logs every run and can block a tool call before it executes.",
-  "category": "Reliability & operations",
+  "category": "Production controls",
   "projects": [ { "flavor": "AgentFramework", "path": "Middleware.AgentFramework" } ]
 }
 ---

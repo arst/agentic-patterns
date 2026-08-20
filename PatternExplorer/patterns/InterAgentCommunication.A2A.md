@@ -2,7 +2,7 @@
 {
   "title": "Agent-to-Agent Communication",
   "summary": "One agent calls another over HTTP through the A2A protocol instead of an in-process function.",
-  "category": "Multi-agent",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "InterAgentCommunication.A2A.AgentFramework.Client", "server": "InterAgentCommunication.A2A.AgentFramework.Server", "serverPort": 5200 },
     { "flavor": "SemanticKernel", "path": "InterAgentCommunication.A2A.SemanticKernel.Client", "server": "InterAgentCommunication.A2A.SemanticKernel.Server", "serverPort": 5100 }

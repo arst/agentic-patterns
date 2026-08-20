@@ -2,7 +2,7 @@
 {
   "title": "CodeAct",
   "summary": "One code-execution tool instead of many bound tools — intermediate results stay inside the script.",
-  "category": "Fundamentals",
+  "category": "Orchestration",
   "risk": "Executes model-written C# in a locked-down local container (no network, read-only, non-root, resource limits); fails closed without Docker/Podman. Host execution requires an explicit double opt-in.",
   "projects": [ { "flavor": "AgentFramework", "path": "CodeAct.AgentFramework" } ]
 }

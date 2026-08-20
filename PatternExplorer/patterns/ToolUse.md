@@ -2,7 +2,7 @@
 {
   "title": "Tool Use",
   "summary": "Give the model C# methods it can call, and let it decide when to call them.",
-  "category": "Fundamentals",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "ToolUse.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "ToolUse.SemanticKernel" }

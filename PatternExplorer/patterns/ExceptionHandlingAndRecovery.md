@@ -2,7 +2,7 @@
 {
   "title": "Exception Handling, Recovery, and Circuit Breaker",
   "summary": "Retry transient faults, fail fast through an open dependency circuit, then degrade safely.",
-  "category": "Reliability & operations",
+  "category": "Production controls",
   "projects": [
     { "flavor": "AgentFramework", "path": "ExceptionHandlingAndRecovery.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "ExceptionHandlingAndRecovery.SemanticKernel" }
