@@ -1,0 +1,12 @@
+.git
+.github
+.agents
+.claude
+.codex
+.idea
+.serena
+**/bin
+**/obj
+**/*.user
+**/*.env
+docs

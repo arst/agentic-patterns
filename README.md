@@ -20,6 +20,43 @@ dotnet run --project PatternExplorer
 # then open http://localhost:5080
 ```
 
+Or run the prebuilt container (published for AMD64 and ARM64):
+
+```dotenv
+# pattern-explorer.env (already ignored by git)
+AzureOpenAi__Endpoint=https://<resource>.openai.azure.com/
+AzureOpenAi__ApiKey=<key>
+AzureOpenAi__ChatModelDeployment=<deployment>
+AzureOpenAi__EmbeddingModelDeployment=<embedding-deployment>
+# Mem0__ApiKey=<key> # only for the Semantic Kernel memory sample
+```
+
+```bash
+docker run --rm --init \
+  --name pattern-explorer \
+  --publish 127.0.0.1:5080:5080 \
+  --env-file pattern-explorer.env \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --pids-limit 256 \
+  --memory 2g \
+  --cpus 2 \
+  ghcr.io/arst/agentic-patterns:latest
+# then open http://localhost:5080
+```
+
+The image contains the .NET 10 SDK, prebuilt samples, and Node.js with npm/npx. It runs as a
+non-root user; the command above also binds only to loopback and drops Linux capabilities. Do
+not expose Pattern Explorer directly to the internet: its run endpoints intentionally execute
+samples with the supplied credentials. CodeAct is unavailable in the container by design;
+mounting the host Docker socket would give the app control of the host daemon, so run that sample
+from a local checkout with Docker or Podman instead.
+
+Pushes to `main` publish `latest` and `sha-...` images to GitHub Container Registry. A `v*` tag
+also publishes semantic-version tags; pull requests build the image without publishing it. After
+the first publish, make the package public in its GitHub package settings if anonymous pulls are
+required (new GHCR packages can start private).
+
 Running a sample from the UI spawns `dotnet run` for that project and calls your Azure OpenAI
 deployment, exactly as running it from the terminal would. Samples that ask for approval get an
 input box wired to the process's stdin; the A2A sample starts its server first automatically.
