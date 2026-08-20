@@ -2,7 +2,7 @@
 {
   "title": "Parallelization",
   "summary": "Fan one prompt out to several specialists at once, then collect all their answers.",
-  "category": "Multi-agent",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "Parallelization.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "Parallelization.SemanticKernel" }

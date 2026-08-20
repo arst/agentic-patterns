@@ -2,7 +2,7 @@
 {
   "title": "Skill Learning",
   "summary": "Distill experience into a versioned skill that must validate, test, receive approval, and activate before use.",
-  "category": "Learning & goals",
+  "category": "Knowledge & state",
   "risk": "Persists model-authored instructions; deterministic checks and explicit review reduce but do not eliminate skill-poisoning risk.",
   "projects": [ { "flavor": "AgentFramework", "path": "SkillLearning.AgentFramework" } ]
 }

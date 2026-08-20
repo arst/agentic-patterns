@@ -2,7 +2,7 @@
 {
   "title": "Durable Human in the Loop",
   "summary": "Park a workflow on a human approval, checkpoint it to disk, and answer after a process restart.",
-  "category": "Reliability & operations",
+  "category": "Production controls",
   "risk": "The approval gates a consequential action (sending a refund email); deny is the safe default.",
   "projects": [ { "flavor": "AgentFramework", "path": "DurableHumanInTheLoop.AgentFramework", "interactive": true } ]
 }

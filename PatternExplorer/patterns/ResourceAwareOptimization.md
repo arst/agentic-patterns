@@ -2,7 +2,7 @@
 {
   "title": "Resource-Aware Optimization",
   "summary": "Route each query to the cheapest model that can answer it, and stop spending when the budget runs out.",
-  "category": "Reliability & operations",
+  "category": "Production controls",
   "projects": [
     { "flavor": "AgentFramework", "path": "ResourceAwareOptimization.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "ResourceAwareOptimization.SemanticKernel" }

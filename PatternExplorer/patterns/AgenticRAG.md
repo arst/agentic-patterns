@@ -2,7 +2,7 @@
 {
   "title": "Agentic RAG",
   "summary": "Retrieval becomes a tool the agent chooses, grades, and retries with a better query.",
-  "category": "Knowledge & context",
+  "category": "Knowledge & state",
   "projects": [ { "flavor": "AgentFramework", "path": "AgenticRAG.AgentFramework" } ]
 }
 ---

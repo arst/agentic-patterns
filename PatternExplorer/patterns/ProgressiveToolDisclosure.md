@@ -2,7 +2,7 @@
 {
   "title": "Progressive Tool Disclosure",
   "summary": "Start with a search tool over the catalog; bind real tool definitions only when a request needs them.",
-  "category": "Knowledge & context",
+  "category": "Knowledge & state",
   "projects": [ { "flavor": "AgentFramework", "path": "ProgressiveToolDisclosure.AgentFramework" } ]
 }
 ---

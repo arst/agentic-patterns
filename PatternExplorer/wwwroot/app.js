@@ -1,8 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 const CATEGORY_ORDER = [
-    'Fundamentals', 'Reasoning', 'Multi-agent', 'Knowledge & context',
-    'Learning & goals', 'Reliability & operations'
+    'Reasoning & generation', 'Orchestration', 'Knowledge & state', 'Production controls'
 ];
 
 let patterns = [];

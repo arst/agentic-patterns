@@ -2,7 +2,7 @@
 {
   "title": "Hosted Tools",
   "summary": "Let the provider run the tool for you, so no C# method ever executes on your machine.",
-  "category": "Knowledge & context",
+  "category": "Orchestration",
   "projects": [ { "flavor": "AgentFramework", "path": "HostedTools.AgentFramework", "note": "Needs an Azure OpenAI deployment that supports the Responses API with hosted tools." } ]
 }
 ---

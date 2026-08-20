@@ -2,7 +2,7 @@
 {
   "title": "Multi-Agent Collaboration",
   "summary": "Put two agents in one conversation and let them take turns until the work is good enough.",
-  "category": "Multi-agent",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "MultiAgentCollaboration.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "MultiAgentCollaboration.SemanticKernel" }

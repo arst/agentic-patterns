@@ -2,7 +2,7 @@
 {
   "title": "Exploration and Discovery",
   "summary": "Generate bold hypotheses, have a critic tear them apart, evolve the survivor, repeat.",
-  "category": "Learning & goals",
+  "category": "Reasoning & generation",
   "projects": [
     { "flavor": "AgentFramework", "path": "ExplorationAndDiscovery.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "ExplorationAndDiscovery.SemanticKernel" }

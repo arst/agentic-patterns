@@ -2,7 +2,7 @@
 {
   "title": "Self-Note",
   "summary": "The model annotates the context before it sees the question, then answers from its own margin notes.",
-  "category": "Reasoning",
+  "category": "Reasoning & generation",
   "projects": [
     { "flavor": "AgentFramework", "path": "SelfNote.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "SelfNote.SemanticKernel" }

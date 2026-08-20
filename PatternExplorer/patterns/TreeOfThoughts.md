@@ -2,7 +2,7 @@
 {
   "title": "Tree of Thoughts",
   "summary": "Branch into several candidate steps, score each partial path, prune, and keep only the best.",
-  "category": "Reasoning",
+  "category": "Reasoning & generation",
   "projects": [ { "flavor": "AgentFramework", "path": "TreeOfThoughts" } ]
 }
 ---

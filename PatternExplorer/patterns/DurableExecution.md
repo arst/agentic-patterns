@@ -2,7 +2,7 @@
 {
   "title": "Durable Execution",
   "summary": "Checkpoint a workflow after every superstep so a crashed run resumes instead of starting over.",
-  "category": "Reliability & operations",
+  "category": "Production controls",
   "projects": [ { "flavor": "AgentFramework", "path": "DurableExecution.AgentFramework" } ]
 }
 ---

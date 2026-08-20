@@ -8,6 +8,12 @@ using Shared;
 
 var kernel = Settings.Kernel;
 
+var tenantId = Environment.GetEnvironmentVariable("MEM0_TENANT_ID") ?? "demo-tenant";
+var userId = Environment.GetEnvironmentVariable("MEM0_USER_ID") ?? "U1";
+if (string.IsNullOrWhiteSpace(tenantId) || string.IsNullOrWhiteSpace(userId))
+    throw new InvalidOperationException("MEM0_TENANT_ID and MEM0_USER_ID cannot be empty.");
+var scopedUserId = $"{Uri.EscapeDataString(tenantId)}:{Uri.EscapeDataString(userId)}";
+
 var agent = new ChatCompletionAgent
 {
     Name = "ReportAgent",
@@ -22,10 +28,13 @@ httpClient.DefaultRequestHeaders.Authorization =
 
 var mem0Provider = new Mem0Provider(httpClient, options: new Mem0ProviderOptions
 {
-    UserId = "U1" // use a consistent user ID to have a shared memory across sessions
+    // Mem0 exposes one user key, so namespace it by the authenticated tenant and subject.
+    UserId = scopedUserId
 });
 
-// (Optional) clear for demo
+Console.WriteLine("Mem0 tenant/user scope configured.");
+
+// (Optional) clear only this tenant/user scope for the demo.
 //await mem0Provider.ClearStoredMemoriesAsync();
 
 ChatHistoryAgentThread thread = new();

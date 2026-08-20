@@ -2,7 +2,7 @@
 {
   "title": "Goal Setting and Monitoring",
   "summary": "State the goals up front, check the output against them in code, and loop until they are met.",
-  "category": "Learning & goals",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "GoalSettingsAndMonitoring.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "GoalSettingsAndMonitoring.SemanticKernel" }

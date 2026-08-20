@@ -12,10 +12,10 @@ internal class InputGuardFilter : IPromptRenderFilter
 
         var prompt = context.RenderedPrompt ?? "";
 
-        // Check 1: Prompt injection detection
-        if (SafetyChecks.IsInjection(prompt))
+        // Check 1: Heuristic phrase screening; this is not an authorization boundary.
+        if (SafetyChecks.LooksLikePromptInjection(prompt))
         {
-            Console.WriteLine("  [InputGuard] BLOCKED: Prompt injection detected.");
+            Console.WriteLine("  [InputGuard] BLOCKED: prompt-injection heuristic matched.");
             // Setting context.Result prevents the LLM call entirely
             context.Result = new FunctionResult(context.Function,
                 "I'm sorry, I can't process that request. " +

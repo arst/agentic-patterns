@@ -2,7 +2,7 @@
 {
   "title": "Confidence Reporting",
   "summary": "Blend self-reported, logprob and consistency signals into one trustworthy confidence score.",
-  "category": "Reliability & operations",
+  "category": "Production controls",
   "projects": [
     { "flavor": "AgentFramework", "path": "ConfidenceReporting.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "ConfidenceReporting.SemanticKernel" }

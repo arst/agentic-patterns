@@ -2,7 +2,7 @@
 {
   "title": "Cache-Aware Context",
   "summary": "Keep the prompt a stable prefix plus append-only history, and the provider's cache pays for most of your input tokens.",
-  "category": "Knowledge & context",
+  "category": "Knowledge & state",
   "projects": [ { "flavor": "AgentFramework", "path": "CacheAwareContext.AgentFramework" } ]
 }
 ---

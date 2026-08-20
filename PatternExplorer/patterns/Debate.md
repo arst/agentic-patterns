@@ -2,7 +2,7 @@
 {
   "title": "Debate",
   "summary": "Two agents argue opposing sides for several rounds, then a judge agent rules on the transcript.",
-  "category": "Multi-agent",
+  "category": "Reasoning & generation",
   "projects": [ { "flavor": "AgentFramework", "path": "Debate.AgentFramework" } ]
 }
 ---

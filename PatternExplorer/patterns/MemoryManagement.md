@@ -2,7 +2,7 @@
 {
   "title": "Memory Management and State Isolation",
   "summary": "Separate invocation, session, long-term, and authoritative business state across users and tenants.",
-  "category": "Fundamentals",
+  "category": "Knowledge & state",
   "risk": "Sends conversation content to the external Mem0 service (SK flavor) and persists session and long-term memory data to local plaintext files (AF flavor).",
   "projects": [
     { "flavor": "AgentFramework", "path": "MemoryManagement.AgentFramework" },
@@ -69,18 +69,21 @@ flowchart LR
 ```
 
 The Semantic Kernel sample takes the long-term route instead: a `Mem0Provider` pointed at
-`https://api.mem0.ai` with `UserId = "U1"` is added to a `ChatHistoryAgentThread` via
+`https://api.mem0.ai` uses a tenant-and-user namespaced `UserId` and is added to a
+`ChatHistoryAgentThread` via
 `AIContextProviders`, then a single question — *"Which format for reports do I prefer?"* — is
 answered from stored memory rather than from this conversation. It needs a Mem0 API key in
-configuration, and the line that *writes* the memory is commented out on purpose: the point is
-that the fact was stored on an earlier run.
+configuration. `MEM0_TENANT_ID` and `MEM0_USER_ID` select the scope, defaulting to explicit demo
+values. Production hosts must derive both from authenticated runtime context rather than model
+output. The line that *writes* the memory is commented out on purpose: the point is that the fact
+was stored on an earlier run.
 
 ## Key APIs
 
 | Agent Framework | Semantic Kernel |
 |---|---|
 | `InMemoryChatHistoryProvider` | `Mem0Provider` over `HttpClient` |
-| `SummarizingChatReducer(client, targetCount, threshold)` | `Mem0ProviderOptions { UserId = "U1" }` |
+| `SummarizingChatReducer(client, targetCount, threshold)` | `Mem0ProviderOptions { UserId = tenant + ":" + user }` |
 | `ReducerTriggerEvent.AfterMessageAdded` | `thread.AIContextProviders.Add(provider)` |
 | `agent.SerializeSessionAsync` / `DeserializeSessionAsync` | `ChatHistoryAgentThread` |
 | `session.TryGetInMemoryChatHistory(out var messages)` | `provider.ClearStoredMemoriesAsync()` |
@@ -95,6 +98,6 @@ restart, restore ----` and a fourth scoped-memory stage — plus bracketed count
 `[restored from disk: N messages ...]`. The count is the evidence the reducer ran; the answer
 after `Session saved to ...` is the evidence the facts survived a new agent instance. The
 fourth stage prints consent denial, cross-tenant isolation, restart visibility, and deletion. The
-Semantic Kernel run prints a single line, and its worth is that the answer mentions PDF reports
-that were never said in this conversation. See **ContextCompaction** for compaction taken
-further and **SelfNote** for an agent writing its own notes.
+Semantic Kernel run first confirms that its tenant/user scope is configured, then an answer whose
+worth is that it mentions PDF reports that were never said in this conversation. See **ContextCompaction** for
+compaction taken further and **SelfNote** for an agent writing its own notes.

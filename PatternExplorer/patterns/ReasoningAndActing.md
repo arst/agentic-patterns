@@ -2,7 +2,7 @@
 {
   "title": "Reasoning and Acting",
   "summary": "Interleave thinking with tool calls so each fact the model gathers informs the next step.",
-  "category": "Reasoning",
+  "category": "Reasoning & generation",
   "projects": [ { "flavor": "SemanticKernel", "path": "ReasoningAndActing" } ]
 }
 ---

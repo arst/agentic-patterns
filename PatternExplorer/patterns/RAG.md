@@ -2,7 +2,7 @@
 {
   "title": "Retrieval-Augmented Generation",
   "summary": "Embed your documents, retrieve the closest chunks, and let the model answer from them.",
-  "category": "Knowledge & context",
+  "category": "Knowledge & state",
   "projects": [
     { "flavor": "AgentFramework", "path": "RAG.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "RAG.SemanticKernel" }

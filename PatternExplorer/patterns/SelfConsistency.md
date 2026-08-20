@@ -2,7 +2,7 @@
 {
   "title": "Self-Consistency",
   "summary": "Sample one prompt several times at high temperature and majority-vote the final answers.",
-  "category": "Reasoning",
+  "category": "Reasoning & generation",
   "projects": [ { "flavor": "AgentFramework", "path": "SelfConsistency" } ]
 }
 ---

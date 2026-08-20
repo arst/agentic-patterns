@@ -21,7 +21,7 @@ internal static class SafetyChecks
         ("Phone", new Regex(@"\b(\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b"))
     ];
 
-    public static bool IsInjection(string text)
+    public static bool LooksLikePromptInjection(string text)
     {
         return InjectionPatterns.Any(p => text.Contains(p, StringComparison.OrdinalIgnoreCase));
     }

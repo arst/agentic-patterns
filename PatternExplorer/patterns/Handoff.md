@@ -2,7 +2,7 @@
 {
   "title": "Handoff",
   "summary": "A triage agent transfers the live conversation to a specialist, which can hand it back.",
-  "category": "Multi-agent",
+  "category": "Orchestration",
   "projects": [ { "flavor": "AgentFramework", "path": "Handoff.AgentFramework" } ]
 }
 ---

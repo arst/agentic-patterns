@@ -2,7 +2,7 @@
 {
   "title": "Context Compaction",
   "summary": "Keep the full transcript, but shrink what gets sent to the model on every turn.",
-  "category": "Knowledge & context",
+  "category": "Knowledge & state",
   "projects": [ { "flavor": "AgentFramework", "path": "ContextCompaction.AgentFramework" } ]
 }
 ---

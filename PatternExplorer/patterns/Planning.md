@@ -2,7 +2,7 @@
 {
   "title": "Planning",
   "summary": "Have the model write an ordered plan of tool calls first, then execute it in your own code.",
-  "category": "Fundamentals",
+  "category": "Orchestration",
   "projects": [
     { "flavor": "AgentFramework", "path": "Planning.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "Planning.SemanticKernel" }

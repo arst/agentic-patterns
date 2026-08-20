@@ -2,7 +2,7 @@
 {
   "title": "Ralph Loop",
   "summary": "Run a fresh-context agent in a loop until the plan file is satisfied; all state lives in files.",
-  "category": "Learning & goals",
+  "category": "Orchestration",
   "projects": [ { "flavor": "AgentFramework", "path": "RalphLoop.AgentFramework" } ]
 }
 ---
