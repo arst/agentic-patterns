@@ -9,6 +9,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- ContainerCodeRunner builds the sandbox image from this on first run -->
+        <None Include="Sandbox\Dockerfile" CopyToOutputDirectory="PreserveNewest"/>
+        <InternalsVisibleTo Include="AgenticPatterns.Tests"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Microsoft.Agents.AI"/>
     </ItemGroup>
 

@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using System.Text.Json;
+using CodeAct.AgentFramework.Execution;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
@@ -10,20 +10,23 @@ using Shared;
 // inside the script; only what the script PRINTS ever enters the context.
 // The same 20-order question is answered twice, classic tool-calling first, and the
 // token usage of both runs is printed side by side.
-// NOTE: running model-written code is arbitrary code execution — a real system sandboxes
-// this (container, no network, resource limits). This demo runs it directly for clarity.
+//
+// Model-generated code is UNTRUSTED code. It runs in a locked-down local container
+// (no network, read-only rootfs, no capabilities, non-root, resource limits) and the
+// sample FAILS CLOSED when no container runtime is available — see Execution/.
 
-var workDir = Directory.CreateDirectory(
-    Path.Combine(Path.GetTempPath(), "codeact", Guid.NewGuid().ToString("N"))).FullName;
+// Fail closed BEFORE any model call: no container runtime and no explicit double
+// opt-in means the sample refuses to run rather than degrading to host execution.
+var runner = CodeRunnerFactory.Create(new CodeExecutionOptions
+{
+    AllowUnsafeHostExecution = args.Contains("--allow-unsafe-host-execution")
+});
 
 const string question =
     "Across orders A-100 through A-119: which orders are delayed, and what is the total value " +
     "of the delayed orders? List the delayed order ids and the total value.";
 
 Console.WriteLine($"Question: {question}\n");
-
-try
-{
 
 // ---- Round 1: classic tool-calling (every bulky order payload enters the context) ----
 
@@ -62,15 +65,6 @@ var codeActResponse = await codeActAgent.RunAsync(question);
 Console.WriteLine($"Agent: {codeActResponse.Text}\n");
 Report("CodeAct", codeActMeter, codeActResponse);
 
-}
-finally
-{
-    // Best effort — a cleanup failure must never mask the real exception
-    try { Directory.Delete(workDir, recursive: true); }
-    catch (IOException) { }
-    catch (UnauthorizedAccessException) { }
-}
-
 return;
 
 async Task<string> ExecuteCSharp(string code)
@@ -80,43 +74,24 @@ async Task<string> ExecuteCSharp(string code)
     if (code.StartsWith("```"))
         code = string.Join('\n', code.Split('\n')[1..^1]);
 
-    Console.WriteLine("  !! WARNING: executing MODEL-GENERATED C# unsandboxed on this machine.");
+    // Hard guard, not just a prompt instruction: strip file-based-app directives so the
+    // model cannot add package references or SDK switches (`#:package`, `#:sdk`, ...).
+    // The sandbox has no network anyway — generated programs get the BCL and nothing else.
+    code = string.Join('\n', code.Split('\n').Where(l => !l.TrimStart().StartsWith("#:")));
+
     Console.WriteLine("  [agent script]");
     foreach (var line in code.Split('\n')) Console.WriteLine($"  | {line}");
 
     // The action API is appended below the model's code: local functions may follow the
     // top-level statements, and are callable from them regardless of declaration order.
-    await File.WriteAllTextAsync(Path.Combine(workDir, "script.cs"), code + "\n\n" + ActionApiSource);
+    var execution = await runner.RunAsync(code + "\n\n" + ActionApiSource, CancellationToken.None);
 
-    using var process = Process.Start(new ProcessStartInfo("dotnet", "run script.cs")
+    var result = execution switch
     {
-        WorkingDirectory = workDir,
-        RedirectStandardOutput = true,
-        RedirectStandardError = true
-    })!;
-
-    // Drain both pipes concurrently — reading them sequentially can deadlock when the
-    // script fills the un-read pipe's buffer (e.g. compiler diagnostics on stderr).
-    var stdoutTask = process.StandardOutput.ReadToEndAsync();
-    var stderrTask = process.StandardError.ReadToEndAsync();
-
-    // Wall-clock limit; generous because `dotnet run script.cs` includes compilation.
-    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-    try
-    {
-        await process.WaitForExitAsync(timeout.Token);
-    }
-    catch (OperationCanceledException)
-    {
-        process.Kill(entireProcessTree: true);
-        process.WaitForExit(); // release file handles so the workdir can be deleted
-        return "Script timed out after 2 minutes and was killed.";
-    }
-
-    var stdout = await stdoutTask;
-    var stderr = await stderrTask;
-
-    var result = process.ExitCode == 0 ? stdout : $"Script failed (exit {process.ExitCode}):\n{stderr}";
+        { TimedOut: true } => "Script exceeded the time limit and was killed.",
+        { ExitCode: 0 } => execution.StandardOutput,
+        _ => $"Script failed (exit {execution.ExitCode}):\n{execution.StandardError}"
+    };
     if (result.Length > 4000) result = result[..4000] + "\n[truncated]";
     Console.WriteLine($"  [script output]\n  | {result.Trim().Replace("\n", "\n  | ")}\n");
     return result;

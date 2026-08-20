@@ -79,7 +79,9 @@ request, so edits show up on refresh.
 
 ## Setup
 
-Requires the .NET 10 SDK and an Azure OpenAI deployment.
+Requires the .NET 10 SDK and an Azure OpenAI deployment. The `CodeAct` sample additionally
+requires Docker or Podman — it sandboxes the code the model writes and refuses to run
+without isolation (see the security section below).
 
 Configuration is read from `settings/appsettings.json` (linked into every project), environment variables, and user secrets. **Don't put your API key in `appsettings.json`** — it's tracked in git. Use user secrets instead:
 
@@ -97,6 +99,37 @@ dotnet user-secrets set "AzureOpenAi:EmbeddingModelDeployment" "<embedding-deplo
 ```bash
 dotnet run --project ToolUse.AgentFramework
 ```
+
+### Security: samples that execute model-generated code
+
+Model-generated code is **untrusted code** — it may read files, steal credentials, use
+the network, or start processes. The repository rule, applied to every pattern that
+executes generated code, shell commands, or dynamically selected tools:
+
+> **The model proposes. A constrained host validates and executes. Untrusted execution
+> never inherits the application's authority.**
+
+Concretely, for the `CodeAct` sample:
+
+- **The sandbox is mandatory.** Generated code runs in a locked-down local container;
+  Docker or Podman is required. On first run the sample builds the sandbox image itself
+  from `CodeAct.AgentFramework/Sandbox/Dockerfile` — a pinned .NET SDK with a NuGet cache
+  pre-warmed at build time, so at run time the container needs (and gets) no network.
+- **Least privilege is paramount: allow nothing by default.** The container starts with
+  nothing — no network, no capabilities, no root, no writable filesystem, no host
+  environment, no host paths — and only what compiling and running a BCL-only script
+  strictly needs is granted back (a bounded tmpfs for build artifacts and a read-only
+  mount of one disposable per-run directory). Nothing is ever allowed preemptively or
+  "just in case"; every grant must earn its place. The full flag-by-flag walkthrough is
+  in `PatternExplorer/patterns/CodeAct.md`.
+- **Execution fails closed.** No container runtime means the sample refuses to run —
+  there is no silent fallback to host execution. Running generated code on the host
+  requires a deliberate double opt-in (`--allow-unsafe-host-execution` plus an
+  acknowledgement environment variable) and exists only for demonstration.
+- **The included sandbox is a teaching boundary, not a production one.** Production
+  systems should use a disposable worker, VM/microVM, or hardened sandbox service with
+  no ambient credentials. Never execute model-generated code in the application process
+  or on the application host.
 
 The A2A samples need the server running first:
 
