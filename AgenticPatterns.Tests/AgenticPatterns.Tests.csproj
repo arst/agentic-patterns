@@ -11,6 +11,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\CodeAct.AgentFramework\CodeAct.AgentFramework.csproj"/>
         <ProjectReference Include="..\DurableHumanInTheLoop.AgentFramework\DurableHumanInTheLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj"/>
         <ProjectReference Include="..\PatternExplorer\PatternExplorer.csproj"/>
