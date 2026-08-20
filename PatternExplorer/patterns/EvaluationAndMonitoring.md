@@ -19,8 +19,8 @@ record of the *trajectory*: what the user asked and what the agent answered.
 
 Both frameworks ship built-in `gen_ai.*` instrumentation. The samples turn it on, and add a
 small custom collector on top for the numbers the built-ins do not aggregate for you. Agent
-Framework also records model calls and can deterministically re-simulate the orchestration without
-calling the live deployment.
+Framework also records model and tool calls and can deterministically re-simulate the orchestration
+without calling the live deployment or executing side effects again.
 
 ## When to use it
 
@@ -49,6 +49,9 @@ flowchart LR
     T --> S[Telemetry summary]
     C -->|record| F[run-trace.json]
     F -->|replay| C
+    A --> X[GetSupportPolicy tool]
+    X -->|record result| F
+    F -->|replay result| A
 ```
 
 - **Agent Framework** layers two delegates: `TelemetryMiddleware` on the `IChatClient` records
@@ -56,10 +59,10 @@ flowchart LR
   `TrajectoryMiddleware` on the agent records end-to-end latency plus how many LLM calls that
   one request triggered. `.UseOpenTelemetry("AgentEvaluation")` on both builders emits the
   built-in `gen_ai` and `invoke_agent` spans. In `record` mode, `RecordingChatClient` saves the
-  prompt version, model requests and hashes, responses, model ID, token counts, and final stop
-  reason. In `replay` mode, `ReplayChatClient` returns those captured outputs and fails if a request
-  hash or prompt version changed. This sample has no tools; a side-effecting application should use
-  the same recorded-adapter boundary for tool arguments and results.
+  prompt version, model requests, structured function-call content, responses, tool schemas, model
+  ID, token counts, tool arguments/results, and final stop reason. `RecordedAIFunction` captures the
+  `GetSupportPolicy` boundary. In `replay` mode, recorded clients return captured model and tool
+  outputs, never invoke the live dependencies, and fail if request or argument hashes diverge.
 - **Semantic Kernel** relies on the built-in instrumentation alone: the providers subscribe to
   the `Microsoft.SemanticKernel*` source and meter, an OTel `LoggerFactory` is registered on
   the kernel, and the app context switch
@@ -74,16 +77,23 @@ flowchart LR
 | `.Use(TelemetryMiddleware, null)` on `IChatClient` | `AppContext.SetSwitch(...EnableOTelDiagnosticsSensitive, true)` |
 | `response.Usage.InputTokenCount` / `OutputTokenCount` | `builder.Services.AddSingleton(loggerFactory)` |
 | `Sdk.CreateTracerProviderBuilder().AddConsoleExporter()` | `Sdk.CreateMeterProviderBuilder().AddMeter(...)` |
+| `RecordedAIFunction` / `ToolTraceSession` | Add an equivalent function filter for tool replay |
+| `TracePrivacyMode` | Configure sensitive-content export in the host |
 
 ```bash
 dotnet run --project EvaluationAndMonitoring.AgentFramework -- record
+dotnet run --project EvaluationAndMonitoring.AgentFramework -- record-redacted
+dotnet run --project EvaluationAndMonitoring.AgentFramework -- record-hashes
 dotnet run --project EvaluationAndMonitoring.AgentFramework -- replay EvaluationAndMonitoring.AgentFramework/bin/Debug/net10.0/run-trace.json
 ```
 
-Recording full prompt and response content is intentionally enabled only by the explicit `record`
-command. Trace files may contain sensitive data and must receive the same access and retention
-controls as production logs. Replay is deterministic re-simulation from captured outputs, not a
-promise that a fresh stochastic model call or changing external API would return the same result.
+`record` stores full content, `record-redacted` replaces email addresses and common credential
+forms before storage, and `record-hashes` stores hashes without payloads. Hash-only traces can prove
+that transitions match but cannot replay outputs. Trace files still require production-log access
+and retention controls. Replay is deterministic re-simulation from captured outputs, not a promise
+that a fresh stochastic model call or changing external API would return the same result. A
+redacted trace compares the redacted shape; use hash-only mode when exact equality of hidden values
+must be audited without storing them.
 
 ## What to watch in the output
 
