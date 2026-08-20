@@ -1,3 +1,4 @@
+using ExceptionHandlingAndRecovery.AgentFramework;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
@@ -6,56 +7,36 @@ const int maxRetries = 3;
 
 async Task<AgentResponse> RetryAndFallbackMiddleware(
     IEnumerable<ChatMessage> messages,
-    AgentSession? session,
+    AgentSession? session, // deliberately unused: each attempt gets a fresh session (see below)
     AgentRunOptions? options,
     AIAgent innerAgent,
     CancellationToken cancellationToken)
 {
-    Exception? lastError = null;
-
-    for (var attempt = 1; attempt <= maxRetries; attempt++)
-        try
+    var (response, lastError) = await Retry.RunAsync(
+        async attempt =>
         {
             Console.WriteLine($"[RunMiddleware] Attempt {attempt}/{maxRetries}");
 
             // Fresh session per attempt so failed turns don't pollute history and get replayed on retry
             var attemptSession = await innerAgent.CreateSessionAsync(cancellationToken: cancellationToken);
-            var response = await innerAgent.RunAsync(
-                messages, attemptSession, options, cancellationToken);
-
-            // Detect tool failures from the actual function results instead of guessing from response text
-            var isError = response.Messages
-                .SelectMany(m => m.Contents)
-                .OfType<FunctionResultContent>()
-                .Any(c => c.Exception is not null ||
-                          (c.Result?.ToString()?.StartsWith("Error", StringComparison.OrdinalIgnoreCase) ?? false));
-            if (isError &&
-                attempt < maxRetries)
-            {
-                Console.WriteLine("  [RunMiddleware] Agent reported a tool error. Retrying...");
-                var delay = (int)(Math.Pow(2, attempt) * 500 + Random.Shared.Next(0, 200));
-                await Task.Delay(delay, cancellationToken);
-                continue;
-            }
-
-            Console.WriteLine($"  [RunMiddleware] Success on attempt {attempt}.");
-            return response;
-        }
-        catch (Exception ex)
+            return await innerAgent.RunAsync(messages, attemptSession, options, cancellationToken);
+        },
+        maxRetries,
+        attempt =>
         {
-            lastError = ex;
-            Console.WriteLine($"  [RunMiddleware] Failed: {ex.Message}");
+            var delay = (int)(Math.Pow(2, attempt) * 500 + Random.Shared.Next(0, 200));
+            Console.WriteLine($"  [Retry] Backing off {delay}ms...");
+            return Task.Delay(delay, cancellationToken);
+        });
 
-            if (attempt < maxRetries)
-            {
-                var delay = (int)(Math.Pow(2, attempt) * 500 + Random.Shared.Next(0, 200));
-                Console.WriteLine($"  [Retry] Backing off {delay}ms...");
-                await Task.Delay(delay, cancellationToken);
-            }
-        }
+    if (response is not null)
+    {
+        Console.WriteLine("  [RunMiddleware] Success.");
+        return response;
+    }
 
-    // All retries exhausted -> return a graceful degradation response
-    // The middleware returns an AgentResponse directly, skipping the agent
+    // All retries exhausted (thrown OR a tool error still present on the final attempt) ->
+    // graceful degradation. A persistent tool failure is never returned as success.
     Console.WriteLine("  [RunMiddleware] All retries exhausted. Returning fallback response.");
     return new AgentResponse([
         new ChatMessage(ChatRole.Assistant,

@@ -6,6 +6,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
+using Voting.AgentFramework;
 
 var voterAgents = new[]
 {
@@ -123,6 +124,11 @@ async Task<CoordinationResult> RunDemocraticAsync(
             Console.WriteLine($"[{agent.Name}] Timed out — excluded.\n");
             return null;
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{agent.Name}] Failed ({ex.Message}) — excluded.\n");
+            return null;
+        }
     });
 
     var votes = (await Task.WhenAll(agentTasks))
@@ -132,74 +138,20 @@ async Task<CoordinationResult> RunDemocraticAsync(
 
     Console.WriteLine($"Votes collected: {votes.Count}/{pool.Length}\n");
 
+    // No votes at all -> abstain explicitly instead of crashing in a consensus mechanism
+    if (votes.Count == 0)
+        return new CoordinationResult(
+            task, "No answer — every voter failed or timed out.",
+            0, mode, [], "! Abstained — no votes cast");
+
     //STEP 2: Apply consensus mechanism
     return mode switch
     {
-        ConsensusMode.MajorityVote => ApplyMajorityVote(votes, task),
-        ConsensusMode.WeightedVote => ApplyWeightedVote(votes, task),
+        ConsensusMode.MajorityVote => Consensus.MajorityVote(votes, task),
+        ConsensusMode.WeightedVote => Consensus.WeightedVote(votes, task),
         ConsensusMode.SynthesisLLM => await ApplySynthesisAsync(synthAgent, votes, task),
         _ => throw new ArgumentOutOfRangeException(nameof(mode))
     };
-}
-
-CoordinationResult ApplyMajorityVote(List<AgentVote> votes, string task)
-{
-    var groups = votes
-        .GroupBy(v => v.ExtractedAnswer.ToLowerInvariant().Trim())
-        .OrderByDescending(g => g.Count())
-        .ToList();
-
-    var winner = groups.First();
-    var totalVotes = votes.Count;
-    var confidence = (double)winner.Count() / totalVotes;
-
-    Console.WriteLine("Vote distribution:");
-    foreach (var g in groups)
-        Console.WriteLine($"  '{g.Key}': {g.Count()}/{totalVotes} votes");
-
-    var flag = confidence == 1.0 ? "V Unanimous"
-        : confidence >= 0.6 ? "V Majority"
-        : "! Split — consider synthesis LLM or human review";
-
-    return new CoordinationResult(
-        task,
-        winner.Key,
-        confidence,
-        ConsensusMode.MajorityVote,
-        groups.ToDictionary(g => g.Key, g => g.Count()),
-        flag
-    );
-}
-
-CoordinationResult ApplyWeightedVote(List<AgentVote> votes, string task)
-{
-    var weightedGroups = votes
-        .GroupBy(v => v.ExtractedAnswer.ToLowerInvariant().Trim())
-        .Select(g => new
-        {
-            Answer = g.Key,
-            TotalWeight = g.Sum(v => v.Confidence),
-            VoteCount = g.Count()
-        })
-        .OrderByDescending(g => g.TotalWeight)
-        .ToList();
-
-    var winner = weightedGroups.First();
-    var totalWeight = votes.Sum(v => v.Confidence);
-    var confidence = totalWeight > 0 ? winner.TotalWeight / totalWeight : 0;
-
-    Console.WriteLine("Weighted vote distribution:");
-    foreach (var g in weightedGroups)
-        Console.WriteLine($"  '{g.Answer}': weight {g.TotalWeight:F2} ({g.VoteCount} votes)");
-
-    return new CoordinationResult(
-        task,
-        winner.Answer,
-        confidence,
-        ConsensusMode.WeightedVote,
-        weightedGroups.ToDictionary(g => g.Answer, g => g.VoteCount),
-        confidence >= 0.7 ? "V Clear weighted winner" : "! Close weighted result"
-    );
 }
 
 // In MAF, the synthesis step is a dedicated named agent,
@@ -235,7 +187,8 @@ async Task<CoordinationResult> ApplySynthesisAsync(
     return new CoordinationResult(
         task,
         synthesis,
-        1.0,
+        // A synthesized free-text answer has no vote-derived confidence — don't invent one
+        double.NaN,
         ConsensusMode.SynthesisLLM,
         votes.ToDictionary(v => v.AgentName, _ => 1),
         "V Synthesised from all agents"
@@ -246,6 +199,6 @@ void PrintResult(CoordinationResult result)
 {
     Console.WriteLine($"=== Result ({result.Mode}) ===");
     Console.WriteLine($"Final answer: {result.FinalAnswer}");
-    Console.WriteLine($"Confidence:   {result.Confidence:P0}");
+    Console.WriteLine($"Confidence:   {(double.IsNaN(result.Confidence) ? "n/a (synthesis)" : result.Confidence.ToString("P0"))}");
     Console.WriteLine($"Status:       {result.Flag}\n");
 }
