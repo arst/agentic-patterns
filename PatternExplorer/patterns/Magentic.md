@@ -3,7 +3,7 @@
   "title": "Magentic Orchestration",
   "summary": "A manager agent plans the task, picks the next speaker each round, and replans when stuck.",
   "category": "Multi-agent",
-  "projects": [ { "flavor": "AgentFramework", "path": "Magentic.AgentFramework" } ]
+  "projects": [ { "flavor": "AgentFramework", "path": "Magentic.AgentFramework", "interactive": true } ]
 }
 ---
 

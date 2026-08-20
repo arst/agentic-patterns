@@ -106,9 +106,9 @@ static async Task ResumePhaseAsync(string stateFile)
                 Console.Write("  Approve sending this refund email? (y/n): ");
 
                 var input = Console.ReadLine();
-                var approved = input is null || input.Trim().ToLowerInvariant() is "y" or "yes";
+                var approved = Approval.Approved(input);
                 if (input is null)
-                    Console.WriteLine("y  (no console input — auto-approving)");
+                    Console.WriteLine("n  (no console input — denying by default)");
 
                 await run.SendResponseAsync(requestInfo.Request.CreateResponse(
                     new ApprovalDecision(approved, approved ? "Approved by supervisor." : "Rejected by supervisor.", request.DraftedEmail)));
@@ -144,6 +144,12 @@ static Workflow BuildWorkflow()
 
 static string Indent(string text) =>
     string.Join("\n", text.Split('\n').Select(line => $"  | {line.TrimEnd()}"));
+
+internal static class Approval
+{
+    // Fail closed: null (EOF), empty, and anything but y/yes is a denial.
+    public static bool Approved(string? input) => input?.Trim().ToLowerInvariant() is "y" or "yes";
+}
 
 // Checkpointed as JSON — keep these plain records.
 public sealed record ApprovalRequest(string CustomerRequest, string DraftedEmail);
