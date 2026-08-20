@@ -5,7 +5,7 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `SelfCorrectionLoop`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`).
 
 ## Pattern Explorer
 
@@ -77,8 +77,8 @@ request, so edits show up on refresh.
 | Debate | Opposing agents argue over rounds, a judge rules |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
-| EvaluationAndMonitoring | Telemetry, metrics, and tracing around agent runs |
-| ExceptionHandlingAndRecovery | Retry, fallback, and graceful degradation |
+| EvaluationAndMonitoring | Telemetry plus deterministic model-call record and replay |
+| ExceptionHandlingAndRecovery | Retry, fallback, graceful degradation, and dependency circuit breaking |
 | ExpeL | Learning insights from experience across episodes |
 | ExplorationAndDiscovery | Generate → critique → evolve idea loops |
 | GoalSetting(s)AndMonitoring | Goal decomposition with progress monitoring |
@@ -91,7 +91,7 @@ request, so edits show up on refresh.
 | LearningAndAdaptation | Rule learning across sessions |
 | MCP | Consuming Model Context Protocol tool servers |
 | Magentic | Manager-driven open-ended multi-agent orchestration |
-| MemoryManagement | Session persistence and conversation memory |
+| MemoryManagement | Isolated invocation, session, long-term, and authoritative business state |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | MultiAgentCollaboration | Group-chat orchestration |
 | OrchestratorWorkers | Dynamic decomposition into validated tasks for a fixed worker registry |
@@ -107,7 +107,7 @@ request, so edits show up on refresh.
 | ResourceAwareOptimization | Model routing under a cost budget |
 | Routing | Intent routing to specialist agents (incl. a workflow variant) |
 | SelfConsistency | Sampled reasoning paths with majority voting |
-| SelfCorrectionLoop | Draft → evaluate → revise loops |
+| SelfCorrectionLoop | Evaluator-Optimizer loop with typed feedback and host-enforced criteria |
 | SelfNote | Margin-note taking to aid long-context answers |
 | SemanticCaching | Exact and similarity-based response caching |
 | SkillLearning | Distill a trial-and-error trajectory into a SKILL.md future agents load on demand |

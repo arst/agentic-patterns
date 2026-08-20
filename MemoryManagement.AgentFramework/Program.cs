@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MemoryManagement.AgentFramework;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
@@ -11,6 +12,8 @@ using Shared;
 // 3. SerializeSessionAsync / DeserializeSessionAsync — persist a session across app restarts.
 
 var sessionFile = Path.Combine(AppContext.BaseDirectory, "session.json");
+var longTermFile = Path.Combine(AppContext.BaseDirectory, "long-term-memory.json");
+var invocationAgentRuns = 0; // invocation state: this process run only
 
 // The reducer summarizes older messages once the history exceeds ~6 messages,
 // keeping the last 4 verbatim. Facts from summarized turns survive in the summary.
@@ -49,6 +52,7 @@ foreach (var input in new[]
          })
 {
     Console.WriteLine($"User: {input}");
+    invocationAgentRuns++;
     Console.WriteLine($"Agent: {await agent.RunAsync(input, session)}\n");
 }
 
@@ -57,6 +61,7 @@ PrintHistoryCount(session, "after 3 turns, reducer applied");
 Console.WriteLine("\n---- Step 2: Recall within the session ----\n");
 
 var recall = await agent.RunAsync("Which format do I prefer for reports, and who is the audience?", session);
+invocationAgentRuns++;
 Console.WriteLine($"Agent: {recall}");
 
 Console.WriteLine("\n---- Step 3: Persist session, simulate app restart, restore ----\n");
@@ -73,4 +78,23 @@ PrintHistoryCount(restoredSession, "restored from disk");
 
 var afterRestart = await restartedAgent.RunAsync(
     "Quick check after restart: what's my name and when is the team demo?", restoredSession);
+invocationAgentRuns++;
 Console.WriteLine($"Agent: {afterRestart}");
+
+Console.WriteLine("\n---- Step 4: Scoped long-term memory, consent, TTL, and deletion ----\n");
+var anna = new MemoryScope("TENANT-ACME", "ANNA");
+var otherTenantAnna = new MemoryScope("TENANT-OTHER", "ANNA");
+var longTerm = new ScopedLongTermMemory();
+Console.WriteLine($"Saved without consent: {longTerm.Remember(anna, "report-format", "weekly PDF", TimeSpan.FromDays(30), consent: false)}");
+Console.WriteLine($"Saved with consent: {longTerm.Remember(anna, "report-format", "weekly PDF", TimeSpan.FromDays(30), consent: true)}");
+await File.WriteAllTextAsync(longTermFile, longTerm.Serialize());
+
+var restartedLongTerm = ScopedLongTermMemory.Deserialize(await File.ReadAllTextAsync(longTermFile));
+Console.WriteLine($"After restart, Anna: {restartedLongTerm.Recall(anna, "report-format")}");
+Console.WriteLine($"Same user ID, other tenant: {restartedLongTerm.Recall(otherTenantAnna, "report-format") ?? "not visible"}");
+Console.WriteLine($"Deleted memories on request: {restartedLongTerm.Delete(anna)}");
+
+// Business state remains authoritative and is never inferred from conversational memory.
+var orders = new Dictionary<string, string> { ["ORD-100"] = "Shipped" };
+Console.WriteLine($"Business state from order system: ORD-100 is {orders["ORD-100"]}");
+Console.WriteLine($"Invocation state: {invocationAgentRuns} agent runs; not persisted across process runs.");

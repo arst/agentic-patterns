@@ -47,6 +47,9 @@ async Task<AgentResponse> RetryAndFallbackMiddleware(
 }
 
 var chatClient = Settings.ChatClient;
+// Shared for this dependency/tenant scope: failures across agent retries contribute to one circuit.
+var preciseLocationCircuit = new DependencyCircuitBreaker(
+    failureThreshold: 2, breakDuration: TimeSpan.FromSeconds(10));
 var agent = new ChatClientAgent(chatClient,
         """
         You are a helpful location assistant.
@@ -58,7 +61,7 @@ var agent = new ChatClientAgent(chatClient,
         "ResilientLocationAgent",
         tools:
         [
-            LocationTools.PreciseLookup,
+            LocationTools.PreciseLookup(preciseLocationCircuit),
             LocationTools.GeneralLookup
         ])
     .AsBuilder()
@@ -71,3 +74,4 @@ var result = await agent.RunAsync(
     "Find the precise location of '15 Rue de Rivoli, Paris, France'.");
 
 Console.WriteLine($"\nAgent response:\n{result}");
+Console.WriteLine($"Precise-location circuit: {preciseLocationCircuit.State}");
