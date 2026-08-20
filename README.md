@@ -52,11 +52,6 @@ samples with the supplied credentials. CodeAct is unavailable in the container b
 mounting the host Docker socket would give the app control of the host daemon, so run that sample
 from a local checkout with Docker or Podman instead.
 
-Pushes to `main` publish `latest` and `sha-...` images to GitHub Container Registry. A `v*` tag
-also publishes semantic-version tags; pull requests build the image without publishing it. After
-the first publish, make the package public in its GitHub package settings if anonymous pulls are
-required (new GHCR packages can start private).
-
 Running a sample from the UI spawns `dotnet run` for that project and calls your Azure OpenAI
 deployment, exactly as running it from the terminal would. Samples that ask for approval get an
 input box wired to the process's stdin; the A2A sample starts its server first automatically.
