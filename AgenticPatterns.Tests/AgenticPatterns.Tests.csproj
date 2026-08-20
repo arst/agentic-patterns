@@ -24,6 +24,7 @@
         <ProjectReference Include="..\SelfCorrectionLoop\SelfCorrectionLoop.csproj"/>
         <ProjectReference Include="..\SelfCorrectionLoop.AgentFramework\SelfCorrectionLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\SemanticCaching.AgentFramework\SemanticCaching.AgentFramework.csproj"/>
+        <ProjectReference Include="..\SkillLearning.AgentFramework\SkillLearning.AgentFramework.csproj"/>
         <ProjectReference Include="..\TreeOfThoughts\TreeOfThoughts.csproj"/>
         <ProjectReference Include="..\ToolAuthorization.AgentFramework\ToolAuthorization.AgentFramework.csproj"/>
         <!-- NOT Voting.SemanticKernel: it defines the same global-namespace records as the AF flavor -->

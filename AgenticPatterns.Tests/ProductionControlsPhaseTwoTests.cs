@@ -1,8 +1,10 @@
 using EvaluationAndMonitoring.AgentFramework;
 using ExceptionHandlingAndRecovery.AgentFramework;
 using MemoryManagement.AgentFramework;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using SelfCorrectionLoop.AgentFramework;
+using SkillLearning.AgentFramework;
 using Xunit;
 
 namespace AgenticPatterns.Tests;
@@ -85,6 +87,148 @@ public class TraceReplayTests
         finally
         {
             File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task FunctionCallContentAndToolResultReplayWithoutLiveExecution()
+    {
+        var trace = new RunTrace("v1", TracePrivacyMode.RedactedContent);
+        var functionCall = new FunctionCallContent("call-1", "Lookup",
+            new Dictionary<string, object?> { ["email"] = "anna@example.com" });
+        using (var recorder = new RecordingChatClient(new ScriptedChatClient(
+                   new ChatResponse(new ChatMessage(ChatRole.Assistant, [functionCall]))), trace))
+            await recorder.GetResponseAsync([new ChatMessage(ChatRole.User, "lookup")]);
+
+        using var replayClient = new ReplayChatClient(trace);
+        var replayedResponse = await replayClient.GetResponseAsync([new ChatMessage(ChatRole.User, "lookup")]);
+        var replayedCall = Assert.IsType<FunctionCallContent>(replayedResponse.Messages.Single().Contents.Single());
+        var replayedEmail = replayedCall.Arguments!["email"];
+        Assert.NotNull(replayedEmail);
+        Assert.Equal("[REDACTED_EMAIL]", replayedEmail.ToString());
+
+        var liveCalls = 0;
+        var inner = AIFunctionFactory.Create((string email) =>
+        {
+            liveCalls++;
+            return $"owner={email}";
+        }, "Lookup");
+        var recordTool = new RecordedAIFunction(inner, new ToolTraceSession(trace, replay: false));
+        await recordTool.InvokeAsync(new AIFunctionArguments { ["email"] = "anna@example.com" });
+        Assert.Equal(1, liveCalls);
+        Assert.DoesNotContain("anna@example.com", trace.ToolCalls.Single().Result.Value);
+
+        var replayTool = new RecordedAIFunction(inner, new ToolTraceSession(trace, replay: true));
+        var result = await replayTool.InvokeAsync(
+            new AIFunctionArguments { ["email"] = "[REDACTED_EMAIL]" });
+        Assert.Equal(1, liveCalls);
+        Assert.Contains("[REDACTED_EMAIL]", result!.ToString());
+    }
+
+    [Fact]
+    public void HashOnlyTraceCannotReplayContent()
+    {
+        var trace = new RunTrace("v1", TracePrivacyMode.HashesOnly);
+        var captured = TraceStore.Capture("api_key=secret", trace.PrivacyMode);
+        Assert.Null(captured.Value);
+        Assert.Throws<InvalidOperationException>(() => new ReplayChatClient(trace));
+
+        var redacted = TraceStore.Capture("email=anna@example.com api_key=secret",
+            TracePrivacyMode.RedactedContent);
+        Assert.DoesNotContain("anna@example.com", redacted.Value);
+        Assert.DoesNotContain("secret", redacted.Value);
+    }
+
+    [Fact]
+    public async Task AgentReplayFollowsRecordedFunctionCallWithoutRepeatingSideEffect()
+    {
+        var trace = new RunTrace("v1");
+        var liveCalls = 0;
+        var rawTool = AIFunctionFactory.Create((string topic) =>
+        {
+            liveCalls++;
+            return $"policy:{topic}";
+        }, "GetPolicy");
+        var first = new ChatResponse(new ChatMessage(ChatRole.Assistant,
+            [new FunctionCallContent("call-1", "GetPolicy", new Dictionary<string, object?> { ["topic"] = "returns" })]))
+        {
+            FinishReason = ChatFinishReason.ToolCalls
+        };
+        var second = new ChatResponse(new ChatMessage(ChatRole.Assistant, "Returns are covered."))
+        {
+            FinishReason = ChatFinishReason.Stop
+        };
+        using var recordingClient = new RecordingChatClient(new ScriptedChatClient(first, second), trace);
+        var recordingTool = new RecordedAIFunction(rawTool, new ToolTraceSession(trace, replay: false));
+        var recordingAgent = new ChatClientAgent(recordingClient, "Use the policy tool.", tools: [recordingTool]);
+
+        Assert.Contains("Returns", (await recordingAgent.RunAsync("What is the returns policy?")).Text);
+        Assert.Equal(1, liveCalls);
+
+        using var replayClient = new ReplayChatClient(trace);
+        var replayTools = new ToolTraceSession(trace, replay: true);
+        var replayAgent = new ChatClientAgent(replayClient, "Use the policy tool.",
+            tools: [new RecordedAIFunction(rawTool, replayTools)]);
+        Assert.Contains("Returns", (await replayAgent.RunAsync("What is the returns policy?")).Text);
+        Assert.Equal(1, liveCalls);
+        Assert.Equal(0, replayClient.RemainingCalls);
+        Assert.Equal(0, replayTools.RemainingCalls);
+    }
+}
+
+public class SkillLifecycleTests
+{
+    private const string ValidSkill = """
+        ---
+        name: provision-employee
+        description: Provision an employee safely.
+        ---
+        1. Create the first.last account.
+        2. Assign E5.
+        3. Add the account to team-<department>-eu.
+        4. Schedule onboarding.
+        """;
+
+    [Fact]
+    public void OnlyReviewedActiveVersionsCanBeRead()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"skill-lifecycle-{Guid.NewGuid():N}");
+        try
+        {
+            var lifecycle = new SkillLifecycle(directory);
+            Assert.Equal(SkillStage.Candidate,
+                lifecycle.CreateCandidate("provision-employee", ValidSkill).Stage);
+            Assert.Null(lifecycle.ReadActive("provision-employee"));
+            lifecycle.Validate("provision-employee");
+            lifecycle.MarkTested("provision-employee", ProvisionEmployeeSkillTests.Pass);
+            Assert.Throws<InvalidOperationException>(() => lifecycle.Activate("provision-employee"));
+            lifecycle.Approve("provision-employee", "reviewer-1");
+            Assert.Equal(SkillStage.Active, lifecycle.Activate("provision-employee").Stage);
+            Assert.Contains("first.last", lifecycle.ReadActive("provision-employee"));
+            lifecycle.Retire("provision-employee");
+            Assert.Null(lifecycle.ReadActive("provision-employee"));
+            Assert.Equal(2, lifecycle.CreateCandidate("provision-employee", ValidSkill).Version);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void InvalidCandidateCannotAdvance()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"skill-lifecycle-{Guid.NewGuid():N}");
+        try
+        {
+            var lifecycle = new SkillLifecycle(directory);
+            lifecycle.CreateCandidate("provision-employee", "untrusted instructions");
+            Assert.Throws<InvalidDataException>(() => lifecycle.Validate("provision-employee"));
+            Assert.Equal(SkillStage.Candidate, lifecycle.Load("provision-employee")!.Stage);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
         }
     }
 }

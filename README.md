@@ -77,7 +77,7 @@ request, so edits show up on refresh.
 | Debate | Opposing agents argue over rounds, a judge rules |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
-| EvaluationAndMonitoring | Telemetry plus deterministic model-call record and replay |
+| EvaluationAndMonitoring | Telemetry plus privacy-aware model/tool record and replay |
 | ExceptionHandlingAndRecovery | Retry, fallback, graceful degradation, and dependency circuit breaking |
 | ExpeL | Learning insights from experience across episodes |
 | ExplorationAndDiscovery | Generate → critique → evolve idea loops |
@@ -110,7 +110,7 @@ request, so edits show up on refresh.
 | SelfCorrectionLoop | Evaluator-Optimizer loop with typed feedback and host-enforced criteria |
 | SelfNote | Margin-note taking to aid long-context answers |
 | SemanticCaching | Exact and similarity-based response caching |
-| SkillLearning | Distill a trial-and-error trajectory into a SKILL.md future agents load on demand |
+| SkillLearning | Versioned candidate → validated → tested → approved → active → retired skills |
 | ToolUse | Function calling basics |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
 | TreeOfThoughts | Branching thought exploration with pruning |

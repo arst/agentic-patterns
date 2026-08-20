@@ -1,13 +1,15 @@
 using System.ComponentModel;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using SkillLearning.AgentFramework;
 using Shared;
 
 // Skill learning: reflect over a trajectory and distill it into a reusable skill FILE.
 // Episode 1 solves an unfamiliar task by trial and error (the provisioning system has
 // undocumented formats that only surface as tool errors). A reflection pass then writes
-// skills/<name>/SKILL.md — YAML frontmatter (name + description) over a step-by-step
-// procedure. Episode 2 gets a FRESH agent that sees only the frontmatter index in its
+// a versioned candidate SKILL.md — YAML frontmatter (name + description) over a step-by-step
+// procedure. Host validation, tests, review, and activation gate consumption. Episode 2 gets a
+// FRESH agent that sees only the active version's frontmatter index in its
 // instructions plus a read_skill tool (progressive disclosure, see
 // ProgressiveToolDisclosure) — it loads the skill and provisions without a single error.
 // LearningAndAdaptation learns rules into its own prompt; here the learning is a file
@@ -52,9 +54,13 @@ var skillMarkdown = (await Settings.ChatClient.GetResponseAsync(
     {trajectory}
     """)).Text.Trim();
 
-var skillPath = Path.Combine(Directory.CreateDirectory(Path.Combine(skillsDir, "provision-employee")).FullName, "SKILL.md");
-File.WriteAllText(skillPath, skillMarkdown);
-Console.WriteLine($"\n---- Distilled skill ({skillPath}) ----\n{skillMarkdown}\n");
+var lifecycle = new SkillLifecycle(skillsDir);
+PrintStage(lifecycle.CreateCandidate("provision-employee", skillMarkdown));
+PrintStage(lifecycle.Validate("provision-employee"));
+PrintStage(lifecycle.MarkTested("provision-employee", ProvisionEmployeeSkillTests.Pass));
+PrintStage(lifecycle.Approve("provision-employee", "demo-human-reviewer"));
+PrintStage(lifecycle.Activate("provision-employee"));
+Console.WriteLine($"\n---- Active skill ----\n{lifecycle.ReadActive("provision-employee")}\n");
 
 // ---- Episode 2: fresh agent, fresh system — only the skill index is disclosed ----
 
@@ -62,7 +68,8 @@ Console.WriteLine("---- Episode 2: fresh agent with the skill index ----\n");
 
 // Just the frontmatter description goes into the instructions; the body stays on disk
 // until the agent decides it is relevant.
-var description = skillMarkdown.Split('\n')
+var activeSkill = lifecycle.ReadActive("provision-employee")!;
+var description = activeSkill.Split('\n')
     .FirstOrDefault(l => l.StartsWith("description:"))?["description:".Length..].Trim() ?? "(no description)";
 
 var system2 = new ProvisioningSystem();
@@ -78,8 +85,7 @@ var episode2Agent = new ChatClientAgent(Settings.ChatClient,
         .. system2.Tools,
         AIFunctionFactory.Create((string name) =>
         {
-            var path = Path.Combine(skillsDir, Path.GetFileName(name), "SKILL.md");
-            return File.Exists(path) ? File.ReadAllText(path) : $"No such skill: {name}";
+            return lifecycle.ReadActive(name) ?? $"No active skill: {name}";
         }, "read_skill", "Load the full SKILL.md for a learned skill by name.")
     ]);
 
@@ -87,7 +93,13 @@ var episode2 = await episode2Agent.RunAsync(
     "Fully provision our new employee Jonas Berg (engineering).");
 Console.WriteLine($"Agent: {episode2.Text}\n");
 PrintStats("Episode 2", episode2);
+PrintStage(lifecycle.Retire("provision-employee"));
+Console.WriteLine($"Read after retirement: {lifecycle.ReadActive("provision-employee") ?? "not available"}");
 return;
+
+static void PrintStage(SkillManifest manifest) =>
+    Console.WriteLine($"  [skill {manifest.Name} v{manifest.Version}: {manifest.Stage}]" +
+                      (manifest.ApprovedBy is null ? "" : $" reviewer={manifest.ApprovedBy}"));
 
 static void PrintStats(string label, AgentResponse response)
 {
