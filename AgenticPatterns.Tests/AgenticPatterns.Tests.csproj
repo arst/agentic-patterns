@@ -11,14 +11,18 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\BoundedExecution.AgentFramework\BoundedExecution.AgentFramework.csproj"/>
         <ProjectReference Include="..\CodeAct.AgentFramework\CodeAct.AgentFramework.csproj"/>
         <ProjectReference Include="..\DurableHumanInTheLoop.AgentFramework\DurableHumanInTheLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj"/>
+        <ProjectReference Include="..\IdempotentToolCalls.AgentFramework\IdempotentToolCalls.AgentFramework.csproj"/>
+        <ProjectReference Include="..\OrchestratorWorkers.AgentFramework\OrchestratorWorkers.AgentFramework.csproj"/>
         <ProjectReference Include="..\PatternExplorer\PatternExplorer.csproj"/>
         <ProjectReference Include="..\ResourceAwareOptimization.AgentFramework\ResourceAwareOptimization.AgentFramework.csproj"/>
         <ProjectReference Include="..\SelfCorrectionLoop\SelfCorrectionLoop.csproj"/>
         <ProjectReference Include="..\SemanticCaching.AgentFramework\SemanticCaching.AgentFramework.csproj"/>
         <ProjectReference Include="..\TreeOfThoughts\TreeOfThoughts.csproj"/>
+        <ProjectReference Include="..\ToolAuthorization.AgentFramework\ToolAuthorization.AgentFramework.csproj"/>
         <!-- NOT Voting.SemanticKernel: it defines the same global-namespace records as the AF flavor -->
         <ProjectReference Include="..\Voting.AgentFramework\Voting.AgentFramework.csproj"/>
     </ItemGroup>

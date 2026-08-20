@@ -67,6 +67,7 @@ request, so edits show up on refresh.
 | Pattern | What it demonstrates |
 |---|---|
 | AgenticRAG | Retrieval as an agent tool: query rewriting, result grading, re-retrieval |
+| BoundedExecution | Hard per-run limits on calls, tools, tokens, elapsed time, iterations, and cost |
 | CacheAwareContext | Stable-prefix message layout so provider prompt caching pays for the input |
 | ChainofThoughts | Step-by-step reasoning in a single prompt |
 | CodeAct | One code-execution tool instead of many bound tools; results stay in the script |
@@ -85,6 +86,7 @@ request, so edits show up on refresh.
 | Handoff | Agents transferring the conversation to each other |
 | HostedTools | Server-side code interpreter and web search tools |
 | HumanInTheLoop | Tool-call approval gates |
+| IdempotentToolCalls | Retry side effects safely when a successful response is lost |
 | InterAgentCommunication.A2A | Agent-to-agent communication over the A2A protocol |
 | LearningAndAdaptation | Rule learning across sessions |
 | MCP | Consuming Model Context Protocol tool servers |
@@ -92,6 +94,7 @@ request, so edits show up on refresh.
 | MemoryManagement | Session persistence and conversation memory |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | MultiAgentCollaboration | Group-chat orchestration |
+| OrchestratorWorkers | Dynamic decomposition into validated tasks for a fixed worker registry |
 | Parallelization | Concurrent fan-out / fan-in over agents |
 | Planning | Typed plan generation + execution |
 | Prioritization | Task triage with tools |
@@ -109,6 +112,7 @@ request, so edits show up on refresh.
 | SemanticCaching | Exact and similarity-based response caching |
 | SkillLearning | Distill a trial-and-error trajectory into a SKILL.md future agents load on demand |
 | ToolUse | Function calling basics |
+| ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
 | TreeOfThoughts | Branching thought exploration with pruning |
 | Voting | Multi-agent voting with confidence weighting |
 

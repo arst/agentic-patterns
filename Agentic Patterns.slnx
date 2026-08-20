@@ -15,6 +15,7 @@
   </Folder>
   <Project Path="AgenticPatterns.Tests/AgenticPatterns.Tests.csproj" />
   <Project Path="AgenticRAG.AgentFramework/AgenticRAG.AgentFramework.csproj" />
+  <Project Path="BoundedExecution.AgentFramework/BoundedExecution.AgentFramework.csproj" />
   <Project Path="CacheAwareContext.AgentFramework/CacheAwareContext.AgentFramework.csproj" />
   <Project Path="CodeAct.AgentFramework/CodeAct.AgentFramework.csproj" />
   <Project Path="ContextCompaction.AgentFramework/ContextCompaction.AgentFramework.csproj" />
@@ -45,6 +46,7 @@
   <Project Path="GuardRails.SemanticKernel/GuardRails.SemanticKernel.csproj" />
   <Project Path="HumanInTheLoop.AgentFramework/HumanInTheLoop.AgentFramework.csproj" />
   <Project Path="HumanInTheLoop.SemanticKernel/HumanInTheLoop.SemanticKernel.csproj" />
+  <Project Path="IdempotentToolCalls.AgentFramework/IdempotentToolCalls.AgentFramework.csproj" />
   <Project Path="LearningAndAdaptation.AgentFramework/LearningAndAdaptation.AgentFramework.csproj" />
   <Project Path="LearningAndAdaptation.SemanticKernel/LearningAndAdaptation.SemanticKernel.csproj" />
   <Project Path="MCP.SemanticKernel/MCP.SemanticKernel.csproj" />
@@ -52,6 +54,7 @@
   <Project Path="MemoryManagement.SemanticKernel/MemoryManagement.SemanticKernel.csproj" />
   <Project Path="MultiAgentCollaboration.AgentFramework/MultiAgentCollaboration.AgentFramework.csproj" />
   <Project Path="MultiAgentCollaboration.SemanticKernel/MultiAgentCollaboration.SemanticKernel.csproj" />
+  <Project Path="OrchestratorWorkers.AgentFramework/OrchestratorWorkers.AgentFramework.csproj" />
   <Project Path="Parallelization.AgentFramework/Parallelization.AgentFramework.csproj" />
   <Project Path="Parallelization.SemanticKernel/Parallelization.SemanticKernel.csproj" />
   <Project Path="Planning.AgentFramework/Planning.AgentFramework.csproj" />
@@ -75,6 +78,7 @@
   <Project Path="SkillLearning.AgentFramework/SkillLearning.AgentFramework.csproj" />
   <Project Path="ToolUse.AgentFramework/ToolUse.AgentFramework.csproj" />
   <Project Path="ToolUse.SemanticKernel/ToolUse.SemanticKernel.csproj" />
+  <Project Path="ToolAuthorization.AgentFramework/ToolAuthorization.AgentFramework.csproj" />
   <Project Path="Voting.AgentFramework/Voting.AgentFramework.csproj" />
   <Project Path="Voting.SemanticKernel/Voting.SemanticKernel.csproj" />
 </Solution>
