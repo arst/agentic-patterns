@@ -5,7 +5,7 @@ var repoRoot = Catalog.FindRepoRoot();
 var patternsDir = Path.Combine(repoRoot, "PatternExplorer", "patterns");
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls("http://localhost:5080");
+builder.WebHost.UseUrls(Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://localhost:5080");
 
 var app = builder.Build();
 app.UseDefaultFiles();
