@@ -55,9 +55,26 @@ await foreach (var evt in run.WatchStreamAsync().ConfigureAwait(false))
             Console.WriteLine($"[ledger] instruction: {ledger.InstructionOrQuestion}\n");
             break;
         case RequestInfoEvent requestInfo when requestInfo.Request.TryGetDataAs<MagenticPlanReviewRequest>(out var review):
-            Console.WriteLine("[review] plan sign-off requested -> auto-approving\n");
-            await run.SendResponseAsync(requestInfo.Request.CreateResponse(review!.Approve()));
+        {
+            Console.Write("[review] plan sign-off requested. Approve? (y/yes = approve, n/no/empty/EOF = reject, other text = revision feedback): ");
+            var answer = Console.ReadLine()?.Trim();
+            if (answer?.ToLowerInvariant() is "y" or "yes")
+            {
+                await run.SendResponseAsync(requestInfo.Request.CreateResponse(review!.Approve()));
+            }
+            else if (!string.IsNullOrEmpty(answer) && answer.ToLowerInvariant() is not ("n" or "no"))
+            {
+                Console.WriteLine("[review] sending revision feedback to the manager\n");
+                await run.SendResponseAsync(requestInfo.Request.CreateResponse(review!.Revise(answer)));
+            }
+            else
+            {
+                // The API offers only Approve/Revise — fail closed by not responding and stopping the run.
+                Console.WriteLine("\n[review] plan rejected — stopping without executing");
+                return;
+            }
             break;
+        }
         case WorkflowOutputEvent output:
             Console.WriteLine("=== Final output ===");
             if (output.As<List<ChatMessage>>() is { } messages)

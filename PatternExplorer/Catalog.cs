@@ -16,7 +16,8 @@ public record PatternProject(
     int ServerPort = 0,
     string? Note = null);
 
-public record PatternMeta(string Title, string Summary, string Category, PatternProject[] Projects);
+/// <param name="Risk">Optional warning shown above the Run button (e.g. "Runs model-written code on this machine.").</param>
+public record PatternMeta(string Title, string Summary, string Category, PatternProject[] Projects, string? Risk = null);
 
 public record Pattern(string Id, PatternMeta Meta, string Body);
 

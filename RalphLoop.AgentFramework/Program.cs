@@ -48,6 +48,12 @@ var agent = new ChatClientAgent(Settings.ChatClient,
     """,
     tools: fileTools);
 
+// The HOST decides when the work is done, not the agent: checked boxes only count
+// when the artifact each task promises actually exists and is non-empty.
+string[] artifacts = ["research.md", "itinerary.md", "summary.md"];
+List<string> missing = [.. artifacts];
+var planDone = false;
+
 for (var iteration = 1; iteration <= 8; iteration++)
 {
     // A brand-new session per iteration — the fresh context IS the pattern.
@@ -58,9 +64,28 @@ for (var iteration = 1; iteration <= 8; iteration++)
         .SelectMany(m => m.Contents).OfType<FunctionCallContent>().Count();
     Console.WriteLine($"Iteration {iteration}: {response.Text.ReplaceLineEndings(" ").Trim()}  [{toolCalls} tool calls, context discarded]");
 
-    if (!File.ReadAllText(Path.Combine(workDir, "PLAN.md")).Contains("- [ ]"))
+    planDone = !File.ReadAllText(Path.Combine(workDir, "PLAN.md")).Contains("- [ ]");
+    missing = [.. artifacts.Where(f => new FileInfo(Path.Combine(workDir, f)) is not { Exists: true, Length: > 0 })];
+
+    if (planDone && missing.Count == 0)
         break;
+
+    if (planDone)
+    {
+        // Agent checked boxes it didn't earn — host unchecks them and leaves feedback.
+        var plan = File.ReadAllText(Path.Combine(workDir, "PLAN.md"));
+        foreach (var f in missing)
+            plan = plan.Replace($"- [x] {f}", $"- [ ] {f}");
+        File.WriteAllText(Path.Combine(workDir, "PLAN.md"), plan);
+        File.AppendAllText(Path.Combine(workDir, "PROGRESS.md"),
+            $"- HOST CHECK: {string.Join(", ", missing)} missing or empty — task re-opened.\n");
+        Console.WriteLine($"  Host check failed: {string.Join(", ", missing)} missing or empty — re-opened.");
+    }
 }
+
+if (!planDone || missing.Count > 0)
+    Console.WriteLine($"\nFAILED: plan not satisfied — " +
+        (missing.Count > 0 ? $"missing or empty: {string.Join(", ", missing)}" : "unchecked tasks remain"));
 
 Console.WriteLine($"\n---- PLAN.md ----\n{File.ReadAllText(Path.Combine(workDir, "PLAN.md"))}");
 Console.WriteLine($"\n---- PROGRESS.md (how iterations talked to each other) ----\n{File.ReadAllText(Path.Combine(workDir, "PROGRESS.md"))}");

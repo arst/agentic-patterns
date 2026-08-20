@@ -106,6 +106,11 @@ async Task<CoordinationResult> RunDemocraticAsync(
             Console.WriteLine($"[{agent.Name}] Timed out — excluded from vote.\n");
             return null;
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[{agent.Name}] Failed ({ex.Message}) — excluded from vote.\n");
+            return null;
+        }
     });
 
     var votes = (await Task.WhenAll(agentTasks))
@@ -114,6 +119,12 @@ async Task<CoordinationResult> RunDemocraticAsync(
         .ToList();
 
     Console.WriteLine($"Votes collected: {votes.Count}/{agentPool.Length}\n");
+
+    // No votes at all -> abstain explicitly instead of crashing in a consensus mechanism
+    if (votes.Count == 0)
+        return new CoordinationResult(
+            task, "No answer — every voter failed or timed out.",
+            0, mode, [], "! Abstained — no votes cast");
 
     // Apply consensus mechanism
     return mode switch
@@ -245,7 +256,8 @@ async Task<CoordinationResult> ApplySynthesisLLMAsync(
     return new CoordinationResult(
         task,
         synthesis,
-        1.0, // synthesis LLM produces one answer, confidence is qualitative
+        // A synthesized free-text answer has no vote-derived confidence — don't invent one
+        double.NaN,
         ConsensusMode.SynthesisLLM,
         votes.ToDictionary(v => v.AgentName, _ => 1),
         "V Synthesised from all agents"
@@ -256,6 +268,6 @@ void PrintResult(CoordinationResult result)
 {
     Console.WriteLine($"=== Result ({result.Mode}) ===");
     Console.WriteLine($"Final answer: {result.FinalAnswer}");
-    Console.WriteLine($"Confidence:   {result.Confidence:P0}");
+    Console.WriteLine($"Confidence:   {(double.IsNaN(result.Confidence) ? "n/a (synthesis)" : result.Confidence.ToString("P0"))}");
     Console.WriteLine($"Status:       {result.Flag}\n");
 }

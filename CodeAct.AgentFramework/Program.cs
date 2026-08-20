@@ -22,6 +22,9 @@ const string question =
 
 Console.WriteLine($"Question: {question}\n");
 
+try
+{
+
 // ---- Round 1: classic tool-calling (every bulky order payload enters the context) ----
 
 Console.WriteLine("---- Round 1: classic tool-calling agent ----\n");
@@ -58,6 +61,16 @@ var codeActAgent = new ChatClientAgent(codeActMeter,
 var codeActResponse = await codeActAgent.RunAsync(question);
 Console.WriteLine($"Agent: {codeActResponse.Text}\n");
 Report("CodeAct", codeActMeter, codeActResponse);
+
+}
+finally
+{
+    // Best effort — a cleanup failure must never mask the real exception
+    try { Directory.Delete(workDir, recursive: true); }
+    catch (IOException) { }
+    catch (UnauthorizedAccessException) { }
+}
+
 return;
 
 async Task<string> ExecuteCSharp(string code)
@@ -67,6 +80,7 @@ async Task<string> ExecuteCSharp(string code)
     if (code.StartsWith("```"))
         code = string.Join('\n', code.Split('\n')[1..^1]);
 
+    Console.WriteLine("  !! WARNING: executing MODEL-GENERATED C# unsandboxed on this machine.");
     Console.WriteLine("  [agent script]");
     foreach (var line in code.Split('\n')) Console.WriteLine($"  | {line}");
 
@@ -74,15 +88,33 @@ async Task<string> ExecuteCSharp(string code)
     // top-level statements, and are callable from them regardless of declaration order.
     await File.WriteAllTextAsync(Path.Combine(workDir, "script.cs"), code + "\n\n" + ActionApiSource);
 
-    var process = Process.Start(new ProcessStartInfo("dotnet", "run script.cs")
+    using var process = Process.Start(new ProcessStartInfo("dotnet", "run script.cs")
     {
         WorkingDirectory = workDir,
         RedirectStandardOutput = true,
         RedirectStandardError = true
     })!;
-    var stdout = await process.StandardOutput.ReadToEndAsync();
-    var stderr = await process.StandardError.ReadToEndAsync();
-    await process.WaitForExitAsync();
+
+    // Drain both pipes concurrently — reading them sequentially can deadlock when the
+    // script fills the un-read pipe's buffer (e.g. compiler diagnostics on stderr).
+    var stdoutTask = process.StandardOutput.ReadToEndAsync();
+    var stderrTask = process.StandardError.ReadToEndAsync();
+
+    // Wall-clock limit; generous because `dotnet run script.cs` includes compilation.
+    using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+    try
+    {
+        await process.WaitForExitAsync(timeout.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        process.Kill(entireProcessTree: true);
+        process.WaitForExit(); // release file handles so the workdir can be deleted
+        return "Script timed out after 2 minutes and was killed.";
+    }
+
+    var stdout = await stdoutTask;
+    var stderr = await stderrTask;
 
     var result = process.ExitCode == 0 ? stdout : $"Script failed (exit {process.ExitCode}):\n{stderr}";
     if (result.Length > 4000) result = result[..4000] + "\n[truncated]";

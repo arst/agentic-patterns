@@ -7,11 +7,13 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
+using TreeOfThoughts;
 
 const int MaxDepth = 3; // 4 numbers -> 3 combining operations
 const int Breadth = 3; // candidate thoughts generated per expansion
 const int BeamWidth = 2; // best paths kept per level
 
+double[] numbers = [4, 9, 10, 13];
 const string Task = "Use the numbers 4, 9, 10 and 13, each exactly once, " +
                     "with + - * / and parentheses, to make exactly 24.";
 
@@ -79,6 +81,22 @@ for (var depth = 1; depth <= MaxDepth && solved is null; depth++)
         {
             var newSteps = path.Steps.Append(thought).ToList();
 
+            // Host-side verification first: invalid arithmetic never reaches the beam
+            // (and never costs an evaluator call), no matter what the model claims.
+            if (!Solver24.Verify(newSteps, numbers, out var why))
+            {
+                Console.WriteLine($"  x [host: {why}] {thought}");
+                continue;
+            }
+
+            // A host-verified "done" IS the answer — the evaluator gets no veto over arithmetic.
+            if (thought.StartsWith("done", StringComparison.OrdinalIgnoreCase))
+            {
+                solved = new ScoredPath(newSteps, 1.0);
+                Console.WriteLine($"  + [host: verified] {thought}");
+                break;
+            }
+
             var evalResponse = await evaluator.RunAsync<ThoughtEvaluation>(
                 $"""
                  Puzzle: {Task}
@@ -96,7 +114,11 @@ for (var depth = 1; depth <= MaxDepth && solved is null; depth++)
             if (!pruned)
                 candidates.Add(new ScoredPath(newSteps, eval.Score));
         }
+
+        if (solved is not null) break;
     }
+
+    if (solved is not null) break;
 
     if (candidates.Count == 0)
     {
@@ -106,9 +128,6 @@ for (var depth = 1; depth <= MaxDepth && solved is null; depth++)
 
     beam = candidates.OrderByDescending(c => c.Score).Take(BeamWidth).ToList();
     Console.WriteLine($"  Beam kept: {string.Join(" | ", beam.Select(b => $"{b.Score:F2} {b.Steps[^1]}"))}\n");
-
-    solved = beam.FirstOrDefault(b =>
-        b.Steps[^1].StartsWith("done", StringComparison.OrdinalIgnoreCase));
 }
 
 Console.WriteLine("=== Best path ===");

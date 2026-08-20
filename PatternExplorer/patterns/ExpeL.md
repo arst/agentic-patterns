@@ -3,6 +3,7 @@
   "title": "ExpeL",
   "summary": "Keep both wins and failures, distil general rules from the contrast, and inject them into the next task.",
   "category": "Learning & goals",
+  "risk": "Persists model-derived insights that steer future runs — bad or poisoned lessons survive across tasks.",
   "projects": [
     { "flavor": "AgentFramework", "path": "ExpeL.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "ExpeL.SemanticKernel" }

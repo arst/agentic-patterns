@@ -3,6 +3,7 @@
   "title": "Skill Learning",
   "summary": "Reflect over a trial-and-error trajectory and distill it into a SKILL.md a future agent loads on demand.",
   "category": "Learning & goals",
+  "risk": "Persists a model-authored SKILL.md and a later agent follows it as instructions — a skill-poisoning channel without review.",
   "projects": [ { "flavor": "AgentFramework", "path": "SkillLearning.AgentFramework" } ]
 }
 ---

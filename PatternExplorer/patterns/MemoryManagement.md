@@ -3,6 +3,7 @@
   "title": "Memory Management",
   "summary": "Keep what the user told you across turns, compact it as it grows, and survive a restart.",
   "category": "Fundamentals",
+  "risk": "Sends conversation content to the external Mem0 service (SK flavor) and persists session data to a local plaintext file (AF flavor).",
   "projects": [
     { "flavor": "AgentFramework", "path": "MemoryManagement.AgentFramework" },
     { "flavor": "SemanticKernel", "path": "MemoryManagement.SemanticKernel" }

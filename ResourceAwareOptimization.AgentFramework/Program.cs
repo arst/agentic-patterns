@@ -2,6 +2,7 @@ using System.ClientModel;
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using ResourceAwareOptimization.AgentFramework;
 using Shared;
 
 // Specialized reasoning tier; the fast/default tier comes from shared config
@@ -18,28 +19,13 @@ var reasoningModel = (Client: azureClient.GetChatClient(ReasoningModelDeployment
     ModelId: ReasoningModelDeployment);
 var budget = new BudgetState(50);
 
-static string ClassifyQuery(IEnumerable<ChatMessage> messages)
-{
-    var lastUserMsg = messages.LastOrDefault(m => m.Role == ChatRole.User);
-    var text = lastUserMsg?.Text ?? "";
-    var wordCount = text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-
-    if (wordCount > 50
-        || text.Contains("step by step", StringComparison.OrdinalIgnoreCase)
-        || text.Contains("analyze", StringComparison.OrdinalIgnoreCase)
-        || text.Contains("compare", StringComparison.OrdinalIgnoreCase))
-        return "reasoning";
-
-    return "simple";
-}
-
 async Task<ChatResponse> RoutingMiddleware(
     IEnumerable<ChatMessage> messages,
     ChatOptions? options,
     IChatClient chatClient,
     CancellationToken cancellationToken)
 {
-    var tier = ClassifyQuery(messages);
+    var tier = QueryRouter.Classify(messages);
     Console.WriteLine($"  [Router] Classified as: {tier}");
 
     // Build a fallback chain based on classification
@@ -69,8 +55,10 @@ async Task<ChatResponse> RoutingMiddleware(
             Console.WriteLine($"  [Router] Success with: {modelId}");
             return response;
         }
-        // Only transient failures (HTTP errors, timeouts, network) should trigger the fallback tier
-        catch (Exception ex) when (ex is ClientResultException or HttpRequestException or TaskCanceledException)
+        // Only transient failures (HTTP errors, timeouts, network) should trigger the fallback tier.
+        // Caller cancellation is NOT a model failure — let it propagate.
+        catch (Exception ex) when ((ex is ClientResultException or HttpRequestException)
+                                   || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
         {
             Console.WriteLine($"  [Fallback] {modelId} failed: {ex.Message}");
         }
@@ -88,9 +76,11 @@ async Task<AgentResponse> BudgetEnforcementMiddleware(
     AIAgent innerAgent,
     CancellationToken cancellationToken)
 {
-    if (budget.Exceeded)
+    // Soft budget: only refuse work that would need the expensive tier —
+    // simple queries still run and RoutingMiddleware forces the fast tier for them.
+    if (QueryRouter.RefuseForBudget(messages, budget.Exceeded))
     {
-        Console.WriteLine("  [BudgetMiddleware] Budget exceeded. Returning early.");
+        Console.WriteLine("  [BudgetMiddleware] Budget exceeded. Refusing expensive-tier work.");
         return new AgentResponse([
             new ChatMessage(ChatRole.Assistant,
                 "I've reached my processing budget for this session. " +

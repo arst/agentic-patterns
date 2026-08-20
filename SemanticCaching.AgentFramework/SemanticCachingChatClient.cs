@@ -12,8 +12,10 @@ public sealed class SemanticCachingChatClient(
     // 0.9 accepts close paraphrases while rejecting merely related questions
     private const float SimilarityThreshold = 0.9f;
 
-    // ponytail: in-memory list with O(n) scan — swap for a persistent vector store in production
-    private readonly List<(float[] Embedding, ChatResponse Response)> _cache = [];
+    // Partitioned by context: similar user text under a different system prompt, model,
+    // or options must never reuse another context's answer.
+    // ponytail: in-memory dictionary with O(n) scan per partition — swap for a persistent vector store in production
+    private readonly Dictionary<string, List<(float[] Embedding, ChatResponse Response)>> _cache = [];
 
     public int Hits { get; private set; }
     public int Misses { get; private set; }
@@ -30,8 +32,12 @@ public sealed class SemanticCachingChatClient(
 
         var embedding = await embeddingGenerator.GenerateVectorAsync(query, cancellationToken: cancellationToken);
 
+        var key = ContextKey(messages, options);
+        if (!_cache.TryGetValue(key, out var partition))
+            _cache[key] = partition = [];
+
         var best = (Similarity: -1f, Response: (ChatResponse?)null);
-        foreach (var (cachedEmbedding, cachedResponse) in _cache)
+        foreach (var (cachedEmbedding, cachedResponse) in partition)
         {
             var similarity = TensorPrimitives.CosineSimilarity(cachedEmbedding, embedding.Span);
             if (similarity > best.Similarity)
@@ -42,12 +48,28 @@ public sealed class SemanticCachingChatClient(
         if (best.Response is not null && best.Similarity >= SimilarityThreshold)
         {
             Hits++;
-            return best.Response;
+            // Hand out a copy, not the shared cached instance (its Usage/ResponseId belong
+            // to the original call — a cache hit costs no tokens).
+            return new ChatResponse([.. best.Response.Messages.Select(m => m.Clone())])
+            {
+                ModelId = best.Response.ModelId
+            };
         }
 
         Misses++;
         var response = await base.GetResponseAsync(messages, options, cancellationToken);
-        _cache.Add((embedding.ToArray(), response));
+        partition.Add((embedding.ToArray(), response));
         return response;
+    }
+
+    // Everything that changes what a valid answer looks like belongs in the key: the system
+    // prompt, every prior turn, and the options. Only the final user message (the embedded
+    // query) is excluded — that's what the similarity search matches on.
+    private static string ContextKey(IEnumerable<ChatMessage> messages, ChatOptions? options)
+    {
+        var list = messages.ToList();
+        var lastUser = list.FindLastIndex(m => m.Role == ChatRole.User);
+        return string.Join("\n", list.Where((m, i) => i != lastUser).Select(m => $"{m.Role}:{m.Text}")) +
+               $"|{options?.ModelId}|{options?.Temperature}|{options?.ResponseFormat}";
     }
 }
