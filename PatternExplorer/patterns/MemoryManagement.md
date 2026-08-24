@@ -33,6 +33,17 @@ Do not collapse every kind of state into agent memory:
 
 Agent memory is never authoritative for identity, permissions, approvals, or business side effects.
 
+## Information-theoretic view
+
+A summarizing reducer is deliberate lossy compression, and what the summary drops is
+unrecoverable from the summary alone — so compress at information boundaries: keep hard facts
+(names, ids, dates, stated preferences) verbatim or in structured long-term storage, and let
+only conversational narrative be folded into prose summaries (see
+`docs/coordination-physics.md`). The demo's recall checks are exactly that boundary being
+tested — Anna's name and the Thursday demo must survive the reducer. The business-state rule is
+the re-grounding escape hatch in disguise: instead of trusting memory's compressed copy of an
+order, the agent goes back to the authoritative system, which resets any accumulated loss.
+
 ## When to use it
 
 - The conversation spans more turns than the context window comfortably holds.

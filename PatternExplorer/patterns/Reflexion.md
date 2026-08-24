@@ -22,6 +22,18 @@ many past episodes for *future, different* tasks. Reflexion sits between them: r
 verifier written in **C#, not an LLM**. Failure is objective, so the trial log genuinely shows
 reflections steering later attempts rather than a critic and a writer negotiating.
 
+## Information-theoretic view
+
+Self-evaluation is a proxy for correctness, and a model grading its own attempt is the softest
+proxy available — the same system produces the work and the verdict, so optimization pressure
+finds agreement, not truth (Goodhart's law; see `docs/coordination-physics.md`). This sample
+avoids that by making the verifier external and mechanical: a deterministic C# method that
+checks the actual constraints, cannot be argued with, and returns the same verdict no matter
+how persuasive the attempt reads. That is what makes a verifier trustworthy — it measures the
+requirement itself rather than the model's account of it, and its verdict does not degrade or
+soften through repetition. The reflection step then adds value *on top of* a hard signal
+instead of substituting for one.
+
 ## When to use it
 
 - Tasks with a programmatic pass/fail signal: tests, compilers, schema validation, constraint checks.

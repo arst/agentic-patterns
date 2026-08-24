@@ -22,6 +22,17 @@ small custom collector on top for the numbers the built-ins do not aggregate for
 Framework also records model and tool calls and can deterministically re-simulate the orchestration
 without calling the live deployment or executing side effects again.
 
+## Information-theoretic view
+
+Every number this pattern emits is a proxy, and Goodhart's law says a proxy under optimization
+pressure drifts away from the thing it stands for (see `docs/coordination-physics.md`): a
+latency chart does not measure user experience, an eval suite does not measure quality, and
+tuning against either optimizes the gap. The working posture is to treat the measurement system
+itself as a hypothesis that incidents revise — when a passing eval coexists with a failing
+product, the eval is the bug and gets updated. Trace recording is what makes that revision
+possible: a captured trajectory is ground truth about what actually happened, replayable
+deterministically, where a metric is only a summary of it.
+
 ## When to use it
 
 - Anything running unattended: you need to see cost and latency regression before the invoice.

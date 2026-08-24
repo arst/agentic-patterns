@@ -21,6 +21,18 @@ The orchestration piece is a **group chat manager** — it decides who speaks ne
 conversation stops. Here that is round-robin with a hard iteration cap, which is the simplest
 manager that exists and the reason the demo always terminates.
 
+## Information-theoretic view
+
+Every message between agents is a compression of what the sender knows, and dialogue re-encodes
+state at every hop — so a group chat pays an information tax that a single agent does not. The
+scaling numbers are unforgiving: independent multi-agent systems amplify trace-level errors
+17.2× versus 4.4× under centralized coordination, and on sequential planning every multi-agent
+architecture tested degrades 39–70% below a single agent (arXiv:2512.08296). Collaboration pays
+its way only when the roles genuinely differ and the task decomposes — an adversarial critic
+adds information precisely because its instructions diverge from the maker's. For the full
+argument, including when a shared environment beats dialogue entirely, see
+`docs/coordination-physics.md`.
+
 ## When to use it
 
 - Output quality benefits from an adversarial second opinion: copy, code, plans, designs.

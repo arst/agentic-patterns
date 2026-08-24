@@ -20,6 +20,17 @@ The payoff is the gap between the two phases. A plan is just JSON, so you can pr
 the tool names against an allow-list, cap the number of steps, show it to a human, or refuse it
 outright — all before a single side effect fires.
 
+## Information-theoretic view
+
+A typed plan is hard information: a `PlanStep` record with a tool name and arguments either
+matches the allow-list or it does not, survives any number of handlings unchanged, and can be
+checked by code that cannot be persuaded (see `docs/coordination-physics.md`). Prose intent has
+none of these properties — it degrades with every re-reading and every check against it is a
+judgment call. The type system is the contract that makes the plan mechanically checkable: the
+`Tool not allowed` throw is a compiler-grade gate standing between the model's intent and the
+world's side effects, which is exactly where a hard gate earns the most. The demo's discipline
+of *describe, don't call* is what creates the seam the gate lives in.
+
 ## When to use it
 
 - The goal needs several dependent calls and you want the whole shape visible up front.

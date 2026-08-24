@@ -20,6 +20,16 @@ a much smaller problem to get right.
 The sequence is decided by *you*, not the model — that is the whole point. Nothing is dynamic,
 so the shape of the run is known before it starts and each hop is separately inspectable.
 
+## Information-theoretic view
+
+A fixed chain where each step sees only the previous step's output is a literal Markov chain,
+so the data processing inequality binds rigorously — not as an analogy: information the
+extractor drops is gone for every later step, no matter how good their prompts are (see
+`docs/coordination-physics.md`). Two mitigations follow directly. Pass structured, typed state
+alongside prose — a typed record survives a hop unchanged where a paraphrase decays — and
+re-attach the original input at later stages when they need it, which is exactly what the Agent
+Framework demo's `InputWithText` record does by carrying the source text past the extractor.
+
 ## When to use it
 
 - The task has a natural pipeline: extract, then summarize, then draft.

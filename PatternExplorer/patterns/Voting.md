@@ -21,6 +21,17 @@ disagreement is itself the useful output.
 How the ballots become an answer depends on the task. A categorical question can be tallied.
 An open-ended one cannot, so a synthesis agent reads all responses and writes the final answer.
 
+## Information-theoretic view
+
+Voting is information *aggregation*, not coordination — the voters never talk, so it pays none
+of the dialogue costs that multi-agent conversations do (see `docs/coordination-physics.md`).
+The statistical condition doing the work is **independence of errors**: if each voter is right
+with probability better than chance *and their mistakes are uncorrelated*, majority accuracy
+climbs with every ballot — but the improvement comes entirely from the independence, not from
+the count. Five samples of the same model with the same blind spot are one vote with extra
+steps; that is why the personas and temperatures differ, and why a confident unanimous answer
+from a homogeneous pool should be read as one opinion, not five.
+
 ## When to use it
 
 - High-stakes calls where a single wrong answer is expensive and you want a disagreement alarm.

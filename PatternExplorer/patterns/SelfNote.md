@@ -22,6 +22,17 @@ Annotating blind forces an even pass over the whole context, so the material tha
 matter is already highlighted when the question arrives. It is how a careful reader works through
 a textbook — notes in the margin on the first pass, exam questions later.
 
+## Information-theoretic view
+
+This is stigmergy with n=1: the notes are traces left in the environment — the annotated text —
+rather than state carried through a dialogue, and the answer phase reads the environment, not
+the note phase's memory (see `docs/coordination-physics.md`). Crucially, the notes ride
+*alongside* the source instead of replacing it, so this is annotation, not compression — the
+data processing inequality has nothing to bite on, because the original context survives intact
+under the margin notes. Withholding the question keeps the annotation pass unbiased, an even
+compression of salience rather than a search for confirming evidence.
+**StigmergicCoordination** scales the same environment-mediated idea to multiple agents.
+
 ## When to use it
 
 - Long or dense context where the relevant passage is not obvious up front.

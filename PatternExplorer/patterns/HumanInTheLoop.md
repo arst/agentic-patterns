@@ -32,6 +32,18 @@ patterns:
 This sample demonstrates **human in the loop**. Moving to on- or out-of-the-loop operation must
 not grant the model more authority; Tool Authorization and execution budgets still apply.
 
+## Information-theoretic view
+
+An approval gate is only worth what the approver actually reads, and undesigned HITL decays
+into a compliance checkbox — every gratuitous prompt trains the click that waves the bad one
+through (see `docs/coordination-physics.md`). The empirical picture of *designed* review comes
+from 25 months of WhatsCode at WhatsApp: 3,000+ accepted changes settled into a stable
+equilibrium of roughly 60% one-click accepts and 40% commandeer-and-revise, with acceptance
+spanning 9–100% across domains (arXiv:2512.05314) — engagement persisted because the workflow
+made both outcomes cheap and legitimate. The design levers here match: gate only the
+consequential pair of functions, show the exact arguments, and treat a denial as a first-class
+result the agent continues from rather than an error.
+
 ## When to use it
 
 - The action moves money, sends external communication, or deletes something.

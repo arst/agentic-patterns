@@ -5,7 +5,7 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`, `StigmergicCoordination`).
 
 ## Pattern Explorer
 
@@ -114,6 +114,7 @@ Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestra
 | SelfNote | Margin-note taking to aid long-context answers |
 | SemanticCaching | Exact and similarity-based response caching |
 | SkillLearning | Versioned candidate → validated → tested → approved → active → retired skills |
+| StigmergicCoordination | Message-free multi-agent build coordinated via shared contracts and a compile gate |
 | ToolUse | Function calling basics |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
 | TreeOfThoughts | Branching thought exploration with pruning |
