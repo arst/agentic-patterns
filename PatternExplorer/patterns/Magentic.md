@@ -19,6 +19,19 @@ runs until the manager says done or the round budget runs out.
 Two safety valves keep it bounded: a maximum round count, and a stall count that triggers a
 **replan** — the manager rewrites the task ledger rather than grinding the same loop again.
 
+## Information-theoretic view
+
+Every delegation is a compression of the manager's intent: the specialist receives an
+instruction line, not the ledger's full state of facts, guesses, and plan — and each report
+back is a compression in the other direction (see `docs/coordination-physics.md`). The pattern
+pays off only when the task decomposes at information boundaries, so that a one-line instruction
+really does carry what the specialist needs; when the pieces are entangled, the manager becomes
+a lossy bottleneck that a single agent would not have. The measured costs are real — multi-agent
+architectures degrade 39–70% below a single agent on sequential planning (arXiv:2512.08296) —
+which is why the honest default is a single agent until the task genuinely exceeds one context.
+The ledgers are the redeeming feature here: written state in the environment that every round
+re-reads, rather than intent degrading through re-tellings.
+
 ## When to use it
 
 - The task is genuinely open-ended and you cannot write the step order up front.

@@ -18,6 +18,18 @@ The value is in the *interaction*. A single agent asked to "consider both sides"
 a balanced-sounding paragraph that never stress-tests anything. Forcing a rebuttal makes weak
 arguments visible, because the other side is actively trying to break them.
 
+## Information-theoretic view
+
+Debate is dialogue coordination with the incentive divergence turned up on purpose: each
+debater is instructed never to concede, which is the Crawford–Sobel condition under which a
+speaker's reports become strategically shaded rather than informative (see
+`docs/coordination-physics.md`). The design compensates in two ways — the divergence is
+*symmetric*, so shading on one side gets attacked by the other, and the ruling comes from a
+judge with no stake, reading the raw transcript rather than either side's summary of it. The
+general multi-agent cost still applies: this is rounds × 2 agents plus a judge, and dialogue
+pipelines amplify errors that a single grounded agent never makes (arXiv:2512.08296), which is
+why the write-up reserves it for genuinely contested trade-offs, not factual questions.
+
 ## When to use it
 
 - Genuinely contested trade-offs where the right answer depends on assumptions worth surfacing.

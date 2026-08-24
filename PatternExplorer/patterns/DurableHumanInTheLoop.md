@@ -21,6 +21,19 @@ This is the durable cousin of **HumanInTheLoop**, where approval is a
 `ToolApprovalRequestContent` inside a single agent run: correct, simple, and gone the moment the
 process exits.
 
+## Information-theoretic view
+
+Human review stays meaningful only when the workflow is designed around how approvers actually
+behave — an approval that must be answered before a process dies pressures the human into the
+reflexive yes, which is how HITL degrades into a checkbox (see
+`docs/coordination-physics.md`). Durability removes that pressure: the request waits as long as
+the decision genuinely takes, the checkpointed `RequestId` guarantees the approver rules on
+exactly what was drafted (no re-draft, no drift between what was reviewed and what runs), and
+the record of who approved what outlives the process. The WhatsCode deployment shows what
+designed review sustains at scale — a stable 60/40 split of one-click accepts versus
+commandeer-and-revise over 25 months (arXiv:2512.05314) — and the precondition is exactly this
+kind of machinery, where deciding carefully is never racing the process lifetime.
+
 ## When to use it
 
 - Approvals that legitimately take longer than a request, a deploy cycle, or a container's life.

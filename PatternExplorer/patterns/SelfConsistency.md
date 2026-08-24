@@ -19,6 +19,18 @@ Note what it is *not*: the diversity comes from temperature, not from different 
 different agents. That distinction separates it from **Voting**, which fields distinct agents
 with distinct instructions.
 
+## Information-theoretic view
+
+This is information aggregation, not coordination — the samples never interact, so nothing is
+compressed or re-told between them (see `docs/coordination-physics.md`). The statistical
+condition that makes the vote work is **error independence**: majority voting reduces error
+only to the extent that wrong paths are wrong in *different* ways, which is exactly what high
+temperature buys — divergent reasoning paths whose mistakes decorrelate while correct paths
+converge on the same answer. The condition fails for shared systematic bias: samples from one
+model with one blind spot are correlated ballots, and no amount of them votes the bias away.
+The disagreement rate is the honest by-product — a measured confidence signal rather than a
+self-reported one.
+
 ## When to use it
 
 - Problems with one objectively correct answer that the model gets right *sometimes*.

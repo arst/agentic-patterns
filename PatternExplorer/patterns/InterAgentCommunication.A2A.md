@@ -22,6 +22,18 @@ The payoff is independence. The remote agent can be a different team's codebase,
 model, a different language, deployed and versioned on its own schedule. The caller only knows
 the card.
 
+## Information-theoretic view
+
+An A2A call is a dialogue hop with a serialization boundary: the caller compresses its need
+into one message, the remote agent compresses its knowledge into one reply, and neither can
+reach into the other's context to recover what was left out (see
+`docs/coordination-physics.md`). That is a real tax — chains of agents amplify errors far more
+than single agents (17.2× for unchecked pipelines in arXiv:2512.08296) — so the boundary must
+buy something: here it buys a genuine trust and ownership boundary, which in-process patterns
+cannot provide. The agent card is the mechanical part of the contract — machine-readable
+capabilities beat prose descriptions of what the other agent probably does — and the honest
+rule stands: if both agents ship together in one process, the network hop is pure loss.
+
 ## When to use it
 
 - The capability belongs to another team, service, or trust boundary.

@@ -22,6 +22,17 @@ The separation is the whole trick. Asking one agent to write and grade its own w
 agreeable self-assessment; a critic with its own instructions — and an explicit *"never write the
 post yourself, only critique"* — actually pushes back.
 
+## Information-theoretic view
+
+An LLM critic is an advisory signal, and advisory verdicts are proxies that drift under
+pressure — a generator iterating until the critic approves is optimizing the critic, not the
+requirements (Goodhart's law; see `docs/coordination-physics.md`). The Agent Framework flavor
+draws the line in the right place: everything mechanically checkable — character limit,
+required product name, forbidden terms — is owned by host code whose verdict cannot be
+negotiated, and the critic is reserved for the residual judgment calls (clarity, tone) that no
+`string.Length` can decide. That split is the mechanical-versus-advisory rule in miniature:
+spend the hard gate on what can be hard, and let the soft signal cover only what is left.
+
 ## When to use it
 
 - Output with checkable requirements: length limits, required mentions, tone, format.

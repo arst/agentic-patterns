@@ -17,6 +17,16 @@ triggers a rewritten query and another search.
 Three differences from plain **RAG**: retrieval is optional, results are judged, and the loop
 can run again. This is the Self-RAG / CRAG family of designs.
 
+## Information-theoretic view
+
+Naive RAG is a one-shot pipeline: retrieve, then generate from whatever came back. If the first
+retrieval missed, the data processing inequality says no amount of downstream reasoning can
+recover what was never fetched — the answer is a function of a bad sample. The grade→rewrite→
+re-retrieve loop is the escape hatch made explicit: each re-retrieval goes back to the corpus
+itself, breaking the processing chain and resetting the loss. This is the flagship application
+of the re-grounding principle in `docs/coordination-physics.md` — compress and filter freely,
+as long as the path back to the source stays open and the agent knows when to take it.
+
 ## When to use it
 
 - Some questions need no documents at all, and a forced retrieval only adds noise and cost.

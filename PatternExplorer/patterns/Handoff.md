@@ -18,6 +18,17 @@ The difference from routing is that the conversation keeps going. Routing picks 
 once and forwards a single request; handoff moves a multi-turn dialogue between agents, and the
 edges are bidirectional.
 
+## Information-theoretic view
+
+What actually crosses a handoff is a compression: the specialist inherits the transcript, but
+everything the triage agent concluded and did not write down is lost at the boundary — the data
+processing inequality in miniature (see `docs/coordination-physics.md`). This sample fares
+better than most because the *full history* transfers verbatim rather than a summary of it;
+the boundary rule is to keep hard information — identifiers like INV-1042, decisions, tool
+results — intact across the transfer and let only narrative be re-derived. Every extra hop
+(specialist back to triage, triage to another specialist) is another chance to shed context,
+which is one more reason the write-up warns against gratuitous triage layers.
+
 ## When to use it
 
 - Customer support and similar desks: one entry point, several specialist teams.

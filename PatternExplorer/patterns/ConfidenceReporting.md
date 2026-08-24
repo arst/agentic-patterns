@@ -21,6 +21,17 @@ measurement — so the samples combine three independent signals:
 - **Logprobs** — the model's own token probabilities, the most objective signal available.
 - **Consistency sampling** — ask N times at high temperature and measure agreement.
 
+## Information-theoretic view
+
+The three signals sit at different points on the proxy spectrum (see
+`docs/coordination-physics.md`). Self-reported confidence is the softest proxy there is — a
+number the system being measured chooses to emit about itself, which is verification theater
+the moment anything optimizes against it. Logprobs and consistency sampling are probe-based:
+measured from the model's behavior rather than asked of it, which makes them the
+mechanical-gate version of the same question. The sample's weighting already encodes this
+ranking — 0.20 for self-report against 0.35 and 0.45 for the probes — so the design is the
+theory made executable: trust what you measured over what you were told.
+
 ## When to use it
 
 - The answer feeds an automated decision and a wrong one is expensive.

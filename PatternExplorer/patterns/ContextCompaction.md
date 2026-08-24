@@ -17,6 +17,17 @@ stays complete as an audit record, and the **model input**, which is rewritten b
 Agent Framework ships this as a compaction pipeline. Strategies fire on triggers, oldest
 content is condensed first, and the most recent turns are always preserved verbatim.
 
+## Information-theoretic view
+
+Compaction is deliberate lossy compression, and by the data processing inequality whatever the
+summarizer drops is unrecoverable from the compacted view — no later model call gets it back.
+That makes *where* you compress the design decision: compact at information boundaries, keeping
+hard information (decisions, identifiers, file paths, contract details) verbatim while folding
+narrative prose into summaries, because prose is redundant and identifiers are not. The demo's
+kept-verbatim recent turns and the customer-id recall check are exactly this boundary rule in
+action. What keeps the lossiness survivable is that the stored history remains addressable — the
+re-grounding escape hatch in `docs/coordination-physics.md`.
+
 ## When to use it
 
 - Long-running sessions: support threads, agents that call bulky tools repeatedly.

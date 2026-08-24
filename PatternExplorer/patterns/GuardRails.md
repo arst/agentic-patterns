@@ -22,6 +22,18 @@ message, and PII redaction at the model boundary. Phrase matching is heuristic s
 can catch known forms but cannot prove that input is safe or stop every prompt injection.
 Deterministic tool authorization remains a host responsibility regardless of what text passes.
 
+## Information-theoretic view
+
+The layers differ in kind, not just strength (see `docs/coordination-physics.md`). A system
+prompt is advisory — a request inside the channel it is trying to police, which is why the model
+can be talked out of it. The code-level guards are mechanical: a regex fires or it does not, a
+blocked topic short-circuits before the model is ever called, and the verdict is the same no
+matter how persuasive the input reads. Static policy of this kind is more load-bearing than
+commonly credited — crude, yes, but its guarantees do not degrade under conversational
+pressure, which no amount of prompt engineering can claim. The honest limit stays: heuristics
+enumerate known bad forms rather than prove safety, so the hard authorization boundary
+(**ToolAuthorization**) must hold regardless of what text gets through.
+
 ## When to use it
 
 - User text reaches a model that has tools, secrets, or a real system prompt behind it.
