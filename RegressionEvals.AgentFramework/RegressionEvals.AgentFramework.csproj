@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Shared\Shared.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Agents.AI"/>
+        <PackageReference Include="Microsoft.Extensions.AI.Evaluation"/>
+        <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Quality"/>
+        <PackageReference Include="Microsoft.Extensions.AI.Evaluation.NLP"/>
+        <PackageReference Include="Microsoft.Extensions.AI.Evaluation.Reporting"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="golden-cases.json" CopyToOutputDirectory="PreserveNewest"/>
+        <None Update="sample-run-trace.json" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+</Project>
