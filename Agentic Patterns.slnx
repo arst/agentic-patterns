@@ -48,6 +48,10 @@
   <Project Path="HumanInTheLoop.AgentFramework/HumanInTheLoop.AgentFramework.csproj" />
   <Project Path="HumanInTheLoop.SemanticKernel/HumanInTheLoop.SemanticKernel.csproj" />
   <Project Path="IdempotentToolCalls.AgentFramework/IdempotentToolCalls.AgentFramework.csproj" />
+  <Project Path="LLMAsJudge.AgentFramework/LLMAsJudge.AgentFramework.csproj" />
+  <Project Path="RegressionEvals.AgentFramework/RegressionEvals.AgentFramework.csproj" />
+  <Project Path="TrajectoryEvaluation.AgentFramework/TrajectoryEvaluation.AgentFramework.csproj" />
+  <Project Path="RedTeaming.AgentFramework/RedTeaming.AgentFramework.csproj" />
   <Project Path="LearningAndAdaptation.AgentFramework/LearningAndAdaptation.AgentFramework.csproj" />
   <Project Path="LearningAndAdaptation.SemanticKernel/LearningAndAdaptation.SemanticKernel.csproj" />
   <Project Path="MCP.SemanticKernel/MCP.SemanticKernel.csproj" />
