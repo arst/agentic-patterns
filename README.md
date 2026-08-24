@@ -68,6 +68,14 @@ request, so edits show up on refresh.
 Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestration**,
 **Knowledge & state**, **Production controls**, and **Evaluation**.
 
+Many write-ups carry an **Information-theoretic view** section explaining *why* the pattern
+works or quietly degrades — grounded in the Data Processing Inequality, strategic-communication
+theory, and Goodhart's Law. Rather than repeat that theory per pattern, the shared results live
+once in **[docs/coordination-physics.md](docs/coordination-physics.md)** — the re-grounding
+escape hatch behind agentic RAG, why dialogue channels lose information, the single-agent
+ceiling, and when to reach for stigmergy over a manager. Start there for the reasoning that ties
+the catalog together; each result states its scope limits and cites a primary source.
+
 ### Reasoning & generation
 
 | Pattern | What it demonstrates |
