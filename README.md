@@ -68,62 +68,84 @@ request, so edits show up on refresh.
 Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestration**,
 **Knowledge & state**, **Production controls**, and **Evaluation**.
 
+### Reasoning & generation
+
 | Pattern | What it demonstrates |
 |---|---|
-| AgenticRAG | Retrieval as an agent tool: query rewriting, result grading, re-retrieval |
-| BoundedExecution | Hard per-run limits on calls, tools, tokens, elapsed time, iterations, and cost |
-| CacheAwareContext | Stable-prefix message layout so provider prompt caching pays for the input |
 | ChainofThoughts | Step-by-step reasoning in a single prompt |
-| CodeAct | One code-execution tool instead of many bound tools; results stay in the script |
-| ConfidenceReporting | Self-reported + probe-based confidence scoring |
-| ContextCompaction | Compaction strategies for long-running agent context |
-| ContextOffloading | Bulky tool results offloaded to files, recoverable via a read-back tool |
 | Debate | Opposing agents argue over rounds, a judge rules |
-| DurableExecution | Workflow checkpointing and resume across restarts |
-| DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
-| EvaluationAndMonitoring | Telemetry plus privacy-aware model/tool record and replay |
-| ExceptionHandlingAndRecovery | Retry, fallback, graceful degradation, and dependency circuit breaking |
-| ExpeL | Learning insights from experience across episodes |
 | ExplorationAndDiscovery | Generate → critique → evolve idea loops |
+| ReasoningAndActing | ReAct-style reason/act tool loops |
+| Reflexion | Episodic retry: attempt → verify → self-reflect → retry with reflections |
+| SelfConsistency | Sampled reasoning paths with majority voting |
+| SelfCorrectionLoop | Evaluator-Optimizer loop with typed feedback and host-enforced criteria |
+| SelfNote | Margin-note taking to aid long-context answers |
+| TreeOfThoughts | Branching thought exploration with pruning |
+| Voting | Multi-agent voting with confidence weighting |
+
+### Orchestration
+
+| Pattern | What it demonstrates |
+|---|---|
+| CodeAct | One code-execution tool instead of many bound tools; results stay in the script |
 | GoalSetting(s)AndMonitoring | Goal decomposition with progress monitoring |
-| GuardRails | Input/output filtering, PII redaction, injection defense |
 | Handoff | Agents transferring the conversation to each other |
 | HostedTools | Server-side code interpreter and web search tools |
-| HumanInTheLoop | Tool-call approval gates |
-| IdempotentToolCalls | Retry side effects safely when a successful response is lost |
 | InterAgentCommunication.A2A | Agent-to-agent communication over the A2A protocol |
-| LLMAsJudge | Judge-model rubric scoring plus a position-bias probe |
-| LearningAndAdaptation | Rule learning across sessions |
 | MCP | Consuming Model Context Protocol tool servers |
 | Magentic | Manager-driven open-ended multi-agent orchestration |
-| MemoryManagement | Isolated invocation, session, long-term, and authoritative business state |
-| Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | MultiAgentCollaboration | Group-chat orchestration |
 | OrchestratorWorkers | Dynamic decomposition into validated tasks for a fixed worker registry |
 | Parallelization | Concurrent fan-out / fan-in over agents |
 | Planning | Typed plan generation + execution |
 | Prioritization | Task triage with tools |
-| ProgressiveToolDisclosure | Search-then-bind tool loading instead of carrying the whole catalog |
 | PromptChaining | Multi-step prompt pipelines (workflow-based in AF) |
-| RAG | Retrieval-augmented generation over a vector store |
 | RalphLoop | Fresh-context agent loop until the plan file is satisfied; state lives in files |
-| ReasoningAndActing | ReAct-style reason/act tool loops |
-| RedTeaming | Attacker agent vs a defended agent, judge-scored attack-success-rate |
-| RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
-| Reflexion | Episodic retry: attempt → verify → self-reflect → retry with reflections |
-| ResourceAwareOptimization | Model routing under a cost budget |
 | Routing | Intent routing to specialist agents (incl. a workflow variant) |
-| SelfConsistency | Sampled reasoning paths with majority voting |
-| SelfCorrectionLoop | Evaluator-Optimizer loop with typed feedback and host-enforced criteria |
-| SelfNote | Margin-note taking to aid long-context answers |
-| SemanticCaching | Exact and similarity-based response caching |
-| SkillLearning | Versioned candidate → validated → tested → approved → active → retired skills |
 | StigmergicCoordination | Message-free multi-agent build coordinated via shared contracts and a compile gate |
 | ToolUse | Function calling basics |
+
+### Knowledge & state
+
+| Pattern | What it demonstrates |
+|---|---|
+| AgenticRAG | Retrieval as an agent tool: query rewriting, result grading, re-retrieval |
+| CacheAwareContext | Stable-prefix message layout so provider prompt caching pays for the input |
+| ContextCompaction | Compaction strategies for long-running agent context |
+| ContextOffloading | Bulky tool results offloaded to files, recoverable via a read-back tool |
+| ExpeL | Learning insights from experience across episodes |
+| LearningAndAdaptation | Rule learning across sessions |
+| MemoryManagement | Isolated invocation, session, long-term, and authoritative business state |
+| ProgressiveToolDisclosure | Search-then-bind tool loading instead of carrying the whole catalog |
+| RAG | Retrieval-augmented generation over a vector store |
+| SemanticCaching | Exact and similarity-based response caching |
+| SkillLearning | Versioned candidate → validated → tested → approved → active → retired skills |
+
+### Production controls
+
+| Pattern | What it demonstrates |
+|---|---|
+| BoundedExecution | Hard per-run limits on calls, tools, tokens, elapsed time, iterations, and cost |
+| ConfidenceReporting | Self-reported + probe-based confidence scoring |
+| DurableExecution | Workflow checkpointing and resume across restarts |
+| DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
+| EvaluationAndMonitoring | Telemetry plus privacy-aware model/tool record and replay |
+| ExceptionHandlingAndRecovery | Retry, fallback, graceful degradation, and dependency circuit breaking |
+| GuardRails | Input/output filtering, PII redaction, injection defense |
+| HumanInTheLoop | Tool-call approval gates |
+| IdempotentToolCalls | Retry side effects safely when a successful response is lost |
+| Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
+| ResourceAwareOptimization | Model routing under a cost budget |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
+
+### Evaluation
+
+| Pattern | What it demonstrates |
+|---|---|
+| LLMAsJudge | Judge-model rubric scoring plus a position-bias probe |
+| RedTeaming | Attacker agent vs a defended agent, judge-scored attack-success-rate |
+| RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
-| TreeOfThoughts | Branching thought exploration with pruning |
-| Voting | Multi-agent voting with confidence weighting |
 
 ## Setup
 
