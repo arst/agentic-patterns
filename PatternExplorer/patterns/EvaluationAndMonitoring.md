@@ -115,3 +115,8 @@ calls, total tokens, average latency and a rough cost estimate. Semantic Kernel 
 the console with raw OTel activity records — the exporter is deliberately verbose. **Middleware**
 explains the interception seam these hooks use, and **ConfidenceReporting** measures answer
 quality where this pattern measures cost and speed.
+
+This pattern measures cost and speed and records ground truth; the **Evaluation** category
+(**LLMAsJudge**, **RegressionEvals**, **TrajectoryEvaluation**, **RedTeaming**) judges quality —
+**RegressionEvals** in particular turns the traces recorded here into a regression gate, and
+**TrajectoryEvaluation** judges whether the tool calls this pattern counts were the right ones.

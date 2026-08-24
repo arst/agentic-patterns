@@ -5,7 +5,8 @@ A collection of agentic patterns, each implemented twice for comparison:
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`, `StigmergicCoordination`).
+A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`, `StigmergicCoordination`,
+and the `Evaluation` patterns `LLMAsJudge`, `RegressionEvals`, `TrajectoryEvaluation`, `RedTeaming`).
 
 ## Pattern Explorer
 
@@ -65,7 +66,7 @@ request, so edits show up on refresh.
 ## Patterns
 
 Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestration**,
-**Knowledge & state**, and **Production controls**.
+**Knowledge & state**, **Production controls**, and **Evaluation**.
 
 | Pattern | What it demonstrates |
 |---|---|
@@ -91,6 +92,7 @@ Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestra
 | HumanInTheLoop | Tool-call approval gates |
 | IdempotentToolCalls | Retry side effects safely when a successful response is lost |
 | InterAgentCommunication.A2A | Agent-to-agent communication over the A2A protocol |
+| LLMAsJudge | Judge-model rubric scoring plus a position-bias probe |
 | LearningAndAdaptation | Rule learning across sessions |
 | MCP | Consuming Model Context Protocol tool servers |
 | Magentic | Manager-driven open-ended multi-agent orchestration |
@@ -106,6 +108,8 @@ Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestra
 | RAG | Retrieval-augmented generation over a vector store |
 | RalphLoop | Fresh-context agent loop until the plan file is satisfied; state lives in files |
 | ReasoningAndActing | ReAct-style reason/act tool loops |
+| RedTeaming | Attacker agent vs a defended agent, judge-scored attack-success-rate |
+| RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
 | Reflexion | Episodic retry: attempt → verify → self-reflect → retry with reflections |
 | ResourceAwareOptimization | Model routing under a cost budget |
 | Routing | Intent routing to specialist agents (incl. a workflow variant) |
@@ -117,6 +121,7 @@ Pattern Explorer groups the catalog into **Reasoning & generation**, **Orchestra
 | StigmergicCoordination | Message-free multi-agent build coordinated via shared contracts and a compile gate |
 | ToolUse | Function calling basics |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
+| TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 | TreeOfThoughts | Branching thought exploration with pruning |
 | Voting | Multi-agent voting with confidence weighting |
 

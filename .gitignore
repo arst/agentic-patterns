@@ -425,3 +425,6 @@ FodyWeavers.xsd
 .idea/
 .serena/
 **/.claude/settings.local.json
+
+# Superpowers specs/plans — local working docs, not shipped
+docs/superpowers/

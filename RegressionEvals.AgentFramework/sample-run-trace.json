@@ -1,0 +1,22 @@
+{
+  "promptVersion": "support-agent-v1",
+  "privacyMode": 0,
+  "stopReason": "Completed",
+  "modelCalls": [
+    {
+      "requestHash": "00",
+      "messages": [
+        { "role": "user", "contents": [ { "kind": "text", "payload": { "hash": "00", "value": "What warranty do TechCorp laptops come with?" } } ] }
+      ],
+      "generationOptions": "",
+      "responseMessages": [
+        { "role": "assistant", "contents": [ { "kind": "text", "payload": { "hash": "00", "value": "TechCorp laptops include a two-year limited warranty." } } ] }
+      ],
+      "modelId": "gpt-recorded",
+      "finishReason": "stop",
+      "inputTokens": 0,
+      "outputTokens": 0
+    }
+  ],
+  "toolCalls": []
+}
