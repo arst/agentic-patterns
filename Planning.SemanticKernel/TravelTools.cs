@@ -44,9 +44,10 @@ public sealed class TravelTools
     public string RequestBookingApproval([Description("JSON FlightOption to approve")] string flight)
     {
         var option = JsonSerializer.Deserialize<FlightOption>(flight)!;
-        Console.Write($"Approve booking {option.FlightId} at EUR {option.PriceEur:F2}? (yes/no): ");
+        Console.Write($"Approve booking {option.FlightId} at EUR {option.PriceEur:F2}? (y/n): ");
         var answer = Console.ReadLine(); // EOF -> null -> denied, never auto-approved
-        if (!string.Equals(answer?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+        var approved = answer?.Trim().ToLowerInvariant() is "y" or "yes";
+        if (!approved)
             throw new InvalidOperationException("Booking was not approved; the plan stops here.");
         return flight;
     }

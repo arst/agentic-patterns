@@ -58,4 +58,40 @@ public class PlanValidatorTests
         Assert.Equal("ref ABC123", PlanValidator.Resolve(
             new Dictionary<string, string> { ["confirmation"] = "ref {{step1}}" },
             new Dictionary<string, string> { ["1"] = "ABC123" })["confirmation"]);
+
+    [Fact]
+    public void SelfReferencingStepIsRejected() =>
+        Assert.NotEmpty(PlanValidator.Validate(
+            PlanOf(Step(1, "DraftEmail", ("confirmation", "{{step1}}"))), Allowed, 5));
+
+    [Fact]
+    public void BookFlightSkippingApprovalIsRejected() =>
+        Assert.NotEmpty(PlanValidator.Validate(
+            PlanOf(
+                Step(1, "GetFlights"),
+                Step(2, "SelectCheapest", ("flights", "{{step1}}")),
+                Step(3, "BookFlight", ("approvedFlight", "{{step2}}"))), // skips RequestBookingApproval
+            Allowed, 5));
+
+    [Fact]
+    public void BookFlightWithAFabricatedLiteralIsRejected() =>
+        Assert.NotEmpty(PlanValidator.Validate(
+            PlanOf(
+                Step(1, "GetFlights"),
+                Step(2, "SelectCheapest", ("flights", "{{step1}}")),
+                Step(3, "RequestBookingApproval", ("flight", "{{step2}}")),
+                Step(4, "BookFlight",
+                    ("approvedFlight", """{"FlightId":"F999","Departs":"00:00","PriceEur":1.00}"""))),
+            Allowed, 5));
+
+    [Fact]
+    public void AFullyProvenancedPlanPasses() =>
+        Assert.Empty(PlanValidator.Validate(
+            PlanOf(
+                Step(1, "GetFlights"),
+                Step(2, "SelectCheapest", ("flights", "{{step1}}")),
+                Step(3, "RequestBookingApproval", ("flight", "{{step2}}")),
+                Step(4, "BookFlight", ("approvedFlight", "{{step3}}")),
+                Step(5, "DraftEmail", ("confirmation", "{{step4}}"))),
+            Allowed, 5));
 }

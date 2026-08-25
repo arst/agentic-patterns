@@ -82,9 +82,10 @@ foreach (var step in plan.Steps)
         memory[step.Id.ToString()] = output.ToString();
         Console.WriteLine($"\n[Step {step.Id}] {step.Tool} output:\n{output}");
     }
-    catch (InvalidOperationException ex)
+    catch (Exception ex)
     {
-        // A denied approval or an unresolved placeholder stops the plan here, not the process.
+        // A denied approval, an unresolved placeholder, or any other step failure (e.g. a
+        // mis-shaped argument) stops the plan here, not the process.
         Console.WriteLine($"\nPlan stopped at step {step.Id} ({step.Tool}): {ex.Message}");
         return;
     }

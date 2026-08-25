@@ -86,9 +86,10 @@ foreach (var step in plan.Steps)
         memory[step.Id.ToString()] = output;
         Console.WriteLine($"\n[Step {step.Id}] {step.Tool} output:\n{output}");
     }
-    catch (InvalidOperationException ex)
+    catch (Exception ex)
     {
-        // A denied approval or an unresolved placeholder stops the plan here, not the process.
+        // A denied approval, an unresolved placeholder, or any other step failure (e.g. a
+        // mis-shaped argument) stops the plan here, not the process.
         Console.WriteLine($"\nPlan stopped at step {step.Id} ({step.Tool}): {ex.Message}");
         return;
     }
@@ -115,9 +116,10 @@ static string SelectCheapest(string flights) =>
 static string RequestBookingApproval(string flight)
 {
     var option = JsonSerializer.Deserialize<FlightOption>(flight)!;
-    Console.Write($"Approve booking {option.FlightId} at EUR {option.PriceEur:F2}? (yes/no): ");
+    Console.Write($"Approve booking {option.FlightId} at EUR {option.PriceEur:F2}? (y/n): ");
     var answer = Console.ReadLine(); // EOF -> null -> denied, never auto-approved
-    if (!string.Equals(answer?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+    var approved = answer?.Trim().ToLowerInvariant() is "y" or "yes";
+    if (!approved)
         throw new InvalidOperationException("Booking was not approved; the plan stops here.");
     return flight;
 }

@@ -91,7 +91,13 @@ inventing new ones:
 - Deterministic selection — `SelectCheapest` is a host function, not a model guess, so "cheapest"
   is decided by comparing prices, not by parsing free text.
 - **HumanInTheLoop** — `RequestBookingApproval` shows the human the exact flight ID and price
-  before `BookFlight` can run; the approval is bound to that evidence, not to "a booking".
+  before `BookFlight` can run; the approval is bound to that evidence, not to "a booking". This is
+  enforced, not just prompted: `PlanValidator.Validate`'s `RequiredProducer` table rejects any plan
+  where `BookFlight`'s argument is not literally the output of a preceding `RequestBookingApproval`
+  step, so a plan that skips the approval step — or hands `BookFlight` a fabricated literal instead
+  of that step's output — never reaches execution. The same table requires `SelectCheapest`'s input
+  to come from `GetFlights` and `RequestBookingApproval`'s input to come from `SelectCheapest`, so
+  the model cannot pick a flight from free text either.
 - **IdempotentToolCalls** — `BookFlight` mints one booking key per plan run and replays the first
   result on a retry instead of booking twice.
 - **ToolAuthorization** — `PlanValidator.Validate` is the allow-list gate: an unknown tool name
