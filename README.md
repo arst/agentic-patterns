@@ -100,7 +100,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Handoff | Agents transferring the conversation to each other |
 | HostedTools | Server-side code interpreter and web search tools |
 | InterAgentCommunication.A2A | Agent-to-agent communication over the A2A protocol |
-| MCP | Consuming Model Context Protocol tool servers |
+| MCP | Consuming Model Context Protocol tool servers, sandboxed and allowlisted |
 | Magentic | Manager-driven open-ended multi-agent orchestration |
 | MultiAgentCollaboration | Group-chat orchestration |
 | OrchestratorWorkers | Dynamic decomposition into validated tasks for a fixed worker registry |
@@ -157,9 +157,10 @@ the catalog together; each result states its scope limits and cites a primary so
 
 ## Setup
 
-Requires the .NET 10 SDK and an Azure OpenAI deployment. The `CodeAct` sample additionally
-requires Docker or Podman — it sandboxes the code the model writes and refuses to run
-without isolation (see the security section below).
+Requires the .NET 10 SDK and an Azure OpenAI deployment. The `CodeAct` and `MCP` samples
+additionally require Docker or Podman — both sandbox untrusted execution (model-generated
+code for `CodeAct`, a third-party MCP server for `MCP`) and refuse to run without isolation
+(see the security section below).
 
 Configuration is read from `settings/appsettings.json` (linked into every project), environment variables, and user secrets. **Don't put your API key in `appsettings.json`** — it's tracked in git. Use user secrets instead:
 
@@ -209,6 +210,20 @@ Concretely, for the `CodeAct` sample:
   systems should use a disposable worker, VM/microVM, or hardened sandbox service with
   no ambient credentials. Never execute model-generated code in the application process
   or on the application host.
+
+The same rule applies to the `MCP` sample: a third-party MCP server is untrusted code too.
+`@modelcontextprotocol/server-everything` is pinned at an exact version and baked into an
+image at build time, run in the same locked-down container as `CodeAct` (no network, no
+host environment or credentials, read-only filesystem, dropped capabilities, non-root),
+and only an explicit allowlist (`add`, `echo`) of its discovered tools is ever bound to the
+agent — discovery and authorization are kept separate. Build the image once before running
+either flavor:
+
+```bash
+docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox
+```
+
+See `PatternExplorer/patterns/MCP.md` for the full walkthrough.
 
 The A2A samples need the server running first:
 
