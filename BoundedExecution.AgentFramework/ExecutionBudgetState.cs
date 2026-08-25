@@ -28,12 +28,26 @@ public sealed class ExecutionBudgetState
     public long OutputTokens { get; private set; }
     public decimal EstimatedCost { get; private set; }
 
-    public ModelCallReservation ReserveModelCall(long maximumInputTokens, long maximumOutputTokens, decimal maximumCost)
+    public void RecordIteration()
     {
         lock (_gate)
         {
             ThrowIfElapsed();
             ThrowIf(Iterations + 1 > Budget.MaxIterations, StopReason.IterationLimitReached);
+            Iterations++;
+        }
+    }
+
+    public long RemainingOutputTokens
+    {
+        get { lock (_gate) return Budget.MaxOutputTokens - OutputTokens - _reservedOutputTokens; }
+    }
+
+    public ModelCallReservation ReserveModelCall(long maximumInputTokens, long maximumOutputTokens, decimal maximumCost)
+    {
+        lock (_gate)
+        {
+            ThrowIfElapsed();
             ThrowIf(ModelCalls + 1 > Budget.MaxModelCalls, StopReason.ModelCallLimitReached);
             ThrowIf(InputTokens + _reservedInputTokens + maximumInputTokens > Budget.MaxInputTokens,
                 StopReason.InputTokenLimitReached);
@@ -42,7 +56,6 @@ public sealed class ExecutionBudgetState
             ThrowIf(EstimatedCost + _reservedCost + maximumCost > Budget.MaxEstimatedCost,
                 StopReason.EstimatedCostLimitReached);
 
-            Iterations++;
             ModelCalls++;
             _reservedInputTokens += maximumInputTokens;
             _reservedOutputTokens += maximumOutputTokens;
@@ -51,14 +64,19 @@ public sealed class ExecutionBudgetState
         }
     }
 
-    public void Reconcile(ModelCallReservation reservation, long inputTokens, long outputTokens, decimal cost)
+    // Usage a provider did not report is charged at the reservation, never at zero - otherwise a
+    // provider that omits usage silently disables the token ceiling.
+    public void Reconcile(ModelCallReservation reservation, long? inputTokens, long? outputTokens,
+        Func<long, long, decimal> price)
     {
+        var input = inputTokens ?? reservation.InputTokens;
+        var output = outputTokens ?? reservation.OutputTokens;
         lock (_gate)
         {
             Complete(reservation);
-            InputTokens += inputTokens;
-            OutputTokens += outputTokens;
-            EstimatedCost += cost;
+            InputTokens += input;
+            OutputTokens += output;
+            EstimatedCost += price(input, output);
             ThrowIf(InputTokens > Budget.MaxInputTokens, StopReason.InputTokenLimitReached);
             ThrowIf(OutputTokens > Budget.MaxOutputTokens, StopReason.OutputTokenLimitReached);
             ThrowIf(EstimatedCost > Budget.MaxEstimatedCost, StopReason.EstimatedCostLimitReached);
@@ -84,10 +102,22 @@ public sealed class ExecutionBudgetState
         }
     }
 
+    public TimeSpan RemainingTime
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var remaining = Budget.MaxElapsedTime - _clock.Elapsed;
+                return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+            }
+        }
+    }
+
     public CancellationTokenSource CreateTimeout(CancellationToken cancellationToken)
     {
         var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        source.CancelAfter(Budget.MaxElapsedTime);
+        source.CancelAfter(RemainingTime);
         return source;
     }
 

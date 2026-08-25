@@ -105,7 +105,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | MultiAgentCollaboration | Group-chat orchestration |
 | OrchestratorWorkers | Dynamic decomposition into validated tasks for a fixed worker registry |
 | Parallelization | Concurrent fan-out / fan-in over agents |
-| Planning | Typed plan generation + execution |
+| Planning | Typed plan generation, validated before any step executes |
 | Prioritization | Task triage with tools |
 | PromptChaining | Multi-step prompt pipelines (workflow-based in AF) |
 | RalphLoop | Fresh-context agent loop until the plan file is satisfied; state lives in files |
@@ -133,15 +133,15 @@ the catalog together; each result states its scope limits and cites a primary so
 
 | Pattern | What it demonstrates |
 |---|---|
-| BoundedExecution | Hard per-run limits on calls, tools, tokens, elapsed time, iterations, and cost |
-| ConfidenceReporting | Self-reported + probe-based confidence scoring |
+| BoundedExecution | Hard per-run limits on calls, tools, and elapsed time; tokens estimated conservatively |
+| ConfidenceReporting | Uncertainty signals over one canonical candidate — an uncalibrated heuristic, not a calibrated score |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
 | EvaluationAndMonitoring | Telemetry plus privacy-aware model/tool record and replay |
 | ExceptionHandlingAndRecovery | Retry, fallback, graceful degradation, and dependency circuit breaking |
 | GuardRails | Input/output filtering, PII redaction, injection defense |
 | HumanInTheLoop | Tool-call approval gates |
-| IdempotentToolCalls | Retry side effects safely when a successful response is lost |
+| IdempotentToolCalls | Retry-safe side effects: the dedup record lives with the side effect, not the caller |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | ResourceAwareOptimization | Model routing under a cost budget |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
@@ -151,7 +151,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | LLMAsJudge | Judge-model rubric scoring plus a position-bias probe |
-| RedTeaming | Attacker agent vs a defended agent, judge-scored attack-success-rate |
+| RedTeaming | Deterministic leak checks first, judge second, against the real GuardRails filter |
 | RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 

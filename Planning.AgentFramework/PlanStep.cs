@@ -1,4 +1,6 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
+
+namespace Planning.AgentFramework;
 
 public sealed class PlanStep
 {

@@ -1,15 +1,10 @@
-using System.Globalization;
-
 namespace IdempotentToolCalls.AgentFramework;
 
-public sealed class IdempotentTool(IdempotencyStore store, SimulatedRefundService refunds)
+/// The client holds NO deduplication state. It only carries the key the trusted host minted.
+public sealed class IdempotentTool(SimulatedRefundService refunds, string tenantId = "tenant-a")
 {
     public Task<Refund> IssueRefundAsync(string orderId, decimal amount, string idempotencyKey,
-        bool loseResponseAfterCommit = false, CancellationToken cancellationToken = default)
-    {
-        var normalizedOrder = orderId.Trim().ToUpperInvariant();
-        var normalizedRequest = $"IssueRefund|{normalizedOrder}|{amount.ToString("F2", CultureInfo.InvariantCulture)}";
-        return store.ExecuteAsync(idempotencyKey, normalizedRequest,
-            ct => refunds.CreateAsync(normalizedOrder, amount, ct), loseResponseAfterCommit, cancellationToken);
-    }
+        bool loseResponseAfterCommit = false, CancellationToken cancellationToken = default) =>
+        refunds.IssueRefundAsync(tenantId, idempotencyKey, orderId, amount, loseResponseAfterCommit,
+            cancellationToken);
 }

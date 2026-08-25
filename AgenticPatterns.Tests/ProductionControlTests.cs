@@ -10,9 +10,9 @@ namespace AgenticPatterns.Tests;
 public class BoundedExecutionTests
 {
     private static ExecutionBudget Budget(
-        int modelCalls = 2, int toolCalls = 2, long inputTokens = 100,
+        int iterations = 2, int modelCalls = 2, int toolCalls = 2, long inputTokens = 100, long outputTokens = 100,
         TimeSpan? elapsed = null, decimal cost = 10m) =>
-        new(2, modelCalls, toolCalls, inputTokens, 100, elapsed ?? TimeSpan.FromSeconds(10), cost);
+        new(iterations, modelCalls, toolCalls, inputTokens, outputTokens, elapsed ?? TimeSpan.FromSeconds(10), cost);
 
     [Fact]
     public void ModelCallsAndRetriesCountAgainstTheLimit()
@@ -40,12 +40,48 @@ public class BoundedExecutionTests
     {
         var state = new ExecutionBudgetState(Budget());
         var reservation = state.ReserveModelCall(50, 30, 2);
-        state.Reconcile(reservation, 12, 7, 0.25m);
+        state.Reconcile(reservation, 12, 7, (_, _) => 0.25m);
 
         var snapshot = state.Snapshot();
         Assert.Equal(12, snapshot.InputTokens);
         Assert.Equal(7, snapshot.OutputTokens);
         Assert.Equal(0.25m, snapshot.EstimatedCost);
+    }
+
+    [Fact]
+    public void IterationsAreCountedSeparatelyFromModelCalls()
+    {
+        var state = new ExecutionBudgetState(Budget(iterations: 2, modelCalls: 10));
+        state.RecordIteration();
+        state.ReserveModelCall(1, 1, 0m);
+        state.ReserveModelCall(1, 1, 0m);
+        Assert.Equal(1, state.Snapshot().Iterations);
+        Assert.Equal(2, state.Snapshot().ModelCalls);
+    }
+
+    [Fact]
+    public void MissingUsageIsChargedAtTheReservation()
+    {
+        var state = new ExecutionBudgetState(Budget(outputTokens: 1_000));
+        var reservation = state.ReserveModelCall(10, 800, 0m);
+        state.Reconcile(reservation, inputTokens: null, outputTokens: null, (_, _) => 0m);
+        Assert.Equal(800, state.Snapshot().OutputTokens);
+    }
+
+    [Fact]
+    public void AReservationLargerThanTheRemainingBudgetThrowsBeforeTheCall()
+    {
+        var state = new ExecutionBudgetState(Budget(outputTokens: 500));
+        Assert.Throws<BudgetExceededException>(() => state.ReserveModelCall(10, 800, 0m));
+    }
+
+    [Fact]
+    public void TimeoutUsesTheRemainingDurationNotTheWholeBudget()
+    {
+        var state = new ExecutionBudgetState(Budget(elapsed: TimeSpan.FromSeconds(10)));
+        Thread.Sleep(50);
+        Assert.True(state.RemainingTime < TimeSpan.FromSeconds(10),
+            "CreateTimeout must schedule the remaining duration, not restart the full budget");
     }
 
     [Fact]
@@ -175,70 +211,67 @@ public class ToolAuthorizationTests
 public class IdempotentToolCallTests
 {
     [Fact]
-    public async Task LostResponseRetryProducesExactlyOneSideEffect()
+    public async Task RefundServiceDeduplicatesAcrossACallerCrash()
     {
-        var store = new IdempotencyStore();
         var service = new SimulatedRefundService();
-        var tool = new IdempotentTool(store, service);
+        var key = "key-1";
 
+        // Attempt 1: the service commits the refund and then the response is lost.
         await Assert.ThrowsAsync<HttpRequestException>(() =>
-            tool.IssueRefundAsync("ORD-100", 25m, "refund-1", loseResponseAfterCommit: true));
-        var retry = await tool.IssueRefundAsync("ORD-100", 25m, "refund-1");
+            service.IssueRefundAsync("tenant-a", key, "ORD-100", 25m,
+                loseResponseAfterCommit: true, CancellationToken.None));
 
-        Assert.Equal("ORD-100", retry.OrderId);
+        // The caller process died: it kept no local state at all. A brand new tool
+        // instance retries with the same key.
+        var tool = new IdempotentTool(service);
+        var refund = await tool.IssueRefundAsync("ORD-100", 25m, key);
+
         Assert.Single(service.Refunds);
-        Assert.Equal(1, store.CompletedOperationCount);
+        Assert.Equal(service.Refunds.Single().Id, refund.Id);
     }
 
     [Fact]
-    public async Task SameKeyWithDifferentRequestIsAConflict()
+    public async Task ConcurrentCallsWithTheSameKeyProduceExactlyOneRefund()
     {
-        var tool = new IdempotentTool(new IdempotencyStore(), new SimulatedRefundService());
-        await tool.IssueRefundAsync("ORD-100", 25m, "refund-1");
-        await Assert.ThrowsAsync<IdempotencyConflictException>(() =>
-            tool.IssueRefundAsync("ORD-100", 30m, "refund-1"));
+        var service = new SimulatedRefundService();
+        var key = "key-concurrent";
+
+        var refunds = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ =>
+            service.IssueRefundAsync("tenant-a", key, "ORD-100", 25m,
+                loseResponseAfterCommit: false, CancellationToken.None)));
+
+        Assert.Single(service.Refunds);
+        Assert.All(refunds, r => Assert.Equal(service.Refunds.Single().Id, r.Id));
     }
 
     [Fact]
-    public async Task PermanentFailureIsRememberedAndNotRetried()
+    public async Task CallerCancellationSurfacesAsCancellationNotAFailure()
     {
-        var store = new IdempotencyStore();
-        var attempts = 0;
-        Task<string> Execute() => store.ExecuteAsync<string>("key", "request", _ =>
-        {
-            attempts++;
-            throw new PermanentToolException("invalid");
-        }, false, CancellationToken.None);
+        var service = new SimulatedRefundService();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
 
-        await Assert.ThrowsAsync<PermanentToolException>(Execute);
-        await Assert.ThrowsAsync<PermanentToolException>(Execute);
-        Assert.Equal(1, attempts);
-    }
-
-    [Fact]
-    public async Task ConcurrentRetriesShareOneOperation()
-    {
-        var store = new IdempotencyStore();
-        var attempts = 0;
-        async Task<string> Execute() => await store.ExecuteAsync("key", "request", async ct =>
-        {
-            Interlocked.Increment(ref attempts);
-            await Task.Delay(20, ct);
-            return "done";
-        }, false, CancellationToken.None);
-
-        Assert.All(await Task.WhenAll(Execute(), Execute()), value => Assert.Equal("done", value));
-        Assert.Equal(1, attempts);
-    }
-
-    [Fact]
-    public async Task CallerCancellationRemainsCancellation()
-    {
-        using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new IdempotentTool(new IdempotencyStore(), new SimulatedRefundService())
-                .IssueRefundAsync("ORD-100", 25m, "key", cancellationToken: cancellation.Token));
+            service.IssueRefundAsync("tenant-a", "key-cancel", "ORD-100", 25m,
+                loseResponseAfterCommit: false, cts.Token));
+    }
+
+    [Fact]
+    public async Task RefundServiceRejectsTheSameKeyForADifferentRequest()
+    {
+        var service = new SimulatedRefundService();
+        await service.IssueRefundAsync("tenant-a", "key-1", "ORD-100", 25m, false, CancellationToken.None);
+        await Assert.ThrowsAsync<IdempotencyConflictException>(() =>
+            service.IssueRefundAsync("tenant-a", "key-1", "ORD-100", 30m, false, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RefundKeysAreScopedPerTenant()
+    {
+        var service = new SimulatedRefundService();
+        await service.IssueRefundAsync("tenant-a", "key-1", "ORD-100", 25m, false, CancellationToken.None);
+        await service.IssueRefundAsync("tenant-b", "key-1", "ORD-200", 25m, false, CancellationToken.None);
+        Assert.Equal(2, service.Refunds.Count);
     }
 }
 

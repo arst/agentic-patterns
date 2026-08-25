@@ -113,8 +113,8 @@ The run opens with `---- Running agent with telemetry ----`. Agent Framework pri
 `[Trajectory]` line per request, and finally a `═══ Telemetry Summary ═══` block with total
 calls, total tokens, average latency and a rough cost estimate. Semantic Kernel instead floods
 the console with raw OTel activity records — the exporter is deliberately verbose. **Middleware**
-explains the interception seam these hooks use, and **ConfidenceReporting** measures answer
-quality where this pattern measures cost and speed.
+explains the interception seam these hooks use, and **ConfidenceReporting** attaches uncertainty
+signals to an answer where this pattern measures cost and speed.
 
 This pattern measures cost and speed and records ground truth; the **Evaluation** category
 (**LLMAsJudge**, **RegressionEvals**, **TrajectoryEvaluation**, **RedTeaming**) judges quality —

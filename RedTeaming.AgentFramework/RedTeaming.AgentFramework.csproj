@@ -12,4 +12,8 @@
         <PackageReference Include="Microsoft.Agents.AI"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <None Update="probes.json" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
 </Project>

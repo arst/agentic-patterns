@@ -13,6 +13,10 @@
     <ItemGroup>
         <ProjectReference Include="..\BoundedExecution.AgentFramework\BoundedExecution.AgentFramework.csproj"/>
         <ProjectReference Include="..\CodeAct.AgentFramework\CodeAct.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ConfidenceReporting.AgentFramework\ConfidenceReporting.AgentFramework.csproj"/>
+        <!-- NOT ConfidenceReporting.SemanticKernel: excluded conservatively, not because it conflicts -
+             its global-namespace types are internal and invisible across the assembly boundary, so
+             referencing it too would add nothing to test. -->
         <ProjectReference Include="..\DurableHumanInTheLoop.AgentFramework\DurableHumanInTheLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\EvaluationAndMonitoring.AgentFramework\EvaluationAndMonitoring.AgentFramework.csproj"/>
         <ProjectReference Include="..\ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj"/>
@@ -20,6 +24,9 @@
         <ProjectReference Include="..\MemoryManagement.AgentFramework\MemoryManagement.AgentFramework.csproj"/>
         <ProjectReference Include="..\OrchestratorWorkers.AgentFramework\OrchestratorWorkers.AgentFramework.csproj"/>
         <ProjectReference Include="..\PatternExplorer\PatternExplorer.csproj"/>
+        <ProjectReference Include="..\Planning.AgentFramework\Planning.AgentFramework.csproj"/>
+        <!-- NOT Planning.SemanticKernel: it defines the same global-namespace types as the AF flavor -->
+        <ProjectReference Include="..\RedTeaming.AgentFramework\RedTeaming.AgentFramework.csproj"/>
         <ProjectReference Include="..\ResourceAwareOptimization.AgentFramework\ResourceAwareOptimization.AgentFramework.csproj"/>
         <ProjectReference Include="..\SelfCorrectionLoop\SelfCorrectionLoop.csproj"/>
         <ProjectReference Include="..\SelfCorrectionLoop.AgentFramework\SelfCorrectionLoop.AgentFramework.csproj"/>
@@ -27,7 +34,9 @@
         <ProjectReference Include="..\SkillLearning.AgentFramework\SkillLearning.AgentFramework.csproj"/>
         <ProjectReference Include="..\TreeOfThoughts\TreeOfThoughts.csproj"/>
         <ProjectReference Include="..\ToolAuthorization.AgentFramework\ToolAuthorization.AgentFramework.csproj"/>
-        <!-- NOT Voting.SemanticKernel: it defines the same global-namespace records as the AF flavor -->
+        <!-- NOT Voting.SemanticKernel: excluded conservatively, not because it conflicts - its
+             global-namespace `Vote` record is internal and invisible across the assembly boundary,
+             so referencing it too would add nothing to test. -->
         <ProjectReference Include="..\Voting.AgentFramework\Voting.AgentFramework.csproj"/>
     </ItemGroup>
 

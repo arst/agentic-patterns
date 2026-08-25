@@ -1,7 +1,7 @@
 ---
 {
   "title": "Bounded Execution",
-  "summary": "Enforce one run's limits on iterations, model and tool calls, tokens, elapsed time, and estimated cost.",
+  "summary": "Enforce one run's hard limits on iterations, calls, output tokens, and elapsed time — with input tokens as a conservative pre-dispatch estimate.",
   "category": "Production controls",
   "projects": [ { "flavor": "AgentFramework", "path": "BoundedExecution.AgentFramework" } ]
 }
@@ -30,14 +30,16 @@ spend. Use both when a run must route economically *and* have a hard upper bound
 ## How the demo works
 
 `ExecutionBudgetState` atomically reserves a conservative maximum before every model call. Two
-concurrent calls therefore cannot both observe the same remaining budget. Actual usage is
-reconciled afterward and unused reservation is released. Function middleware charges every tool
-invocation, while a linked cancellation token bounds a call that is still in flight.
+concurrent calls therefore cannot both observe the same remaining budget. The provider's own
+output cap is clamped to the remaining budget, so the full worst case is reserved before dispatch.
+Actual usage is reconciled afterward and unused reservation is released. Function middleware
+charges every tool invocation, while a linked cancellation token bounds a call that is still in
+flight for only the time remaining in the run.
 
 ```mermaid
 flowchart LR
     R[Run starts] --> B[Run-scoped budget]
-    B -->|reserve| M[Model call]
+    B -->|reserve worst case| M[Model call]
     M -->|actual usage| C[Reconcile]
     M --> T[Tool middleware]
     T -->|charge| B
@@ -49,10 +51,26 @@ The token prices come from `BOUNDED_EXECUTION_INPUT_COST_PER_MILLION` and
 `BOUNDED_EXECUTION_OUTPUT_COST_PER_MILLION`, with demo defaults. Prices are configuration, not
 provider facts embedded in the budget component.
 
+## How hard is each limit
+
+| Limit | Enforcement |
+|---|---|
+| Model calls | Hard - checked before dispatch |
+| Iterations | Hard - one agent invocation, checked before the run starts |
+| Tool calls (total and per tool) | Hard - checked before invocation |
+| Elapsed time | Hard - linked cancellation over the remaining duration |
+| Output tokens | Hard - the provider's own `MaxOutputTokens` is capped to the remaining budget and the full cap is reserved |
+| Input tokens | Conservative - the request is estimated at ~4 chars/token before dispatch; a mis-estimate is caught on reconcile, after the call |
+| Estimated cost | Follows the two token limits: hard on output, conservative on input |
+
+Usage a provider does not report is charged at the reservation, never at zero.
+
 ## Key APIs
 
+- `ExecutionBudgetState.RecordIteration()` — counts one orchestration-loop turn, separately from model calls.
 - `ExecutionBudgetState.ReserveModelCall(...)` — atomically reserves calls, tokens, and cost.
-- `ExecutionBudgetState.Reconcile(...)` — replaces the reservation with actual response usage.
+- `ExecutionBudgetState.Reconcile(...)` — replaces the reservation with actual response usage; charges
+  the reservation itself when the provider omits usage.
 - `DelegatingChatClient.GetResponseAsync(...)` — the boundary around every model attempt.
 - Agent Framework function middleware — charges each tool call, including repeated calls.
 - `CancellationTokenSource.CreateLinkedTokenSource(...)` — preserves caller cancellation while
