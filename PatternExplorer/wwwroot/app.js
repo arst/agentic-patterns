@@ -10,6 +10,10 @@ let flavor = null;
 let stream = null;
 let lines = [];
 let pendingRender = false;
+let runId = null;
+let runToken = null;
+
+const MAX_TERMINAL_LINES = 5000;
 
 // ---------- markdown ----------
 
@@ -18,11 +22,15 @@ marked.use({
         code(token) {
             if (token.lang === 'mermaid') return `<pre class="mermaid">${escapeHtml(token.text)}</pre>`;
             return `<pre class="code"><code>${escapeHtml(token.text)}</code></pre>`;
-        }
+        },
+        // Pattern docs are repo-controlled, but marked otherwise passes raw inline/block HTML
+        // straight through (verified: an unescaped <img onerror=...> renders live). Escaping it
+        // here is defence in depth, not a fix for a reachable hole.
+        html(token) { return escapeHtml(token.text); }
     }
 });
 
-mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
 
 function escapeHtml(text) {
     return text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -127,6 +135,8 @@ function run() {
     if (stream) stopStream();
 
     lines = [];
+    runId = null;
+    runToken = null;
     $('terminal').innerHTML = '';
     $('terminal-panel').hidden = false;
     $('terminal-title').textContent = `${current.title} · ${flavor}`;
@@ -135,6 +145,11 @@ function run() {
     $('run').disabled = true;
 
     stream = new EventSource(`/api/run?id=${encodeURIComponent(current.id)}&flavor=${encodeURIComponent(flavor)}`);
+    stream.addEventListener('session', (event) => {
+        const session = JSON.parse(event.data);
+        runId = session.id;
+        runToken = session.token;
+    });
     stream.onmessage = (event) => {
         const chunk = JSON.parse(event.data);
         append(chunk.s, chunk.t);
@@ -157,7 +172,12 @@ function stopStream() {
 }
 
 function cancel() {
-    fetch('/api/run/cancel', { method: 'POST' });
+    if (runId && runToken) {
+        fetch(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
+            method: 'POST',
+            headers: { 'X-Run-Token': runToken }
+        });
+    }
     finish('done', 'stopped');
 }
 
@@ -175,6 +195,7 @@ function append(streamTag, text) {
         else lines.push({ stream: streamTag, text: part, open: true });
         if (i < parts.length - 1) lines[lines.length - 1].open = false;
     });
+    if (lines.length > MAX_TERMINAL_LINES) lines.splice(0, lines.length - MAX_TERMINAL_LINES);
 }
 
 function scheduleRender() {
@@ -233,7 +254,13 @@ $('close-terminal').addEventListener('click', () => {
 
 $('stdin-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    fetch('/api/run/input', { method: 'POST', body: $('stdin').value });
+    if (runId && runToken) {
+        fetch(`/api/runs/${encodeURIComponent(runId)}/input`, {
+            method: 'POST',
+            headers: { 'X-Run-Token': runToken },
+            body: $('stdin').value
+        });
+    }
     $('stdin').value = '';
 });
 

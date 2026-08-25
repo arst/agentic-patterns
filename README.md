@@ -65,7 +65,10 @@ deployment, exactly as running it from the terminal would. Samples that ask for 
 input box wired to the process's stdin; the A2A sample starts its server first automatically.
 
 The write-ups live in `PatternExplorer/patterns/*.md` — one file per pattern, re-read on every
-request, so edits show up on refresh.
+request, so edits show up on refresh. The page serves them under a same-origin
+Content-Security-Policy and renders their Markdown with raw HTML escaped rather than executed
+(and Mermaid diagrams run in Mermaid's `strict` mode); pattern docs are repo-controlled, so this
+is defence in depth rather than protection against untrusted authors.
 
 ## Patterns
 

@@ -8,6 +8,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls(Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "http://localhost:5080");
 
 var app = builder.Build();
+
+// Everything the page needs (marked/mermaid vendored under wwwroot, the doc's own <style>
+// attributes) is same-origin or inline style - see the report for what was actually verified
+// against the live app before shipping this policy. Nothing needed loosening: no 'unsafe-eval',
+// no worker-src/blob: - the vendored mermaid bundle renders diagrams under this policy as-is.
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Content-Security-Policy"] = SecurityHeaders.ContentSecurityPolicy;
+    await next();
+});
+
 app.UseDefaultFiles();
 // Local authoring tool: never cache, so edits to the page or the pattern files show up on refresh.
 app.UseStaticFiles(new StaticFileOptions
