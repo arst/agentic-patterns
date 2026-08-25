@@ -105,7 +105,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | MultiAgentCollaboration | Group-chat orchestration |
 | OrchestratorWorkers | Dynamic decomposition into validated tasks for a fixed worker registry |
 | Parallelization | Concurrent fan-out / fan-in over agents |
-| Planning | Typed plan generation + execution |
+| Planning | Typed plan generation, validated before any step executes |
 | Prioritization | Task triage with tools |
 | PromptChaining | Multi-step prompt pipelines (workflow-based in AF) |
 | RalphLoop | Fresh-context agent loop until the plan file is satisfied; state lives in files |
