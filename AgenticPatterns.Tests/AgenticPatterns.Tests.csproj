@@ -37,6 +37,7 @@
         <ProjectReference Include="..\SelfCorrectionLoop.AgentFramework\SelfCorrectionLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\SemanticCaching.AgentFramework\SemanticCaching.AgentFramework.csproj"/>
         <ProjectReference Include="..\SkillLearning.AgentFramework\SkillLearning.AgentFramework.csproj"/>
+        <ProjectReference Include="..\StigmergicCoordination.AgentFramework\StigmergicCoordination.AgentFramework.csproj"/>
         <ProjectReference Include="..\TreeOfThoughts\TreeOfThoughts.csproj"/>
         <ProjectReference Include="..\ToolAuthorization.AgentFramework\ToolAuthorization.AgentFramework.csproj"/>
         <!-- NOT Voting.SemanticKernel: excluded conservatively, not because it conflicts - its

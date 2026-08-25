@@ -50,7 +50,7 @@ electric vehicle — but shaped as a three-component system: `SloganModule`, `Pr
 `IntegrationGate.cs` — a never-executed class whose only job is to *compile*: it instantiates
 each worker's class where its interface is expected, so a wrong name or signature anywhere
 fails the build. Three workers run concurrently, each producing one C# file into a temp
-workspace. The gate is `dotnet build`.
+workspace. The gate is a sandboxed `dotnet build`.
 
 One trap is deliberate: the Pricing worker's brief quotes a **stale interface**
 (`IReadOnlyList<decimal> GetPrices()`) instead of the real contract
@@ -68,14 +68,20 @@ flowchart TD
     W1 -->|SloganModule.cs| WS
     W2 -->|PricingModule.cs| WS
     W3 -->|BriefAssembler.cs| WS
-    WS --> G{dotnet build<br/>mechanical gate}
+    WS --> G{sandboxed dotnet build<br/>mechanical gate}
     G -->|error CS0535| W2
     G -->|all contracts satisfied| DONE[0 messages exchanged]
 ```
 
 The model's code is compiled but **never executed** — the compiler is the integration test.
-That keeps the sample inside the repository's untrusted-execution rule; a production version
-would add behavioral contract tests running in a sandbox (see **CodeAct** for what that takes).
+But compiling is not risk-free either: build tasks, source generators, and MSBuild targets all
+run as part of a build, not just at execution time, so `dotnet build` still runs inside the
+same locked-down container boundary **CodeAct** uses for model-generated code — no network,
+read-only source mount, a bounded writable build directory, capped CPU/memory/pids, a
+wall-clock timeout, and bounded output. The sample fails closed with no fallback to a host
+build unless the same double opt-in CodeAct offers is set (and even then the timeout and
+source-size cap still apply). A production version would go further and add behavioral
+contract tests running in that same sandbox.
 
 ## Key APIs
 
@@ -85,8 +91,8 @@ no workflow. The coordination machinery is the environment itself.
 - `ChatClientAgent(client, instructions, name)` — one plain agent per worker, no tools.
 - `Task.WhenAll(...)` — workers run concurrently precisely because they share no channel.
 - `File.WriteAllText` into a shared workspace — the write *is* the coordination act.
-- `Process.Start("dotnet", "build ...")` — the mechanical gate; its `error CS*` lines are
-  parsed and routed to the worker owning the failing file.
+- `BuildGate.RunAsync` / `SandboxRunner.RunAsync` — the mechanical gate, run inside a
+  container; its `error CS*` lines are parsed and routed to the worker owning the failing file.
 
 ## What to watch in the output
 
