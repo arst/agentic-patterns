@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Shared;
@@ -24,9 +25,19 @@ if (!useSandbox && !BuildGate.IsUnsafeHostBuildRequested())
     return 1;
 }
 
-var workspace = Directory.CreateDirectory(
-    Path.Combine(Path.GetTempPath(), "stigmergy", Guid.NewGuid().ToString("N"))).FullName;
+// C2: world-readable so the sandbox's non-root uid can read the bind mount, regardless of
+// the operator's umask - see BuildGate.CreateWorkspaceDirectory.
+var workspace = BuildGate.CreateWorkspaceDirectory(
+    Path.Combine(Path.GetTempPath(), "stigmergy", Guid.NewGuid().ToString("N")));
 Console.WriteLine($"Workspace: {workspace}\n");
+
+// Minor: a plain `return` inside the round loop below cannot outrun Ctrl-C, so the SIGINT
+// handler deletes the workspace directly rather than relying on the try/finally to run.
+using var sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, _ =>
+{
+    try { Directory.Delete(workspace, recursive: true); }
+    catch (IOException) { } catch (UnauthorizedAccessException) { }
+});
 
 // ---- The environment: contracts + integration gate, written by the HOST ----
 
@@ -69,9 +80,9 @@ const string Gate =
     }
     """;
 
-File.WriteAllText(Path.Combine(workspace, "Contracts.cs"), Contracts);
-File.WriteAllText(Path.Combine(workspace, "IntegrationGate.cs"), Gate);
-File.WriteAllText(Path.Combine(workspace, "Campaign.csproj"),
+await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, "Contracts.cs"), Contracts, CancellationToken.None);
+await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, "IntegrationGate.cs"), Gate, CancellationToken.None);
+await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, "Campaign.csproj"),
     """
     <Project Sdk="Microsoft.NET.Sdk">
         <PropertyGroup>
@@ -79,7 +90,7 @@ File.WriteAllText(Path.Combine(workspace, "Campaign.csproj"),
             <Nullable>enable</Nullable>
         </PropertyGroup>
     </Project>
-    """);
+    """, CancellationToken.None);
 
 // ---- The workers: one file each, briefed from the environment, never from each other ----
 
@@ -112,7 +123,7 @@ async Task ProduceAsync((string File, string Role, string Brief) worker, string 
     var agent = new ChatClientAgent(Settings.ChatClient, worker.Brief, worker.Role);
     var code = (await agent.RunAsync($"{TaskBrief}\n{extraContext}")).Text.Trim();
     code = Regex.Replace(code, @"^```\w*\n|\n?```$", ""); // strip fences if the model adds them anyway
-    File.WriteAllText(Path.Combine(workspace, worker.File), code);
+    await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, worker.File), code, CancellationToken.None);
     Console.WriteLine($"[worker] {worker.Role} -> {worker.File} ({code.Split('\n').Length} lines, no messages to other workers)");
 }
 
@@ -156,5 +167,6 @@ try
 finally
 {
     // Guaranteed cleanup: the workspace must not survive a crash or the success return above.
-    try { Directory.Delete(workspace, recursive: true); } catch (IOException) { }
+    try { Directory.Delete(workspace, recursive: true); }
+    catch (IOException) { } catch (UnauthorizedAccessException) { }
 }

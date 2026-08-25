@@ -78,10 +78,15 @@ But compiling is not risk-free either: build tasks, source generators, and MSBui
 run as part of a build, not just at execution time, so `dotnet build` still runs inside the
 same locked-down container boundary **CodeAct** uses for model-generated code — no network,
 read-only source mount, a bounded writable build directory, capped CPU/memory/pids, a
-wall-clock timeout, and bounded output. The sample fails closed with no fallback to a host
-build unless the same double opt-in CodeAct offers is set (and even then the timeout and
-source-size cap still apply). A production version would go further and add behavioral
-contract tests running in that same sandbox.
+wall-clock timeout, and bounded output. The image differs, though: this sample pulls the stock
+`mcr.microsoft.com/dotnet/sdk` image from the network on first use, rather than CodeAct's
+repo-controlled image with an offline package cache baked in — same isolation flags, different
+image provenance. The sample fails closed with no fallback to a host build unless the same
+double opt-in CodeAct offers is set (and even then the timeout and source-size cap still
+apply). A nonzero exit with no compiler diagnostic — a permission mismatch on the mount, a
+resource-limit kill, an image-pull failure — is reported as a gate error too, never as a
+silent pass. A production version would go further and add behavioral contract tests running
+in that same sandbox.
 
 ## Key APIs
 

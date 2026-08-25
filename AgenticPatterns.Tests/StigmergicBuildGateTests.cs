@@ -121,16 +121,120 @@ public class StigmergicBuildGateTests
         Assert.Contains(BuildGate.UnsafeAcknowledgementVariable, BuildGate.FailClosedMessage);
     }
 
-    // ---- host fallback wiring: caller cancellation must not be reported as a timeout ----
+    // ---- C1: the exit code is never discarded - a nonzero exit with no parsed compiler
+    // diagnostic must not read as a pass. Pure, so no Docker/host build needed to pin it. ----
 
     [Fact]
-    public async Task CallerCancellationDuringHostBuildIsNotConvertedIntoATimeoutResult()
+    public void NonzeroExitWithNoParsedErrorBecomesASyntheticGateError()
+    {
+        var result = new SandboxResult(1, "", "cp: cannot access '/src': Permission denied\n", TimedOut: false);
+        var errors = BuildGate.InterpretResult(result);
+        Assert.Single(errors);
+        Assert.Contains("error AP0003", errors[0]);
+        Assert.Contains("Permission denied", errors[0]);
+    }
+
+    [Fact]
+    public void ZeroExitWithNoOutputIsAGenuinePass() =>
+        Assert.Empty(BuildGate.InterpretResult(new SandboxResult(0, "", "", TimedOut: false)));
+
+    [Fact]
+    public void NonzeroExitWithAParsedCompilerErrorReportsOnlyTheCompilerError()
+    {
+        var result = new SandboxResult(1, "Foo.cs(1,1): error CS0535: whatever\n", "", TimedOut: false);
+        var errors = BuildGate.InterpretResult(result);
+        Assert.Single(errors);
+        Assert.Contains("CS0535", errors[0]);
+        Assert.DoesNotContain(errors, e => e.Contains("AP0003"));
+    }
+
+    [Fact]
+    public void TimedOutTakesPriorityOverExitCode() =>
+        Assert.Equal(["error AP0002: the build gate timed out"],
+            BuildGate.InterpretResult(new SandboxResult(1, "", "", TimedOut: true)));
+
+    // ---- C2: workspace/file permissions must not depend on the operator's umask ----
+
+    [Fact]
+    public void CreateWorkspaceDirectoryIsWorldReadableAndTraversable()
+    {
+        if (OperatingSystem.IsWindows()) return; // UnixFileMode is a no-op there
+        var parent = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(parent, Guid.NewGuid().ToString("N"));
+        try
+        {
+            BuildGate.CreateWorkspaceDirectory(path);
+            var mode = File.GetUnixFileMode(path);
+            Assert.True(mode.HasFlag(UnixFileMode.OtherRead) && mode.HasFlag(UnixFileMode.OtherExecute));
+        }
+        finally { Directory.Delete(parent, recursive: true); }
+    }
+
+    [Fact]
+    public async Task WriteWorldReadableAsyncMakesTheFileReadableByOthers()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))).FullName;
+        try
+        {
+            var path = Path.Combine(dir, "f.cs");
+            await BuildGate.WriteWorldReadableAsync(path, "class C {}", CancellationToken.None);
+            Assert.True(File.GetUnixFileMode(path).HasFlag(UnixFileMode.OtherRead));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    // ---- host fallback: I3 wants a test that actually ENTERS HostBuildAsync, not one that
+    // throws before the NuGet.config write even completes. Both below run a real `dotnet
+    // build` on the host - no Docker needed, since this is the unsandboxed path. ----
+
+    [Fact]
+    public async Task HostFallbackActuallyCompilesOnTheHostAndReportsTheCompilerError()
     {
         var workspace = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))).FullName;
         try
         {
+            File.WriteAllText(Path.Combine(workspace, "Broken.cs"), "this is not C#;");
+            File.WriteAllText(Path.Combine(workspace, "Broken.csproj"),
+                """
+                <Project Sdk="Microsoft.NET.Sdk">
+                    <PropertyGroup>
+                        <TargetFramework>net10.0</TargetFramework>
+                    </PropertyGroup>
+                </Project>
+                """);
+
+            var errors = await BuildGate.RunAsync(workspace, useSandbox: false, CancellationToken.None);
+
+            Assert.NotEmpty(errors);
+            Assert.Contains(errors, e => e.Contains(": error "));
+        }
+        finally { Directory.Delete(workspace, recursive: true); }
+    }
+
+    [Fact]
+    public async Task CancellationDuringHostBuildPropagatesInsteadOfHangingOrFalselyPassing()
+    {
+        var workspace = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"))).FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(workspace, "Program.cs"), "System.Console.WriteLine(\"hi\");");
+            File.WriteAllText(Path.Combine(workspace, "Program.csproj"),
+                """
+                <Project Sdk="Microsoft.NET.Sdk">
+                    <PropertyGroup>
+                        <OutputType>Exe</OutputType>
+                        <TargetFramework>net10.0</TargetFramework>
+                    </PropertyGroup>
+                </Project>
+                """);
+            // Cancels after the NuGet.config write but almost certainly while `dotnet build`
+            // is still running (process startup alone dominates 50ms) - I3: this must
+            // propagate as cancellation (not hang, not report a false PASSED/timeout).
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                BuildGate.RunAsync(workspace, useSandbox: false, new CancellationToken(canceled: true)));
+                BuildGate.RunAsync(workspace, useSandbox: false, cts.Token));
         }
         finally { Directory.Delete(workspace, recursive: true); }
     }
@@ -212,6 +316,38 @@ public class StigmergicBuildGateSandboxTests
             var errors = await BuildGate.RunAsync(workspace, useSandbox: true, CancellationToken.None);
 
             Assert.Empty(errors);
+        }
+        finally { Directory.Delete(workspace, recursive: true); }
+    }
+
+    // C1 regression, reproduced the same way the reviewer did: an artificially starved
+    // pids-limit kills `dotnet build` (fork fails) before it ever prints a line containing
+    // ": error " - verified by hand first ("sh: 1: Cannot fork", exit 2). InterpretResult
+    // must not read that silence as PASSED.
+    [Fact]
+    public async Task PidsLimitKillIsNotSilentlyReadAsPassed()
+    {
+        if (!DockerAvailable) return;
+
+        var workspace = CreateWorkspace();
+        try
+        {
+            File.WriteAllText(Path.Combine(workspace, "PricingModule.cs"),
+                """
+                namespace Campaign;
+                public sealed class PricingModule : IPricingModule
+                {
+                    public int[] GetTiers(ProductSpec spec) => [10, 20, 30];
+                }
+                """);
+
+            var options = BuildGate.SandboxedOptions(workspace) with { PidsLimit = 1 };
+            var result = await SandboxRunner.RunAsync(options,
+                ["sh", "-c", "cp -r /src /tmp/build && cd /tmp/build && dotnet build -nologo --verbosity quiet"],
+                stdin: null, CancellationToken.None);
+
+            Assert.NotEqual(0, result.ExitCode);
+            Assert.NotEmpty(BuildGate.InterpretResult(result));
         }
         finally { Directory.Delete(workspace, recursive: true); }
     }
