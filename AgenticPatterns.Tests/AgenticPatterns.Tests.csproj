@@ -13,6 +13,8 @@
     <ItemGroup>
         <ProjectReference Include="..\BoundedExecution.AgentFramework\BoundedExecution.AgentFramework.csproj"/>
         <ProjectReference Include="..\CodeAct.AgentFramework\CodeAct.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ConfidenceReporting.AgentFramework\ConfidenceReporting.AgentFramework.csproj"/>
+        <!-- NOT ConfidenceReporting.SemanticKernel: it defines the same global-namespace types as the AF flavor -->
         <ProjectReference Include="..\DurableHumanInTheLoop.AgentFramework\DurableHumanInTheLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\EvaluationAndMonitoring.AgentFramework\EvaluationAndMonitoring.AgentFramework.csproj"/>
         <ProjectReference Include="..\ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj"/>

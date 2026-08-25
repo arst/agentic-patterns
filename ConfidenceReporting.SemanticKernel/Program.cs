@@ -10,190 +10,114 @@ var chatService = kernel.GetRequiredService<IChatCompletionService>();
 
 var question = "What is the capital of Australia?";
 
-Console.WriteLine($"Question: {question}\n");
+const int runs = 5;
 
-var selfReported = await GetSelfReportedConfidenceAsync(chatService, question);
-var logprobScore = await GetLogprobConfidenceAsync(chatService, question);
-var consistency = await GetConsistencySamplingConfidenceAsync(chatService, question);
+await RunConfidencePipelineAsync(question);
 
-var combinedConfidence = CombineConfidence(selfReported, logprobScore, consistency);
+// Every signal below scores the SAME canonical candidate, instead of three signals each
+// describing a possibly-different completion.
+async Task RunConfidencePipelineAsync(string q)
+{
+    Console.WriteLine($"Question: {q}\n");
 
-Console.WriteLine("=== Confidence Results ===\n");
-Console.WriteLine($"Answer:                   {selfReported.Answer}");
-Console.WriteLine($"Self-reported confidence: {selfReported.Confidence:P0}(subjective, treat as UX hint)");
-Console.WriteLine($"Logprob confidence:       {logprobScore:P0}           (token probability signal)");
-Console.WriteLine($"Consistency score:        {consistency.Score:P0}       (agreement across {consistency.Runs} runs)");
-Console.WriteLine($"Hedging language:         {(selfReported.ContainsHedging ? "Yes" : "No")}");
-Console.WriteLine();
-Console.WriteLine($"► Combined confidence:    {combinedConfidence:P0}  → {GetConfidenceLabel(combinedConfidence)}");
+    // 1) ONE canonical candidate, from the raw completion - the only call whose logprobs describe
+    //    the exact text we are about to display.
+    var candidateHistory = new ChatHistory();
+    candidateHistory.AddSystemMessage("Answer the question in one short sentence. Be direct.");
+    candidateHistory.AddUserMessage(q);
 
+    var candidateSettings = new OpenAIPromptExecutionSettings { Logprobs = true, TopLogprobs = 1 };
+    var candidateResponse = await chatService.GetChatMessageContentAsync(candidateHistory, candidateSettings);
+    var candidate = candidateResponse.Content?.Trim() ?? "";
 
-// Self-reported confidence via structured output
-async Task<SelfReportedResult> GetSelfReportedConfidenceAsync(
-    IChatCompletionService svc, string q)
+    // 2) Logprob signal for THAT candidate. SK doesn't surface logprobs natively — reach into the
+    //    raw OpenAI ChatCompletion via InnerContent.
+    var logprobScore = 0.5;
+    if (candidateResponse.InnerContent is ChatCompletion completion)
+    {
+        var tokens = completion.ContentTokenLogProbabilities;
+        if (tokens is { Count: > 0 })
+            logprobScore = UncertaintySignals.NormalizeLogprob(
+                tokens.Where(t => t.LogProbability > -100).Average(t => t.LogProbability));
+    }
+
+    // 3) Self-report ABOUT the candidate, not a fresh answer.
+    var selfReportHistory = new ChatHistory();
+    selfReportHistory.AddSystemMessage("""
+                                        You are a helpful assistant. You will be given a question and a candidate
+                                        answer. Report your honest confidence between 0.0 and 1.0 that the candidate
+                                        answer is correct, and give one sentence of reasoning.
+                                        """);
+    selfReportHistory.AddUserMessage(
+        $"Question: {q}\nCandidate answer: {candidate}\n" +
+        "Report your confidence between 0.0 and 1.0 that the candidate answer is correct, and one " +
+        "sentence of reasoning. Do not restate or replace the candidate answer.");
+
+    var selfReportSettings = new AzureOpenAIPromptExecutionSettings { ResponseFormat = typeof(SelfReportedResponse) };
+    var selfReportResponse = await chatService.GetChatMessageContentAsync(selfReportHistory, selfReportSettings);
+    var selfReport = JsonSerializer.Deserialize<SelfReportedResponse>(selfReportResponse.Content ?? "{}")
+                     ?? new SelfReportedResponse();
+
+    // 4) Consistency = do independent samples AGREE with the candidate? Decided by an equivalence
+    //    probe at temperature 0, not by shared long words.
+    var agreements = await Task.WhenAll(Enumerable.Range(0, runs).Select(async _ =>
+    {
+        var sampleHistory = new ChatHistory();
+        sampleHistory.AddSystemMessage("Answer the question in one short sentence. Be direct.");
+        sampleHistory.AddUserMessage(q);
+
+        var sampleResponse = await chatService.GetChatMessageContentAsync(sampleHistory,
+            new OpenAIPromptExecutionSettings { Temperature = 0.9 });
+        var sample = sampleResponse.Content?.Trim() ?? "";
+        return await AgreesAsync(candidate, sample);
+    }));
+    var consistency = agreements.Count(a => a) / (double)runs;
+
+    var hedging = new[] { "might", "maybe", "possibly", "unclear", "not sure", "i think",
+                          "approximately", "perhaps" }
+        .Any(w => candidate.Contains(w, StringComparison.OrdinalIgnoreCase));
+
+    var score = UncertaintySignals.RiskScore(
+        Math.Clamp(selfReport.Confidence, 0.0, 1.0), logprobScore, consistency, hedging);
+
+    Console.WriteLine($"Answer:                       {candidate}");
+    Console.WriteLine($"  self-reported confidence    {selfReport.Confidence:P0}  (subjective, UX hint only)");
+    Console.WriteLine($"  token-probability signal    {logprobScore:P0}  (about this exact text)");
+    Console.WriteLine($"  agreement across {runs} runs      {consistency:P0}  (equivalence-checked, not keyword overlap)");
+    Console.WriteLine($"  hedging language            {(hedging ? "yes" : "no")}");
+    Console.WriteLine();
+    Console.WriteLine($"Heuristic uncertainty score: {score:F2} -> {UncertaintySignals.Label(score)}");
+    Console.WriteLine("This is NOT an estimated probability of correctness. The weights and thresholds");
+    Console.WriteLine("are hand-picked and have not been calibrated against labelled data.");
+}
+
+// Equivalence probe: do two answers to the same question assert the same thing? Decided by the
+// model at temperature 0, not by naive keyword overlap.
+async Task<bool> AgreesAsync(string candidate, string sample)
 {
     var history = new ChatHistory();
-    history.AddSystemMessage("""
-                             You are a helpful assistant. Answer the question, report your honest
-                             confidence between 0.0 and 1.0, and give one sentence of reasoning
-                             for why you are or aren't confident.
-                             """);
-    history.AddUserMessage(q);
+    history.AddUserMessage(
+        $$"""
+          Do these two answers to the same question assert the same thing?
+          A: {{candidate}}
+          B: {{sample}}
+          Respond JSON: {"equivalent": true} or {"equivalent": false}.
+          """);
 
-    // Structured output — the connector enforces the SelfReportedResponse schema
     var settings = new AzureOpenAIPromptExecutionSettings
     {
-        ResponseFormat = typeof(SelfReportedResponse)
+        Temperature = 0,
+        ResponseFormat = typeof(EquivalenceResponse)
     };
+    var response = await chatService.GetChatMessageContentAsync(history, settings);
 
-    var response = await svc.GetChatMessageContentAsync(history, settings);
-
-    var parsed = JsonSerializer.Deserialize<SelfReportedResponse>(response.Content ?? "{}")
-                 ?? new SelfReportedResponse();
-
-    // Bonus: detect hedging language in the answer itself
-    var hedgingWords = new[]
+    // Fail closed: an unparseable judgement is NOT agreement.
+    try
     {
-        "might", "maybe", "possibly", "unclear",
-        "not sure", "i think", "approximately", "perhaps"
-    };
-    var hasHedging = hedgingWords.Any(w =>
-        parsed.Answer.Contains(w, StringComparison.OrdinalIgnoreCase));
-
-    return new SelfReportedResult(
-        parsed.Answer,
-        Math.Clamp(parsed.Confidence, 0f, 1f),
-        parsed.Reasoning,
-        hasHedging
-    );
-}
-
-// Logprobs (token probability)
-
-async Task<double> GetLogprobConfidenceAsync(
-    IChatCompletionService svc, string q)
-{
-    var history = new ChatHistory();
-    history.AddSystemMessage("Answer the question as concisely as possible.");
-    history.AddUserMessage(q);
-
-    // Enable logprobs via execution settings
-    // TopLogprobs = 1 gives us the top alternative at each token position
-    var settings = new OpenAIPromptExecutionSettings
+        return JsonSerializer.Deserialize<EquivalenceResponse>(response.Content ?? "{}")?.Equivalent == true;
+    }
+    catch (JsonException)
     {
-        Logprobs = true,
-        TopLogprobs = 1
-    };
-
-    var response = await svc.GetChatMessageContentAsync(history, settings);
-
-    // Pull the raw OpenAI ChatCompletion from the inner content
-    // to access logprob data (SK doesn't surface this natively)
-    if (response.InnerContent is not ChatCompletion completion)
-        return 0.5; // fallback if not available
-
-    var logprobContent = completion.ContentTokenLogProbabilities;
-    if (logprobContent is null || logprobContent.Count == 0)
-        return 0.5;
-
-    // Average the per-token log probabilities, then convert to probability
-    // logprob is in natural log, so: probability = exp(logprob)
-    var avgLogprob = logprobContent
-        .Where(t => t.LogProbability > -100) // filter out <100 (essentially zero)
-        .Average(t => t.LogProbability);
-
-    // Map the average log probability to a 0–1 confidence score.
-    // Typical range: -0.1 (very confident) to -3.0 (very uncertain)
-    // We clamp and normalise into a readable 0–1 range.
-    var normalised = Math.Clamp((avgLogprob + 3.0) / 3.0, 0.0, 1.0);
-    return normalised;
-}
-
-//Consistency sampling
-
-async Task<ConsistencyResult> GetConsistencySamplingConfidenceAsync(
-    IChatCompletionService svc, string q, int runs = 5)
-{
-    var answers = new List<string>();
-
-    // Run the same question N times at higher temperature to introduce variance
-    var tasks = Enumerable.Range(0, runs).Select(async _ =>
-    {
-        var history = new ChatHistory();
-        history.AddSystemMessage(
-            "Answer the question in one short sentence. Be direct.");
-        history.AddUserMessage(q);
-
-        var settings = new OpenAIPromptExecutionSettings
-        {
-            Temperature = 0.9 // Higher temp = more variance = better signal
-        };
-
-        var response = await svc.GetChatMessageContentAsync(history, settings);
-        return response.Content?.Trim().ToLowerInvariant() ?? "";
-    });
-
-    var results = await Task.WhenAll(tasks);
-    answers.AddRange(results.Where(r => r.Length > 0));
-
-    // Find the most common answer
-    var mostCommon = answers
-        .GroupBy(a => a)
-        .OrderByDescending(g => g.Count())
-        .First();
-
-    // Score = fraction of runs that agreed with the majority answer
-    // Fuzzy match: if the answer contains the majority answer's key terms
-    var majorityKeywords = mostCommon.Key.Split(' ')
-        .Where(w => w.Length > 4) // skip short words
-        .ToHashSet();
-
-    var agreementCount = answers.Count(a =>
-        majorityKeywords.Any(kw => a.Contains(kw)));
-
-    var score = (double)agreementCount / runs;
-
-    return new ConsistencyResult(
-        mostCommon.Key,
-        score,
-        runs,
-        answers
-    );
-}
-
-// Weighted combination of all three signals
-
-double CombineConfidence(
-    SelfReportedResult selfReported,
-    double logprobScore,
-    ConsistencyResult consistency)
-{
-    // Weights — tweak these based on how much you trust each signal:
-    // Logprobs are most "objective", consistency is expensive but reliable,
-    // self-report is least reliable but adds some signal.
-    const double wSelf = 0.20;
-    const double wLogprob = 0.35;
-    const double wConsistency = 0.45;
-
-    var combined =
-        selfReported.Confidence * wSelf +
-        logprobScore * wLogprob +
-        consistency.Score * wConsistency;
-
-    // Apply a penalty if hedging language was detected
-    if (selfReported.ContainsHedging)
-        combined *= 0.85;
-
-    return Math.Clamp(combined, 0.0, 1.0);
-}
-
-string GetConfidenceLabel(double score)
-{
-    return score switch
-    {
-        >= 0.85 => "High confidence",
-        >= 0.60 => "Medium confidence",
-        >= 0.40 => "Low confidence",
-        _ => "Very low confidence — consider human review"
-    };
+        return false;
+    }
 }

@@ -134,7 +134,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | BoundedExecution | Hard per-run limits on calls, tools, tokens, elapsed time, iterations, and cost |
-| ConfidenceReporting | Self-reported + probe-based confidence scoring |
+| ConfidenceReporting | Uncertainty Signals |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
 | EvaluationAndMonitoring | Telemetry plus privacy-aware model/tool record and replay |
