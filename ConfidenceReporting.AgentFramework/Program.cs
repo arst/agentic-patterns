@@ -103,6 +103,13 @@ async Task<bool> AgreesAsync(string candidate, string sample)
         new ChatOptions { Temperature = 0f, ResponseFormat = Microsoft.Extensions.AI.ChatResponseFormat.Json });
 
     // Fail closed: an unparseable judgement is NOT agreement.
-    return JsonSerializer.Deserialize<Dictionary<string, bool>>(r.Text,
-        new JsonSerializerOptions(JsonSerializerDefaults.Web))?.GetValueOrDefault("equivalent") == true;
+    try
+    {
+        return JsonSerializer.Deserialize<EquivalenceResponse>(r.Text,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))?.Equivalent == true;
+    }
+    catch (JsonException)
+    {
+        return false;
+    }
 }
