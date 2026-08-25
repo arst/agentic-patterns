@@ -54,7 +54,9 @@ public static class SandboxRunner
         args.Add("--security-opt");
         args.Add("no-new-privileges=true");
         args.Add("--pids-limit");
-        args.Add(options.PidsLimit.ToString());
+        // M3: 0 (or negative) reads to docker as "unlimited" — the same fail-open-on-a-bound
+        // shape as an unset Timeout. Never let "unset" mean "no limit" on a security boundary.
+        args.Add((options.PidsLimit > 0 ? options.PidsLimit : 128).ToString());
         args.Add("--memory");
         args.Add(options.Memory);
         args.Add("--cpus");
@@ -106,19 +108,28 @@ public static class SandboxRunner
     public static async Task<SandboxResult> RunAsync(
         SandboxOptions options, IReadOnlyList<string> command, string? stdin, CancellationToken cancellationToken)
     {
+        // C1: kill-by-name must never be optional. SIGKILLing the docker-run CLI process
+        // does not stop the daemon-side container, so timeout cleanup below has to kill BY
+        // NAME — generate one when the caller didn't supply one rather than silently
+        // degrading to a leaked container.
+        var containerName = options.ContainerName ?? $"sandbox-{Guid.NewGuid():N}";
+        options = options with
+        {
+            ContainerName = containerName,
+            // I3: a caller that redirects stdin but forgot -i gets a pipe docker never
+            // attaches to — input is silently discarded and the callee sees EOF.
+            Interactive = options.Interactive || stdin is not null,
+        };
+
         using var process = StartRuntimeProcess(options.ContainerRuntime,
             BuildRunArguments(options, command), redirectStandardInput: stdin is not null);
         try
         {
-            if (stdin is not null)
-            {
-                await process.StandardInput.WriteAsync(stdin);
-                process.StandardInput.Close();
-            }
-
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            // default(TimeSpan) means "no timeout configured", not "cancel immediately".
-            if (options.Timeout > TimeSpan.Zero) timeoutCts.CancelAfter(options.Timeout);
+            // I1: on a type whose whole purpose is bounding untrusted work, "caller forgot
+            // to set Timeout" must never mean "no bound" — fall back to the same safe
+            // default CodeAct always passes explicitly.
+            timeoutCts.CancelAfter(options.Timeout > TimeSpan.Zero ? options.Timeout : TimeSpan.FromMinutes(3));
 
             try
             {
@@ -127,14 +138,26 @@ public static class SandboxRunner
                 var stderrTask = BoundedReader.ReadBoundedAsync(
                     process.StandardError, options.MaxOutputCharacters, timeoutCts.Token);
 
+                // I2: readers must already be draining, and the timeout must already be
+                // armed, before we write. A child that prints more than the output bound
+                // before reading its stdin blocks on a full stdout pipe; writing stdin
+                // before the drain starts (and with no cancellation token) would then hang
+                // forever, uncancellable by either the caller's token or the sandbox timeout.
+                if (stdin is not null)
+                {
+                    await process.StandardInput.WriteAsync(stdin.AsMemory(), timeoutCts.Token);
+                    process.StandardInput.Close();
+                }
+
                 await process.WaitForExitAsync(timeoutCts.Token);
 
                 return new SandboxResult(process.ExitCode, await stdoutTask, await stderrTask, TimedOut: false);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                // Timeout, not caller cancellation.
-                if (options.ContainerName is not null) await KillContainerAsync(options.ContainerRuntime, options.ContainerName);
+                // Timeout, not caller cancellation. Kill by NAME: cancelling the client
+                // process does not guarantee the containerized process has stopped.
+                await KillContainerAsync(options.ContainerRuntime, containerName);
                 if (!process.HasExited) process.Kill(entireProcessTree: true);
                 return new SandboxResult(
                     ExitCode: -1,
@@ -147,7 +170,7 @@ public static class SandboxRunner
         }
         finally
         {
-            if (options.ContainerName is not null) await RemoveContainerAsync(options.ContainerRuntime, options.ContainerName);
+            await RemoveContainerAsync(options.ContainerRuntime, containerName);
         }
     }
 
