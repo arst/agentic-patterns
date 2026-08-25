@@ -10,14 +10,21 @@ public static partial class PlanValidator
 {
     [GeneratedRegex(@"\{\{step(\d+)\}\}")] private static partial Regex Placeholder();
 
-    // A step whose tool is a key here must take its argument directly (not via free text, not via
-    // a literal) from the output of a preceding step whose tool is the mapped value - closes the
-    // gap where a model could skip SelectCheapest/RequestBookingApproval and still pass validation.
-    private static readonly Dictionary<string, string> RequiredProducer = new(StringComparer.OrdinalIgnoreCase)
+    // A declarative contract per tool: the exact parameter set it accepts, and - where
+    // applicable - which single parameter must carry the {{stepN}} output of a specific
+    // preceding tool. Checked by parameter NAME, not by scanning all argument values, and the
+    // parameter set is closed (extra/missing keys are rejected) so a decoy key can't smuggle a
+    // fabricated value past the real parameter the tool actually binds.
+    private sealed record ToolContract(IReadOnlySet<string> Parameters, string? ProducerParameter,
+        string? RequiredProducerTool);
+
+    private static readonly Dictionary<string, ToolContract> Contracts = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["SelectCheapest"] = "GetFlights",
-        ["RequestBookingApproval"] = "SelectCheapest",
-        ["BookFlight"] = "RequestBookingApproval"
+        ["GetFlights"] = new(new HashSet<string> { "from", "to", "date" }, null, null),
+        ["SelectCheapest"] = new(new HashSet<string> { "flights" }, "flights", "GetFlights"),
+        ["RequestBookingApproval"] = new(new HashSet<string> { "flight" }, "flight", "SelectCheapest"),
+        ["BookFlight"] = new(new HashSet<string> { "approvedFlight" }, "approvedFlight", "RequestBookingApproval"),
+        ["DraftEmail"] = new(new HashSet<string> { "confirmation" }, "confirmation", "BookFlight")
     };
 
     /// A model-generated plan is untrusted input. Validate it as a whole BEFORE any step runs:
@@ -47,11 +54,21 @@ public static partial class PlanValidator
                             $"Step {step.Id} references step {referenced}, which does not precede it."));
                 }
 
-            if (RequiredProducer.TryGetValue(step.Tool, out var requiredProducer) &&
-                !step.Args.Values.Any(v => IsExactOutputOf(v, requiredProducer, producedBy)))
-                errors.Add(new PlanValidationError(step.Id,
-                    $"'{step.Tool}' must take its argument directly from a preceding '{requiredProducer}' " +
-                    "step's output (e.g. \"{{stepN}}\"), not a literal value or a different step."));
+            if (Contracts.TryGetValue(step.Tool, out var contract))
+            {
+                if (!new HashSet<string>(step.Args.Keys).SetEquals(contract.Parameters))
+                    errors.Add(new PlanValidationError(step.Id,
+                        $"'{step.Tool}' expects exactly the arguments [{string.Join(", ", contract.Parameters)}], " +
+                        $"got [{string.Join(", ", step.Args.Keys)}]."));
+
+                if (contract.ProducerParameter is { } producerParameter &&
+                    (!step.Args.TryGetValue(producerParameter, out var producerValue) ||
+                     !IsExactOutputOf(producerValue, contract.RequiredProducerTool!, producedBy)))
+                    errors.Add(new PlanValidationError(step.Id,
+                        $"'{step.Tool}' must take its '{producerParameter}' argument directly from a preceding " +
+                        $"'{contract.RequiredProducerTool}' step's output (e.g. \"{{{{stepN}}}}\"), not a " +
+                        "literal value, a different parameter, or a different step."));
+            }
 
             producedBy[step.Id] = step.Tool;
         }
