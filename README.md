@@ -49,7 +49,7 @@ docker run --rm --init \
 # then open http://localhost:5080
 ```
 
-The image contains the .NET 10 SDK, prebuilt samples, and Node.js with npm/npx. It runs as a
+The image contains the .NET 10 SDK and prebuilt samples. It runs as a
 non-root user; the command above also binds only to loopback and drops Linux capabilities. Do
 not expose Pattern Explorer directly to the internet: its run endpoints intentionally execute
 samples with the supplied credentials. Enabling the two optional CodeAct variables runs generated

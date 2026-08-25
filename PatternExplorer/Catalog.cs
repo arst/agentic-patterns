@@ -7,7 +7,7 @@ namespace PatternExplorer;
 /// <param name="Interactive">The sample reads from stdin, so the UI shows an input box.</param>
 /// <param name="Server">Optional companion project to start first (A2A).</param>
 /// <param name="ServerPort">Port to poll before starting the main project.</param>
-/// <param name="Note">Extra requirement shown next to the run button (e.g. "needs npx").</param>
+/// <param name="Note">Extra requirement shown next to the run button (e.g. "needs Docker/Podman").</param>
 public record PatternProject(
     string Flavor,
     string Path,
