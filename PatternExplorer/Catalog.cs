@@ -14,7 +14,19 @@ public record PatternProject(
     bool Interactive = false,
     string? Server = null,
     int ServerPort = 0,
-    string? Note = null);
+    string? Note = null)
+{
+    /// Environment variable names copied from Explorer's own environment into the child process,
+    /// in addition to PATH/HOME/DOTNET_* which `dotnet run` always needs. Defaults to the four
+    /// Azure OpenAI settings (see Shared/AzureOpenAISettings.cs) most samples need to run at all.
+    public IReadOnlyList<string> EnvironmentAllowlist { get; init; } =
+    [
+        "AzureOpenAi__ChatModelDeployment",
+        "AzureOpenAi__EmbeddingModelDeployment",
+        "AzureOpenAi__Endpoint",
+        "AzureOpenAi__ApiKey"
+    ];
+}
 
 /// <param name="Risk">Optional warning shown above the Run button (e.g. "Runs model-written code on this machine.").</param>
 public record PatternMeta(string Title, string Summary, string Category, PatternProject[] Projects, string? Risk = null);

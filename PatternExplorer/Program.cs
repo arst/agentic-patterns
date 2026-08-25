@@ -59,13 +59,30 @@ app.MapGet("/api/run", async (HttpContext context, string id, string flavor) =>
         return;
     }
 
+    RunSession session;
+    try
+    {
+        session = RunSession.Start(repoRoot, project);
+    }
+    catch (InvalidOperationException ex)
+    {
+        context.Response.StatusCode = 429;
+        await context.Response.WriteAsync(ex.Message);
+        return;
+    }
+
     context.Response.Headers.ContentType = "text/event-stream";
     context.Response.Headers.CacheControl = "no-cache";
     context.Response.Headers["X-Accel-Buffering"] = "no";
 
-    var session = RunSession.Start(repoRoot, project);
     try
     {
+        // The id/token pair the client needs to reach /api/runs/{id}/input and /cancel - sent as
+        // the first event so a single GET both starts the run and hands out its credentials.
+        await context.Response.WriteAsync(
+            $"event: session\ndata: {JsonSerializer.Serialize(new { session.Id, session.Token }, JsonSerializerOptions.Web)}\n\n");
+        await context.Response.Body.FlushAsync();
+
         await foreach (var chunk in session.Reader.ReadAllAsync(context.RequestAborted))
         {
             await context.Response.WriteAsync($"data: {JsonSerializer.Serialize(chunk, JsonSerializerOptions.Web)}\n\n");
@@ -82,16 +99,22 @@ app.MapGet("/api/run", async (HttpContext context, string id, string flavor) =>
     }
 });
 
-app.MapPost("/api/run/input", async (HttpContext context) =>
+app.MapPost("/api/runs/{id}/input", async (HttpContext context, string id) =>
 {
+    var session = RunSession.TryGet(id, context.Request.Headers["X-Run-Token"].ToString());
+    if (session is null) return Results.NotFound();
+
     using var reader = new StreamReader(context.Request.Body);
-    RunSession.Current?.SendInput((await reader.ReadToEndAsync()).TrimEnd('\n'));
+    session.SendInput((await reader.ReadToEndAsync()).TrimEnd('\n'));
     return Results.Ok();
 });
 
-app.MapPost("/api/run/cancel", () =>
+app.MapPost("/api/runs/{id}/cancel", (string id, HttpContext context) =>
 {
-    RunSession.Current?.Cancel();
+    var session = RunSession.TryGet(id, context.Request.Headers["X-Run-Token"].ToString());
+    if (session is null) return Results.NotFound();
+
+    session.Cancel();
     return Results.Ok();
 });
 

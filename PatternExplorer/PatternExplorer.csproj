@@ -4,4 +4,8 @@
         <RootNamespace>PatternExplorer</RootNamespace>
     </PropertyGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="AgenticPatterns.Tests"/>
+    </ItemGroup>
+
 </Project>
