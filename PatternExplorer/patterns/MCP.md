@@ -5,8 +5,8 @@
   "category": "Orchestration",
   "risk": "Runs a third-party MCP server; discovery and authorization are kept separate so only an explicit allowlist is ever bound.",
   "projects": [
-    { "flavor": "AgentFramework", "path": "MCP.AgentFramework", "note": "Needs Docker or Podman - the pinned server runs in a locked-down container, not on the host." },
-    { "flavor": "SemanticKernel", "path": "MCP.SemanticKernel", "note": "Needs Docker or Podman - the pinned server runs in a locked-down container, not on the host." }
+    { "flavor": "AgentFramework", "path": "MCP.AgentFramework", "note": "Needs Docker or Podman, and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." },
+    { "flavor": "SemanticKernel", "path": "MCP.SemanticKernel", "note": "Needs Docker or Podman, and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." }
   ]
 }
 ---
@@ -33,6 +33,11 @@ server: its tool descriptions land straight in your prompt, so an untrusted serv
 untrusted instruction source.
 
 ## How the demo works
+
+Build the sandbox image once before running either flavor —
+`docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox`.
+Unlike **CodeAct**, this sample does **not** build its image automatically on first run; without
+it, `docker run` exits 125 and the stdio transport dies on a pipe nothing is writing to.
 
 Both samples run the official reference server, `@modelcontextprotocol/server-everything`, over
 stdio — but inside the same locked-down local container the **CodeAct** sample uses, not on the

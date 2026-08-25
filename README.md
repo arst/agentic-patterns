@@ -54,7 +54,11 @@ non-root user; the command above also binds only to loopback and drops Linux cap
 not expose Pattern Explorer directly to the internet: its run endpoints intentionally execute
 samples with the supplied credentials. Enabling the two optional CodeAct variables runs generated
 code directly inside this outer container instead of a nested Docker sandbox. The generated code
-therefore shares the container's credentials, filesystem, and network access.
+therefore shares the container's credentials, filesystem, and network access. The `MCP` sample
+cannot run inside this container at all: it needs a container runtime of its own to sandbox the
+MCP server, and this image ships neither a Docker client nor a daemon socket — running it here
+always hits the fail-closed path and exits. Run `MCP` from a terminal with Docker/Podman
+installed instead.
 
 Running a sample from the UI spawns `dotnet run` for that project and calls your Azure OpenAI
 deployment, exactly as running it from the terminal would. Samples that ask for approval get an

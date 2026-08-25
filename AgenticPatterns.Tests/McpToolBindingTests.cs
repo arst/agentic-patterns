@@ -15,4 +15,15 @@ public class McpToolBindingTests
     [Fact]
     public void AMissingAllowlistedToolFailsClosed() =>
         Assert.Throws<InvalidOperationException>(() => McpToolBinding.SelectAuthorized(["echo"], Allowed));
+
+    [Fact]
+    public void CaseInsensitiveAllowlistUsesTheAllowlistsOwnComparer()
+    {
+        var allowed = new HashSet<string>(["Add", "Echo"], StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(["add", "echo"], McpToolBinding.SelectAuthorized(["add", "echo"], allowed).Order());
+    }
+
+    [Fact]
+    public void DuplicateDiscoveredNamesAreNotDuplicatedInTheResult() =>
+        Assert.Equal(["add", "echo"], McpToolBinding.SelectAuthorized(["add", "add", "echo"], Allowed).Order());
 }

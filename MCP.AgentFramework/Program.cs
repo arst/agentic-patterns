@@ -8,21 +8,25 @@ using Shared.Sandbox;
 const string image = "agentic-patterns/mcp-server-everything:2025.8.18";
 var allowed = new HashSet<string>(["add", "echo"], StringComparer.Ordinal);
 
-// Fail closed: no sandbox, no MCP server. Same double opt-in as CodeAct for the unsafe path.
+// Fail closed: no sandbox, no MCP server. Unlike CodeAct, this sample has no host-execution
+// fallback at all - there is nothing to opt into, so the message must not imply otherwise.
 if (!SandboxRunner.IsAvailable("docker"))
 {
     Console.Error.WriteLine(
         "No container runtime available. This sample runs a third-party MCP server, which is " +
-        "untrusted code; it will not be started on the host. Install Docker, or set " +
-        "AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION=true and " +
-        "AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION=I_UNDERSTAND_THIS_RUNS_UNTRUSTED_CODE_ON_MY_HOST.");
+        "untrusted code; it will not be started on the host. Install Docker or Podman to run it.");
     return 1;
 }
 
 // The server speaks stdio, so the container IS the transport: no network, no host environment,
-// no credentials, read-only filesystem, dropped capabilities, bounded pids and memory.
+// no credentials, read-only filesystem, dropped capabilities, bounded pids and memory. Named
+// explicitly (not just left to SandboxRunner.RunAsync's own naming, which this stdio path
+// doesn't go through) so the container can be torn down by name if the process is killed -
+// SIGKILLing the `docker run` CLI does not stop the daemon-side container.
+// ponytail: no automatic kill-by-name wired up on this path (McpClient owns the process, not
+// RunAsync) - add it if this sample stops being a short-lived demo.
 var sandbox = new SandboxOptions(image, Network: false, Memory: "256m", PidsLimit: 64, Interactive: true,
-    User: null);
+    User: null, ContainerName: $"mcp-sandbox-{Guid.NewGuid():N}");
 await using var mcpClient = await McpClient.CreateAsync(new StdioClientTransport(new StdioClientTransportOptions
 {
     Name = "MCPServer",
