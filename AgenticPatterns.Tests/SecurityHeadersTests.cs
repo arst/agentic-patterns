@@ -4,12 +4,13 @@ using Xunit;
 namespace AgenticPatterns.Tests;
 
 /// <summary>
-/// A WebApplicationFactory-based end-to-end header assertion isn't available in this environment
-/// (Program.cs's top-level-statement type isn't exposed for one, and the project brings no
-/// Mvc.Testing/TestHost package), so this asserts the constant the middleware in Program.cs
-/// actually writes into the response, rather than an HTTP round trip. Manual verification of the
-/// live header (curl, and a Playwright-driven page load with zero CSP console violations) is in
-/// the task report.
+/// This is a content assertion on the <see cref="SecurityHeaders.ContentSecurityPolicy"/>
+/// constant, not coverage of the header actually being registered: a WebApplicationFactory-based
+/// end-to-end assertion isn't available in this environment (Program.cs's top-level-statement
+/// type isn't exposed for one, and the project brings no Mvc.Testing/TestHost package). Deleting
+/// the `app.Use` block that writes this header in Program.cs would leave this test green. Manual
+/// verification of the live header (curl, and a Playwright-driven page load with zero CSP console
+/// violations) is in the task report.
 /// </summary>
 public class SecurityHeadersTests
 {
@@ -21,6 +22,9 @@ public class SecurityHeadersTests
         Assert.Contains("style-src 'self' 'unsafe-inline'", SecurityHeaders.ContentSecurityPolicy);
         Assert.Contains("img-src 'self' data:", SecurityHeaders.ContentSecurityPolicy);
         Assert.Contains("connect-src 'self'", SecurityHeaders.ContentSecurityPolicy);
+        Assert.Contains("base-uri 'self'", SecurityHeaders.ContentSecurityPolicy);
+        Assert.Contains("form-action 'self'", SecurityHeaders.ContentSecurityPolicy);
+        Assert.Contains("frame-ancestors 'none'", SecurityHeaders.ContentSecurityPolicy);
 
         // No loosening beyond the brief's starting policy was needed - verified live in the
         // report - so nothing here should grant 'unsafe-eval' or a wildcard source.

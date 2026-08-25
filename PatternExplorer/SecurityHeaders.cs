@@ -6,5 +6,6 @@ internal static class SecurityHeaders
 {
     public const string ContentSecurityPolicy =
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data:; connect-src 'self'";
+        "img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; " +
+        "frame-ancestors 'none'";
 }
