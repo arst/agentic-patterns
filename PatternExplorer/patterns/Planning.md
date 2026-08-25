@@ -124,7 +124,7 @@ two flavors rather than shared, matching the repository's rule that samples do n
 ## What to watch in the output
 
 Both print `=== Plan ===` followed by one `1. GetFlights - ...` line per step, then
-`Approve booking F200 at EUR 142.50? (yes/no):` before `BookFlight` runs — type `yes` to let it
+`Approve booking F200 at EUR 142.50? (y/n):` before `BookFlight` runs — type `y` or `yes` to let it
 proceed, anything else (including piping EOF) denies it and the run stops cleanly with
 `Plan stopped at step N (...): Booking was not approved`. Watch the priced payload flow through:
 the cheapest of the three fake options should be the one that ends up in `[Booked] ...` and then in

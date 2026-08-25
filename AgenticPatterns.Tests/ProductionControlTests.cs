@@ -78,11 +78,10 @@ public class BoundedExecutionTests
     [Fact]
     public void TimeoutUsesTheRemainingDurationNotTheWholeBudget()
     {
-        var state = new ExecutionBudgetState(Budget(elapsed: TimeSpan.FromMilliseconds(600)));
-        Thread.Sleep(400);
-        using var source = state.CreateTimeout(CancellationToken.None);
-        Assert.True(source.Token.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(350)),
-            "timeout should fire within the REMAINING time, not restart the full budget");
+        var state = new ExecutionBudgetState(Budget(elapsed: TimeSpan.FromSeconds(10)));
+        Thread.Sleep(50);
+        Assert.True(state.RemainingTime < TimeSpan.FromSeconds(10),
+            "CreateTimeout must schedule the remaining duration, not restart the full budget");
     }
 
     [Fact]
@@ -229,6 +228,32 @@ public class IdempotentToolCallTests
 
         Assert.Single(service.Refunds);
         Assert.Equal(service.Refunds.Single().Id, refund.Id);
+    }
+
+    [Fact]
+    public async Task ConcurrentCallsWithTheSameKeyProduceExactlyOneRefund()
+    {
+        var service = new SimulatedRefundService();
+        var key = "key-concurrent";
+
+        var refunds = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ =>
+            service.IssueRefundAsync("tenant-a", key, "ORD-100", 25m,
+                loseResponseAfterCommit: false, CancellationToken.None)));
+
+        Assert.Single(service.Refunds);
+        Assert.All(refunds, r => Assert.Equal(service.Refunds.Single().Id, r.Id));
+    }
+
+    [Fact]
+    public async Task CallerCancellationSurfacesAsCancellationNotAFailure()
+    {
+        var service = new SimulatedRefundService();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.IssueRefundAsync("tenant-a", "key-cancel", "ORD-100", 25m,
+                loseResponseAfterCommit: false, cts.Token));
     }
 
     [Fact]

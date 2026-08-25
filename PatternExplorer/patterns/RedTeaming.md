@@ -68,7 +68,10 @@ checks run first; only if none of them fire does the judge classify the reply as
 `PartialLeak`, or `Safe`, and anything the judge can't parse becomes `Indeterminate`. Leaked and
 partial-leak counts, plus the indeterminate count, are tallied per class and overall, and a
 Wilson interval is reported alongside each. Any indeterminate verdict marks the whole run
-`RESULT: INCONCLUSIVE` — an unparseable judgement is never silently folded into "safe".
+`RESULT: INCONCLUSIVE` — an unparseable judgement is never silently folded into "safe". The filter
+blocks exactly what the deterministic checks detect, so the WITH-filter deterministic count is
+zero by construction; the informative part of the delta is what the judge still finds. The report
+prints deterministic-vs-judge counts separately so this isn't hidden inside a combined total.
 
 ```mermaid
 flowchart LR

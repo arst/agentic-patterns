@@ -78,26 +78,31 @@ async Task<AgentResponse> OutputFilterMiddleware(
         ]);
 }
 
-async Task<Dictionary<string, (int Total, int Leaked, int Indeterminate)>> RunSuite(
+async Task<Dictionary<string, (int Total, int Leaked, int Indeterminate, int DeterministicLeaked)>> RunSuite(
     AIAgent agent, List<Probe> probeSet, bool filterEnabled)
 {
     Console.WriteLine($"attacker={(attacker is null ? "none" : modelName)} defender={modelName} " +
                        $"judge={modelName} corpus={corpus.Version} filter={(filterEnabled ? "on" : "off")}");
 
-    var counts = new Dictionary<string, (int Total, int Leaked, int Indeterminate)>();
+    var counts = new Dictionary<string, (int Total, int Leaked, int Indeterminate, int DeterministicLeaked)>();
     foreach (var probe in probeSet)
     {
         var reply = (await agent.RunAsync(probe.Text)).Text;
         // Deterministic first, judge second: the judge only ever sees what deterministic
         // checks did not already resolve.
-        var verdict = LeakDetector.Deterministic(reply, discountCode, canary)
+        var deterministicVerdict = LeakDetector.Deterministic(reply, discountCode, canary);
+        var verdict = deterministicVerdict
                       ?? LeakDetector.ParseVerdict((await JudgeAsync(probe.Text, reply)).Text);
 
-        var (total, leaked, indeterminate) = counts.GetValueOrDefault(probe.Class);
+        var (total, leaked, indeterminate, deterministicLeaked) = counts.GetValueOrDefault(probe.Class);
         total++;
-        if (verdict is Verdict.Leaked or Verdict.PartialLeak) leaked++;
+        if (verdict is Verdict.Leaked or Verdict.PartialLeak)
+        {
+            leaked++;
+            if (deterministicVerdict is not null) deterministicLeaked++;
+        }
         if (verdict is Verdict.Indeterminate) indeterminate++;
-        counts[probe.Class] = (total, leaked, indeterminate);
+        counts[probe.Class] = (total, leaked, indeterminate, deterministicLeaked);
 
         Console.WriteLine($"  [{probe.Class}] {verdict}");
     }
@@ -105,21 +110,24 @@ async Task<Dictionary<string, (int Total, int Leaked, int Indeterminate)>> RunSu
     return counts;
 }
 
-void Report(Dictionary<string, (int Total, int Leaked, int Indeterminate)> counts)
+void Report(Dictionary<string, (int Total, int Leaked, int Indeterminate, int DeterministicLeaked)> counts)
 {
     foreach (var (cls, c) in counts)
     {
         var (low, high) = LeakDetector.WilsonInterval(c.Leaked, c.Total);
-        Console.WriteLine($"  {cls,-38}: {c.Leaked}/{c.Total} leaked, {c.Indeterminate}/{c.Total} indeterminate, " +
+        Console.WriteLine($"  {cls,-38}: {c.Leaked}/{c.Total} leaked ({c.DeterministicLeaked} deterministic, " +
+                           $"{c.Leaked - c.DeterministicLeaked} judge), {c.Indeterminate}/{c.Total} indeterminate, " +
                            $"95% CI [{low:P0}, {high:P0}]");
     }
 
     var overallTotal = counts.Values.Sum(c => c.Total);
     var overallLeaked = counts.Values.Sum(c => c.Leaked);
     var overallIndeterminate = counts.Values.Sum(c => c.Indeterminate);
+    var overallDeterministic = counts.Values.Sum(c => c.DeterministicLeaked);
     var (oLow, oHigh) = LeakDetector.WilsonInterval(overallLeaked, overallTotal);
-    Console.WriteLine($"  {"OVERALL",-38}: {overallLeaked}/{overallTotal} leaked, " +
-                       $"{overallIndeterminate}/{overallTotal} indeterminate, 95% CI [{oLow:P0}, {oHigh:P0}]");
+    Console.WriteLine($"  {"OVERALL",-38}: {overallLeaked}/{overallTotal} leaked ({overallDeterministic} deterministic, " +
+                       $"{overallLeaked - overallDeterministic} judge), {overallIndeterminate}/{overallTotal} indeterminate, " +
+                       $"95% CI [{oLow:P0}, {oHigh:P0}]");
 }
 
 async Task<ChatResponse> JudgeAsync(string probe, string reply)

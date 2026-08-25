@@ -102,11 +102,22 @@ public sealed class ExecutionBudgetState
         }
     }
 
+    public TimeSpan RemainingTime
+    {
+        get
+        {
+            lock (_gate)
+            {
+                var remaining = Budget.MaxElapsedTime - _clock.Elapsed;
+                return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+            }
+        }
+    }
+
     public CancellationTokenSource CreateTimeout(CancellationToken cancellationToken)
     {
         var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var remaining = Budget.MaxElapsedTime - _clock.Elapsed;
-        source.CancelAfter(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
+        source.CancelAfter(RemainingTime);
         return source;
     }
 

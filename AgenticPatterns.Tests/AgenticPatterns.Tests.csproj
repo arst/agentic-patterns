@@ -14,7 +14,9 @@
         <ProjectReference Include="..\BoundedExecution.AgentFramework\BoundedExecution.AgentFramework.csproj"/>
         <ProjectReference Include="..\CodeAct.AgentFramework\CodeAct.AgentFramework.csproj"/>
         <ProjectReference Include="..\ConfidenceReporting.AgentFramework\ConfidenceReporting.AgentFramework.csproj"/>
-        <!-- NOT ConfidenceReporting.SemanticKernel: it defines the same global-namespace types as the AF flavor -->
+        <!-- NOT ConfidenceReporting.SemanticKernel: excluded conservatively, not because it conflicts -
+             its global-namespace types are internal and invisible across the assembly boundary, so
+             referencing it too would add nothing to test. -->
         <ProjectReference Include="..\DurableHumanInTheLoop.AgentFramework\DurableHumanInTheLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\EvaluationAndMonitoring.AgentFramework\EvaluationAndMonitoring.AgentFramework.csproj"/>
         <ProjectReference Include="..\ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj"/>
@@ -32,7 +34,9 @@
         <ProjectReference Include="..\SkillLearning.AgentFramework\SkillLearning.AgentFramework.csproj"/>
         <ProjectReference Include="..\TreeOfThoughts\TreeOfThoughts.csproj"/>
         <ProjectReference Include="..\ToolAuthorization.AgentFramework\ToolAuthorization.AgentFramework.csproj"/>
-        <!-- NOT Voting.SemanticKernel: it defines the same global-namespace records as the AF flavor -->
+        <!-- NOT Voting.SemanticKernel: excluded conservatively, not because it conflicts - its
+             global-namespace `Vote` record is internal and invisible across the assembly boundary,
+             so referencing it too would add nothing to test. -->
         <ProjectReference Include="..\Voting.AgentFramework\Voting.AgentFramework.csproj"/>
     </ItemGroup>
 

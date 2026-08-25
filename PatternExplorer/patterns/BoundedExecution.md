@@ -1,7 +1,7 @@
 ---
 {
   "title": "Bounded Execution",
-  "summary": "Enforce one run's limits on iterations, model and tool calls, tokens, elapsed time, and estimated cost.",
+  "summary": "Enforce one run's hard limits on iterations, calls, output tokens, and elapsed time — with input tokens as a conservative pre-dispatch estimate.",
   "category": "Production controls",
   "projects": [ { "flavor": "AgentFramework", "path": "BoundedExecution.AgentFramework" } ]
 }

@@ -133,8 +133,8 @@ the catalog together; each result states its scope limits and cites a primary so
 
 | Pattern | What it demonstrates |
 |---|---|
-| BoundedExecution | Hard per-run limits on calls, tools, iterations, elapsed time, and output tokens/cost; input tokens are a conservative pre-dispatch estimate |
-| ConfidenceReporting | Uncertainty Signals |
+| BoundedExecution | Hard per-run limits on calls, tools, and elapsed time; tokens estimated conservatively |
+| ConfidenceReporting | Uncertainty signals over one canonical candidate — an uncalibrated heuristic, not a calibrated score |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
 | EvaluationAndMonitoring | Telemetry plus privacy-aware model/tool record and replay |
@@ -151,7 +151,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | LLMAsJudge | Judge-model rubric scoring plus a position-bias probe |
-| RedTeaming | Deterministic leak checks first, judge second, against the real GuardRails output filter; reports a confidence interval, not a rate |
+| RedTeaming | Deterministic leak checks first, judge second, against the real GuardRails filter |
 | RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 

@@ -71,7 +71,11 @@ async Task RunConfidencePipelineAsync(string q)
         var sample = sampleResponse.Content?.Trim() ?? "";
         return await AgreesAsync(candidate, sample);
     }));
-    var consistency = agreements.Count(a => a) / (double)runs;
+    // Null-counts-as-disagreement is deliberate: an unparseable probe is not evidence of
+    // agreement, so it stays out of the numerator. But it must not look like ordinary
+    // disagreement either, so the unparseable count is surfaced separately below.
+    var consistency = agreements.Count(a => a == true) / (double)runs;
+    var unparseable = agreements.Count(a => a is null);
 
     var hedging = new[] { "might", "maybe", "possibly", "unclear", "not sure", "i think",
                           "approximately", "perhaps" }
@@ -84,6 +88,7 @@ async Task RunConfidencePipelineAsync(string q)
     Console.WriteLine($"  self-reported confidence    {selfReport.Confidence:P0}  (subjective, UX hint only)");
     Console.WriteLine($"  token-probability signal    {logprobScore:P0}  (about this exact text)");
     Console.WriteLine($"  agreement across {runs} runs      {consistency:P0}  (equivalence-checked, not keyword overlap)");
+    Console.WriteLine($"  equivalence probes unparseable: {unparseable}/{runs}");
     Console.WriteLine($"  hedging language            {(hedging ? "yes" : "no")}");
     Console.WriteLine();
     Console.WriteLine($"Heuristic uncertainty score: {score:F2} -> {UncertaintySignals.Label(score)}");
@@ -93,7 +98,7 @@ async Task RunConfidencePipelineAsync(string q)
 
 // Equivalence probe: do two answers to the same question assert the same thing? Decided by the
 // model at temperature 0, not by naive keyword overlap.
-async Task<bool> AgreesAsync(string candidate, string sample)
+async Task<bool?> AgreesAsync(string candidate, string sample)
 {
     var history = new ChatHistory();
     history.AddUserMessage(
@@ -111,13 +116,14 @@ async Task<bool> AgreesAsync(string candidate, string sample)
     };
     var response = await chatService.GetChatMessageContentAsync(history, settings);
 
-    // Fail closed: an unparseable judgement is NOT agreement.
+    // Fail closed for the score (null is NOT agreement), but distinguishable for reporting:
+    // an unparseable judgement is not evidence of disagreement either.
     try
     {
-        return JsonSerializer.Deserialize<EquivalenceResponse>(response.Content ?? "{}")?.Equivalent == true;
+        return JsonSerializer.Deserialize<EquivalenceResponse>(response.Content ?? "{}")?.Equivalent;
     }
     catch (JsonException)
     {
-        return false;
+        return null;
     }
 }
