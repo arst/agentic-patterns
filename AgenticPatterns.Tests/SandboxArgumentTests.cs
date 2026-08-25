@@ -87,23 +87,48 @@ public class SandboxArgumentTests
         var args = SandboxRunner.BuildRunArguments(new SandboxOptions("img", PidsLimit: 0), ["echo"]).ToList();
         Assert.Equal("128", args[args.IndexOf("--pids-limit") + 1]);
     }
+
+    // ---- fix round 2: assert the clamps as pure values, not by waiting for them ----
+    // A test that runs a fast command and asserts TimedOut: false cannot fail if the clamp
+    // is reverted — a fast command finishes long before either an unbounded wait or a
+    // 3-minute bound expires. Assert the decision directly instead.
+
+    [Fact]
+    public void EffectiveTimeoutClampsNonPositiveValuesToThreeMinutes()
+    {
+        Assert.Equal(TimeSpan.FromMinutes(3), SandboxRunner.EffectiveTimeout(TimeSpan.Zero));
+        Assert.Equal(TimeSpan.FromMinutes(3), SandboxRunner.EffectiveTimeout(TimeSpan.FromSeconds(-5)));
+    }
+
+    [Fact]
+    public void EffectiveTimeoutNeverOverridesAnExplicitCallerValue() =>
+        Assert.Equal(TimeSpan.FromSeconds(30), SandboxRunner.EffectiveTimeout(TimeSpan.FromSeconds(30)));
+
+    [Fact]
+    public void EffectivePidsLimitClampsNonPositiveValuesTo128()
+    {
+        Assert.Equal(128, SandboxRunner.EffectivePidsLimit(0));
+        Assert.Equal(128, SandboxRunner.EffectivePidsLimit(-1));
+    }
+
+    [Fact]
+    public void EffectivePidsLimitNeverOverridesAnExplicitCallerValue() =>
+        Assert.Equal(64, SandboxRunner.EffectivePidsLimit(64));
 }
 
-// I1 has no coverage from BuildRunArguments alone — the clamp lives in RunAsync's
-// CancelAfter call, so proving it needs a real run. Gated on Docker like
-// CodeActSandboxSmokeTests: passes vacuously without it rather than failing the suite.
+// The zero-Timeout clamp value itself is asserted directly above (EffectiveTimeoutClamps...).
+// What that pure test cannot prove is that RunAsync actually WIRES the clamp into
+// CancelAfter instead of, say, ignoring Timeout entirely — that needs a real run. Gated on
+// Docker like CodeActSandboxSmokeTests: passes vacuously without it rather than failing the suite.
 public class SandboxTimeoutTests
 {
     private static readonly bool DockerAvailable = SandboxRunner.IsAvailable("docker");
 
     [Fact]
-    public async Task ZeroTimeoutFallsBackToTheSafeDefaultInsteadOfCancellingImmediately()
+    public async Task ZeroTimeoutDoesNotCancelTheRunImmediately()
     {
         if (!DockerAvailable) return;
 
-        // Timeout: default (TimeSpan.Zero) would cancel a CancellationTokenSource
-        // instantly if taken literally; RunAsync must clamp it to a safe positive bound
-        // instead, so an ordinary, fast command still completes with TimedOut: false.
         var options = new SandboxOptions("agentic-patterns-codeact-sandbox",
             ContainerName: $"sandbox-timeout-test-{Guid.NewGuid():N}");
         var result = await SandboxRunner.RunAsync(options, ["dotnet", "--version"], stdin: null, CancellationToken.None);

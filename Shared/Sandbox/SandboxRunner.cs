@@ -28,6 +28,21 @@ public static class SandboxRunner
     }
 
     /// <summary>
+    /// The effective pids-limit clamp, as a pure value so tests can assert it directly instead
+    /// of inferring it from a timing-dependent run. 0 or negative reads to docker as "unlimited"
+    /// — never let "unset" mean "no limit" on a security boundary.
+    /// </summary>
+    public static int EffectivePidsLimit(int configured) => configured > 0 ? configured : 128;
+
+    /// <summary>
+    /// The effective timeout clamp, as a pure value so tests can assert it directly instead of
+    /// inferring it from a timing-dependent run. On a type whose whole purpose is bounding
+    /// untrusted work, "caller forgot to set Timeout" must never mean "no bound".
+    /// </summary>
+    public static TimeSpan EffectiveTimeout(TimeSpan configured) =>
+        configured > TimeSpan.Zero ? configured : TimeSpan.FromMinutes(3);
+
+    /// <summary>
     /// The whole security posture, as one pure function so tests can pin every flag.
     /// Deny everything by default; grant back only what <paramref name="options"/> asks for.
     /// </summary>
@@ -54,9 +69,7 @@ public static class SandboxRunner
         args.Add("--security-opt");
         args.Add("no-new-privileges=true");
         args.Add("--pids-limit");
-        // M3: 0 (or negative) reads to docker as "unlimited" — the same fail-open-on-a-bound
-        // shape as an unset Timeout. Never let "unset" mean "no limit" on a security boundary.
-        args.Add((options.PidsLimit > 0 ? options.PidsLimit : 128).ToString());
+        args.Add(EffectivePidsLimit(options.PidsLimit).ToString());
         args.Add("--memory");
         args.Add(options.Memory);
         args.Add("--cpus");
@@ -126,10 +139,7 @@ public static class SandboxRunner
         try
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            // I1: on a type whose whole purpose is bounding untrusted work, "caller forgot
-            // to set Timeout" must never mean "no bound" — fall back to the same safe
-            // default CodeAct always passes explicitly.
-            timeoutCts.CancelAfter(options.Timeout > TimeSpan.Zero ? options.Timeout : TimeSpan.FromMinutes(3));
+            timeoutCts.CancelAfter(EffectiveTimeout(options.Timeout));
 
             try
             {
