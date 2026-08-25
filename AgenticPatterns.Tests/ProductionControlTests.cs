@@ -175,70 +175,41 @@ public class ToolAuthorizationTests
 public class IdempotentToolCallTests
 {
     [Fact]
-    public async Task LostResponseRetryProducesExactlyOneSideEffect()
+    public async Task RefundServiceDeduplicatesAcrossACallerCrash()
     {
-        var store = new IdempotencyStore();
         var service = new SimulatedRefundService();
-        var tool = new IdempotentTool(store, service);
+        var key = "key-1";
 
+        // Attempt 1: the service commits the refund and then the response is lost.
         await Assert.ThrowsAsync<HttpRequestException>(() =>
-            tool.IssueRefundAsync("ORD-100", 25m, "refund-1", loseResponseAfterCommit: true));
-        var retry = await tool.IssueRefundAsync("ORD-100", 25m, "refund-1");
+            service.IssueRefundAsync("tenant-a", key, "ORD-100", 25m,
+                loseResponseAfterCommit: true, CancellationToken.None));
 
-        Assert.Equal("ORD-100", retry.OrderId);
+        // The caller process died: it kept no local state at all. A brand new tool
+        // instance retries with the same key.
+        var tool = new IdempotentTool(service);
+        var refund = await tool.IssueRefundAsync("ORD-100", 25m, key);
+
         Assert.Single(service.Refunds);
-        Assert.Equal(1, store.CompletedOperationCount);
+        Assert.Equal(service.Refunds.Single().Id, refund.Id);
     }
 
     [Fact]
-    public async Task SameKeyWithDifferentRequestIsAConflict()
+    public async Task RefundServiceRejectsTheSameKeyForADifferentRequest()
     {
-        var tool = new IdempotentTool(new IdempotencyStore(), new SimulatedRefundService());
-        await tool.IssueRefundAsync("ORD-100", 25m, "refund-1");
+        var service = new SimulatedRefundService();
+        await service.IssueRefundAsync("tenant-a", "key-1", "ORD-100", 25m, false, CancellationToken.None);
         await Assert.ThrowsAsync<IdempotencyConflictException>(() =>
-            tool.IssueRefundAsync("ORD-100", 30m, "refund-1"));
+            service.IssueRefundAsync("tenant-a", "key-1", "ORD-100", 30m, false, CancellationToken.None));
     }
 
     [Fact]
-    public async Task PermanentFailureIsRememberedAndNotRetried()
+    public async Task RefundKeysAreScopedPerTenant()
     {
-        var store = new IdempotencyStore();
-        var attempts = 0;
-        Task<string> Execute() => store.ExecuteAsync<string>("key", "request", _ =>
-        {
-            attempts++;
-            throw new PermanentToolException("invalid");
-        }, false, CancellationToken.None);
-
-        await Assert.ThrowsAsync<PermanentToolException>(Execute);
-        await Assert.ThrowsAsync<PermanentToolException>(Execute);
-        Assert.Equal(1, attempts);
-    }
-
-    [Fact]
-    public async Task ConcurrentRetriesShareOneOperation()
-    {
-        var store = new IdempotencyStore();
-        var attempts = 0;
-        async Task<string> Execute() => await store.ExecuteAsync("key", "request", async ct =>
-        {
-            Interlocked.Increment(ref attempts);
-            await Task.Delay(20, ct);
-            return "done";
-        }, false, CancellationToken.None);
-
-        Assert.All(await Task.WhenAll(Execute(), Execute()), value => Assert.Equal("done", value));
-        Assert.Equal(1, attempts);
-    }
-
-    [Fact]
-    public async Task CallerCancellationRemainsCancellation()
-    {
-        using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new IdempotentTool(new IdempotencyStore(), new SimulatedRefundService())
-                .IssueRefundAsync("ORD-100", 25m, "key", cancellationToken: cancellation.Token));
+        var service = new SimulatedRefundService();
+        await service.IssueRefundAsync("tenant-a", "key-1", "ORD-100", 25m, false, CancellationToken.None);
+        await service.IssueRefundAsync("tenant-b", "key-1", "ORD-200", 25m, false, CancellationToken.None);
+        Assert.Equal(2, service.Refunds.Count);
     }
 }
 

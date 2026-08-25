@@ -17,6 +17,11 @@ and one stored result.
 The trusted host creates the key and reuses it for retries. Asking the model to invent a fresh key
 on every attempt defeats the guarantee.
 
+The idempotency record lives with the side effect, not with the caller. It is committed in the
+same transaction as the refund, so the window this pattern actually closes is the hard one:
+*the operation succeeded remotely and the caller never found out*. A client-side registry only
+closes the easy window, where the result already reached the caller's process.
+
 ## When to use it
 
 - Payments, refunds, bookings, messages, ticket creation, and other side effects.
@@ -29,35 +34,37 @@ and idempotency solve different problems.
 ## How the demo works
 
 An Agent Framework `AIFunction` closes over a host-generated key. The first `IssueRefund` call
-commits a refund to `SimulatedRefundService`, records the result in `IdempotencyStore`, and then
-throws a simulated network exception before returning. The retry uses the same key and normalized
-request, so it receives the stored refund and creates no second side effect.
+reaches `SimulatedRefundService`, which commits the refund and its idempotency record together,
+then throws a simulated network exception before the response reaches the caller. The caller's
+process is discarded — a brand new `IdempotentTool` instance stands in for a fresh caller with no
+local state. Its retry carries the same key and normalized request, so the service returns the
+already-committed refund and creates no second side effect.
 
 ```mermaid
 sequenceDiagram
-    participant H as Host
-    participant I as IdempotencyStore
-    participant R as Refund service
-    H->>I: key + request hash
-    I->>R: execute once
-    R-->>I: committed refund
-    I--xH: response lost
-    H->>I: retry same key + request
-    I-->>H: original result
+    participant C as Caller (fresh each attempt)
+    participant S as SimulatedRefundService
+    C->>S: key + request hash
+    S->>S: commit refund + record together
+    S--xC: response lost
+    Note over C: caller process discarded, no local state
+    C->>S: new caller, retry same key + request
+    S-->>C: original result, no new side effect
 ```
 
-The store serializes concurrent attempts per key. The same key with a different request hash is an
-idempotency conflict. Permanent validation failures are remembered; caller cancellation remains
-cancellation rather than being mislabeled transient.
+The service serializes concurrent attempts per key, scoped per tenant. The same key with a
+different request hash is an idempotency conflict. Permanent validation failures are remembered;
+caller cancellation remains cancellation rather than being mislabeled transient.
 
 ## Key APIs
 
 - `AIFunctionFactory.Create(...)` — exposes the retry-safe operation without exposing the key.
 - `SHA256.HashData(...)` — binds the key to a normalized request.
-- `ConcurrentDictionary` + per-entry `SemaphoreSlim` — one execution for concurrent retries.
-- Stored state: request hash, creation time, completion/failure state, result, and response-loss marker.
+- `ConcurrentDictionary` + per-entry `SemaphoreSlim` — one execution for concurrent retries, keyed by `tenant|key`.
+- Stored state: request hash, the committed refund, permanent-failure message, and response-loss marker — all owned by `SimulatedRefundService`, not the caller.
 
 ## What to watch in the output
 
-The first attempt reports simulated response loss. The retry returns the original `Refund`, then
-`Refund side effects: 1`. Reusing the key with €30 instead of €25 produces an explicit conflict.
+The first attempt reports simulated response loss. A fresh caller retry returns the original
+`Refund`, then `Refund side effects: 1`. Reusing the key with €30 instead of €25 produces an
+explicit conflict.

@@ -141,7 +141,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | ExceptionHandlingAndRecovery | Retry, fallback, graceful degradation, and dependency circuit breaking |
 | GuardRails | Input/output filtering, PII redaction, injection defense |
 | HumanInTheLoop | Tool-call approval gates |
-| IdempotentToolCalls | Retry side effects safely when a successful response is lost |
+| IdempotentToolCalls | Retry-safe side effects: the dedup record lives with the side effect, not the caller |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | ResourceAwareOptimization | Model routing under a cost budget |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
