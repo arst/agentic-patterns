@@ -56,7 +56,7 @@ provider facts embedded in the budget component.
 | Limit | Enforcement |
 |---|---|
 | Model calls | Hard - checked before dispatch |
-| Iterations | Hard - checked at the orchestration-loop boundary |
+| Iterations | Hard - one agent invocation, checked before the run starts |
 | Tool calls (total and per tool) | Hard - checked before invocation |
 | Elapsed time | Hard - linked cancellation over the remaining duration |
 | Output tokens | Hard - the provider's own `MaxOutputTokens` is capped to the remaining budget and the full cap is reserved |

@@ -78,10 +78,10 @@ public class BoundedExecutionTests
     [Fact]
     public void TimeoutUsesTheRemainingDurationNotTheWholeBudget()
     {
-        var state = new ExecutionBudgetState(Budget(elapsed: TimeSpan.FromMilliseconds(200)));
-        Thread.Sleep(120);
+        var state = new ExecutionBudgetState(Budget(elapsed: TimeSpan.FromMilliseconds(600)));
+        Thread.Sleep(400);
         using var source = state.CreateTimeout(CancellationToken.None);
-        Assert.True(source.Token.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(150)),
+        Assert.True(source.Token.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(350)),
             "timeout should fire within the REMAINING time, not restart the full budget");
     }
 

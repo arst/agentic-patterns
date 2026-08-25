@@ -37,29 +37,49 @@ var agent = new ChatClientAgent(client,
     })
     .Build();
 
+// Several sub-questions share one run-scoped budget, so Iterations (one per question, via the
+// agent's run middleware) and ModelCalls (one or more per question, however many turns the agent
+// needs) move independently under the same ceiling.
+string[] questions =
+[
+    "What makes an agent's execution bounded?",
+    "What makes a tool call safe to retry?",
+    "What should a partial result say?"
+];
+
+string Summarize(List<string> answers, string note) =>
+    answers.Count == 0 ? note : $"{note}\n\n{string.Join("\n\n", answers)}";
+
 BoundedRunResult result;
 var callerCancellation = CancellationToken.None;
 using var timeout = state.CreateTimeout(callerCancellation);
+var answers = new List<string>();
 try
 {
-    var answer = await agent.RunAsync("Research this topic until you have enough information: safe autonomous agents.",
-        cancellationToken: timeout.Token);
-    result = new BoundedRunResult(RunStatus.Complete, answer.Text, null, state.Snapshot());
+    foreach (var question in questions)
+    {
+        var answer = await agent.RunAsync($"Research this topic until you have enough information: {question}",
+            cancellationToken: timeout.Token);
+        answers.Add($"{question}\n{answer.Text}");
+    }
+    result = new BoundedRunResult(RunStatus.Complete, string.Join("\n\n", answers), null, state.Snapshot());
 }
 catch (BudgetExceededException ex)
 {
     result = new BoundedRunResult(RunStatus.Partial,
-        "Research stopped at a hard execution boundary; any collected result is incomplete.", ex.Reason, ex.Snapshot);
+        Summarize(answers, "Research stopped at a hard execution boundary; any collected result is incomplete."),
+        ex.Reason, ex.Snapshot);
 }
 catch (OperationCanceledException) when (!callerCancellation.IsCancellationRequested && timeout.IsCancellationRequested)
 {
     result = new BoundedRunResult(RunStatus.Partial,
-        "Research stopped at the elapsed-time boundary; any collected result is incomplete.",
+        Summarize(answers, "Research stopped at the elapsed-time boundary; any collected result is incomplete."),
         StopReason.ElapsedTimeLimitReached, state.Snapshot());
 }
 
 Console.WriteLine($"Result status: {result.Status}");
 Console.WriteLine($"Stop reason: {result.StopReason?.ToString() ?? "None"}");
+Console.WriteLine($"Iterations: {result.Budget.Iterations} / {budget.MaxIterations}");
 Console.WriteLine($"Model calls: {result.Budget.ModelCalls} / {budget.MaxModelCalls}");
 Console.WriteLine($"Tool calls: {result.Budget.ToolCalls} / {budget.MaxToolCalls}");
 Console.WriteLine($"Tokens in/out: {result.Budget.InputTokens}/{result.Budget.OutputTokens}");
