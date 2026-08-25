@@ -125,13 +125,7 @@ public sealed class RunSession
             UseShellExecute = false
         };
 
-        // The sample gets only what it needs to run, not Explorer's whole environment (which may
-        // hold credentials for other tools). `dotnet run` itself needs PATH/HOME/DOTNET_*.
-        info.Environment.Clear();
-        foreach (var name in HostEnvironmentNamesForDotnetRun())
-            CopyIfSet(info.Environment, name);
-        foreach (var name in project.EnvironmentAllowlist)
-            CopyIfSet(info.Environment, name);
+        ApplyChildEnvironment(info.Environment, project);
 
         var process = Process.Start(info) ?? throw new InvalidOperationException("dotnet run did not start.");
         lock (_processes) _processes.Add(process);
@@ -139,6 +133,21 @@ public sealed class RunSession
         _ = PumpAsync(process.StandardOutput, tag);
         _ = PumpAsync(process.StandardError, "err");
         return process;
+    }
+
+    /// The sample gets only what it needs to run, not Explorer's whole environment (which may hold
+    /// credentials for other tools). `dotnet run` itself needs PATH/HOME/DOTNET_*.
+    /// Test seam: the allowlist is the entire point of the child-process isolation, and
+    /// StartProcess is otherwise only reachable through Start/RunAsync, which spawns a real
+    /// `dotnet run`. Taking the dictionary lets a test assert the computed child environment
+    /// without a process (see RunSessionTests).
+    internal static void ApplyChildEnvironment(IDictionary<string, string?> environment, PatternProject project)
+    {
+        environment.Clear();
+        foreach (var name in HostEnvironmentNamesForDotnetRun())
+            CopyIfSet(environment, name);
+        foreach (var name in project.EnvironmentAllowlist)
+            CopyIfSet(environment, name);
     }
 
     // ponytail: PATH/HOME/DOTNET_* is what `dotnet run` needs on Linux/macOS, which is all this

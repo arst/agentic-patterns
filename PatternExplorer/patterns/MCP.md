@@ -5,8 +5,8 @@
   "category": "Orchestration",
   "risk": "Runs a third-party MCP server; discovery and authorization are kept separate so only an explicit allowlist is ever bound.",
   "projects": [
-    { "flavor": "AgentFramework", "path": "MCP.AgentFramework", "note": "Needs Docker or Podman, and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." },
-    { "flavor": "SemanticKernel", "path": "MCP.SemanticKernel", "note": "Needs Docker or Podman, and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." }
+    { "flavor": "AgentFramework", "path": "MCP.AgentFramework", "note": "Needs Docker (this sample hardcodes the docker CLI - only CodeAct takes the runtime from an option), and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." },
+    { "flavor": "SemanticKernel", "path": "MCP.SemanticKernel", "note": "Needs Docker (this sample hardcodes the docker CLI - only CodeAct takes the runtime from an option), and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." }
   ]
 }
 ---
@@ -50,7 +50,7 @@ allowlisted.
 
 ```mermaid
 flowchart LR
-    P[Program starts] --> D{Docker/Podman<br/>available?}
+    P[Program starts] --> D{Docker<br/>available?}
     D -- no --> X[Fail closed - exit]
     D -- yes --> S[docker run spawns MCP server<br/>server-everything over stdio]
     S --> L[ListToolsAsync: many tools]
@@ -88,7 +88,11 @@ Concretely:
 - **Run it in the same constrained container as CodeAct.** The pinned server is launched with
   `Shared.Sandbox.SandboxRunner.BuildRunArguments`, the identical locked-down-container boundary
   the **CodeAct** sample uses for model-generated code — see that pattern's security section for
-  the full flag-by-flag walkthrough.
+  the full flag-by-flag walkthrough. `McpToolBinding.Sandbox()` opts out of **no**
+  `SandboxOptions` default, so every row of that table applies here unchanged, `--user
+  65532:65532` included: the boundary enforces non-root rather than trusting the image's own
+  `USER` line to do it. That matters for the "point it at another server" note below — swap in an
+  image whose Dockerfile never drops root and it still runs as an unprivileged uid.
 - **Pass no host environment or credentials.** The container gets nothing from the host process;
   the server never sees an API key, a token, or a host env var it wasn't explicitly handed.
 - **Deny network unless the chosen server needs it.** This demo server only needs stdio, so
@@ -100,7 +104,7 @@ Concretely:
   down to exactly `add` and `echo` before anything reaches the agent, and **fails closed** —
   throwing `InvalidOperationException` — if an allowlisted tool goes missing, on the theory that
   a missing expected tool means the server isn't the one that was pinned.
-- **Fail closed when the boundary is unavailable.** No Docker or Podman means no sandbox, which
+- **Fail closed when the boundary is unavailable.** No Docker means no sandbox, which
   means no MCP server — the sample exits with an explanatory message rather than falling back to
   running the third-party server on the host. Same double opt-in as CodeAct
   (`AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION` + `AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION`)
@@ -121,8 +125,10 @@ The bundled Dockerfile/sandbox is a teaching boundary, not a production one — 
 
 `StdioClientTransportOptions` is what launches the process: `Command = "docker"` with
 `Arguments = SandboxRunner.BuildRunArguments(sandbox, [])` — an empty command list, because the
-image's own `ENTRYPOINT` is the pinned server binary. Point `SandboxOptions.Image` at any other
-sandboxed server and the rest of the code is unchanged.
+image's own `ENTRYPOINT` is the pinned server binary. Point `McpToolBinding.Sandbox()`'s image at
+any other sandboxed server and the rest of the code is unchanged — and because the non-root uid is
+imposed by the run arguments rather than inherited from the image, an image that never drops root
+does not quietly become a root container.
 
 ## What to watch in the output
 
@@ -130,7 +136,7 @@ Both samples print `Discovered: ` followed by the full list the container hands 
 `add`, `longRunningOperation`, `printEnv` and the rest — then `Bound to the agent: ` showing
 exactly `echo, add`, the visible proof that discovery and authorization are different steps. Then
 comes the agent's answer containing **6912**, a number only the remote `add` tool produced. If the
-run exits immediately with "No container runtime available", Docker/Podman isn't installed or the
+run exits immediately with "Docker is not available", Docker isn't installed or the
 daemon isn't running. Compare with **ToolUse** for locally compiled tools, **HostedTools** for
 tools the model provider runs on your behalf, and **CodeAct** for the container sandbox this
 sample reuses.

@@ -82,3 +82,71 @@ public class RunSessionTests
         Assert.Contains(received, c => c.T == "4999");
     }
 }
+
+/// 2.5a's whole point: a sample launched from Explorer gets ONLY what it needs, never Explorer's
+/// own environment (which holds the operator's credentials for every other tool). Deleting
+/// `environment.Clear()` from RunSession leaves every other test in this suite green while every
+/// child sample silently regains the lot, so it gets its own assertion here. Goes through
+/// ApplyChildEnvironment, not Start - no `dotnet run` is spawned.
+public class RunSessionEnvironmentTests
+{
+    const string Secret = "AGENTIC_PATTERNS_TEST_UNRELATED_SECRET";
+    const string Allowed = "AzureOpenAi__ApiKey";
+
+    static void WithVariable(string name, string? value, Action body)
+    {
+        var previous = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(name, value);
+        try { body(); }
+        finally { Environment.SetEnvironmentVariable(name, previous); }
+    }
+
+    [Fact]
+    public void The_child_gets_the_allowlist_and_dotnet_run_essentials_but_not_the_rest_of_the_host()
+    {
+        WithVariable(Secret, "leaked", () => WithVariable(Allowed, "sk-test", () =>
+        {
+            // A real ProcessStartInfo, which pre-populates Environment from this process - the
+            // exact thing Clear() has to undo.
+            var info = new System.Diagnostics.ProcessStartInfo("dotnet");
+            Assert.True(info.Environment.ContainsKey(Secret), "precondition: the host variable is inherited");
+
+            RunSession.ApplyChildEnvironment(info.Environment, new PatternProject("AgentFramework", "Some.Sample"));
+
+            Assert.False(info.Environment.ContainsKey(Secret));
+            Assert.Equal("sk-test", info.Environment[Allowed]);
+            Assert.True(info.Environment.ContainsKey("PATH"), "`dotnet run` needs PATH");
+        }));
+    }
+
+    [Fact]
+    public void A_variable_outside_the_projects_own_allowlist_is_not_forwarded()
+    {
+        WithVariable(Secret, "leaked", () =>
+        {
+            var info = new System.Diagnostics.ProcessStartInfo("dotnet");
+            var project = new PatternProject("AgentFramework", "Some.Sample")
+            {
+                EnvironmentAllowlist = [Allowed]
+            };
+
+            RunSession.ApplyChildEnvironment(info.Environment, project);
+
+            Assert.False(info.Environment.ContainsKey(Secret));
+        });
+    }
+
+    [Fact]
+    public void An_allowlisted_variable_that_is_unset_is_simply_absent_not_empty()
+    {
+        WithVariable(Secret, null, () =>
+        {
+            var info = new System.Diagnostics.ProcessStartInfo("dotnet");
+            var project = new PatternProject("AgentFramework", "Some.Sample") { EnvironmentAllowlist = [Secret] };
+
+            RunSession.ApplyChildEnvironment(info.Environment, project);
+
+            Assert.False(info.Environment.ContainsKey(Secret));
+        });
+    }
+}

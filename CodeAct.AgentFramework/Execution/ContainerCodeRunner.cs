@@ -92,37 +92,14 @@ public sealed class ContainerCodeRunner(CodeExecutionOptions options) : IGenerat
         }
     }
 
-    private static async Task WriteWorldReadableAsync(string path, string content, CancellationToken cancellationToken)
-    {
-        await File.WriteAllTextAsync(path, content, cancellationToken);
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite |
-                                       UnixFileMode.GroupRead | UnixFileMode.OtherRead);
-    }
+    private static Task WriteWorldReadableAsync(string path, string content, CancellationToken cancellationToken) =>
+        HostWorkspace.WriteWorldReadableAsync(path, content, cancellationToken);
 
-    // World-readable/traversable so container uid 65532 can read the bind mount.
-    // Directory.CreateDirectory's mode parameter is a mkdir(2) mode, itself masked by the
-    // process umask (verified: umask 077 turns a requested 0755 into 0700) - passing `mode`
-    // to CreateDirectory alone is not enough. An explicit File.SetUnixFileMode afterwards is
-    // what actually forces the bits, since chmod(2) is not subject to umask. Mirrors
-    // StigmergicCoordination.AgentFramework/BuildGate.cs CreateWorkspaceDirectory, which hit
-    // and fixed the identical gap.
-    internal static string CreateRunDirectory(string runId)
-    {
-        var path = Path.Combine(Path.GetTempPath(), "codeact", runId);
-        if (OperatingSystem.IsWindows())
-            return Directory.CreateDirectory(path).FullName;
-
-        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
-                                  UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
-                                  UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
-        var parent = Path.Combine(Path.GetTempPath(), "codeact");
-        Directory.CreateDirectory(parent);
-        File.SetUnixFileMode(parent, mode);
-        Directory.CreateDirectory(path);
-        File.SetUnixFileMode(path, mode);
-        return path;
-    }
+    /// <summary>The per-run staging directory, world-traversable so container uid 65532 can
+    /// read the bind mount regardless of the operator's umask - see <see cref="HostWorkspace"/>,
+    /// which owns that fix for both this sample and StigmergicCoordination's build gate.</summary>
+    internal static string CreateRunDirectory(string runId) =>
+        HostWorkspace.CreateWorldReadableDirectory(Path.Combine(Path.GetTempPath(), "codeact", runId));
 
     /// <summary>Builds the repo-controlled sandbox image from Sandbox/Dockerfile on first use.</summary>
     private async Task EnsureImageAsync(CancellationToken cancellationToken)

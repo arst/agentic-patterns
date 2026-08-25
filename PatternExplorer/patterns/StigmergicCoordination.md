@@ -3,8 +3,9 @@
   "title": "Stigmergic Coordination",
   "summary": "Workers coordinate through a shared workspace and compiler-enforced contracts instead of exchanging messages.",
   "category": "Orchestration",
+  "risk": "Compiles model-written C# in a locked-down local container (no network, read-only source mount, resource limits); compiling runs build tasks, source generators and MSBuild targets. Fails closed without Docker. A host build requires an explicit double opt-in.",
   "projects": [
-    { "flavor": "AgentFramework", "path": "StigmergicCoordination.AgentFramework", "environmentAllowlist": [
+    { "flavor": "AgentFramework", "path": "StigmergicCoordination.AgentFramework", "note": "Needs Docker - the build gate refuses to compile model-written source on the host.", "environmentAllowlist": [
       "AzureOpenAi__ChatModelDeployment", "AzureOpenAi__EmbeddingModelDeployment",
       "AzureOpenAi__Endpoint", "AzureOpenAi__ApiKey",
       "AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION", "AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION"
@@ -89,10 +90,11 @@ wall-clock timeout, and bounded output. The image differs, though: this sample p
 repo-controlled image with an offline package cache baked in — same isolation flags, different
 image provenance. The sample fails closed with no fallback to a host build unless the same
 double opt-in CodeAct offers is set (and even then the timeout and source-size cap still
-apply). A nonzero exit with no compiler diagnostic — a permission mismatch on the mount, a
-resource-limit kill, an image-pull failure — is reported as a gate error too, never as a
-silent pass. A production version would go further and add behavioral contract tests running
-in that same sandbox.
+apply) — and it hardcodes the `docker` CLI, so unlike CodeAct there is no Podman option. A
+nonzero exit with no compiler diagnostic — a permission mismatch on the mount, a resource-limit
+kill, an image-pull failure — is reported as a gate error too, never as a silent pass. A
+production version would go further and add behavioral contract tests running in that same
+sandbox.
 
 ## Key APIs
 

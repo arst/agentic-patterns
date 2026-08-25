@@ -43,6 +43,25 @@ public static class SandboxRunner
         configured > TimeSpan.Zero ? configured : TimeSpan.FromMinutes(3);
 
     /// <summary>
+    /// The effective memory clamp. `--memory 0` (and an empty value) reads to docker as
+    /// UNLIMITED — the same fail-open-on-a-bound shape as a zero <see cref="SandboxOptions.PidsLimit"/>
+    /// or an unset Timeout, and just as unreachable through the type's own defaults, so it is
+    /// closed the same way. A non-numeric value is passed through untouched: docker rejects it
+    /// loudly, which is a failure, not a silently removed limit.
+    /// </summary>
+    public static string EffectiveMemory(string? configured) => IsUnbounded(configured) ? "512m" : configured!;
+
+    /// <summary>The effective cpu clamp — `--cpus 0` is likewise "unlimited" to docker.</summary>
+    public static string EffectiveCpus(string? configured) => IsUnbounded(configured) ? "1" : configured!;
+
+    // "0", "0m", "0.0", "" and null all mean "no limit" once docker parses them.
+    private static bool IsUnbounded(string? value) =>
+        string.IsNullOrWhiteSpace(value) ||
+        (double.TryParse(value.TrimEnd('b', 'B', 'k', 'K', 'm', 'M', 'g', 'G'),
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
+            out var number) && number <= 0);
+
+    /// <summary>
     /// The whole security posture, as one pure function so tests can pin every flag.
     /// Deny everything by default; grant back only what <paramref name="options"/> asks for.
     /// </summary>
@@ -71,9 +90,9 @@ public static class SandboxRunner
         args.Add("--pids-limit");
         args.Add(EffectivePidsLimit(options.PidsLimit).ToString());
         args.Add("--memory");
-        args.Add(options.Memory);
+        args.Add(EffectiveMemory(options.Memory));
         args.Add("--cpus");
-        args.Add(options.Cpus);
+        args.Add(EffectiveCpus(options.Cpus));
 
         if (options.User is not null)
         {
@@ -91,6 +110,16 @@ public static class SandboxRunner
         {
             foreach (var (host, container, readOnly) in options.Mounts)
             {
+                // `--mount` takes a comma-separated option list with no escaping mechanism, so a
+                // path containing a comma does not produce a weird mount — it INJECTS mount
+                // options (`src=/a,readwrite,/b`). Every caller passes a GUID temp directory
+                // today, but this is the one function whose entire job is the security posture:
+                // reject rather than build a value docker will re-parse into something else.
+                if (host.Contains(',') || container.Contains(','))
+                    throw new ArgumentException(
+                        $"Mount paths must not contain a comma — docker would read it as another mount option: '{host}' -> '{container}'.",
+                        nameof(options));
+
                 args.Add("--mount");
                 args.Add($"type=bind,src={host},dst={container}" + (readOnly ? ",readonly" : ""));
             }

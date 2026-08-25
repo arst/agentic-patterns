@@ -114,25 +114,89 @@ public class SandboxArgumentTests
     [Fact]
     public void EffectivePidsLimitNeverOverridesAnExplicitCallerValue() =>
         Assert.Equal(64, SandboxRunner.EffectivePidsLimit(64));
+
+    // ---- M3: --memory 0 / --cpus 0 read to docker as UNLIMITED, the same fail-open shape ----
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("0m")]
+    [InlineData("0.0")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void EffectiveMemoryClampsAnythingDockerWouldReadAsUnlimited(string? configured) =>
+        Assert.Equal("512m", SandboxRunner.EffectiveMemory(configured));
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("0.0")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void EffectiveCpusClampsAnythingDockerWouldReadAsUnlimited(string? configured) =>
+        Assert.Equal("1", SandboxRunner.EffectiveCpus(configured));
+
+    [Fact]
+    public void EffectiveMemoryAndCpusNeverOverrideAnExplicitCallerValue()
+    {
+        Assert.Equal("1g", SandboxRunner.EffectiveMemory("1g"));
+        Assert.Equal("2", SandboxRunner.EffectiveCpus("2"));
+    }
+
+    [Fact]
+    public void ZeroMemoryAndCpusReachDockerAsTheSafeDefaults()
+    {
+        var args = SandboxRunner.BuildRunArguments(
+            new SandboxOptions("img", Memory: "0", Cpus: "0"), ["echo"]).ToList();
+        Assert.Equal("512m", args[args.IndexOf("--memory") + 1]);
+        Assert.Equal("1", args[args.IndexOf("--cpus") + 1]);
+    }
+
+    // ---- M4: `--mount` is a comma-separated option list with no escaping mechanism ----
+
+    [Fact]
+    public void AMountPathContainingACommaIsRejectedRatherThanInjectingMountOptions()
+    {
+        var options = new SandboxOptions("img", Mounts: [("/host/a,readwrite,/etc", "/src", true)]);
+        Assert.Throws<ArgumentException>(() => SandboxRunner.BuildRunArguments(options, ["echo"]));
+    }
+
+    // ---- I1: the non-root default the README and MCP.md both promise ----
+
+    [Fact]
+    public void TheDefaultUserIsNonRootAndIsActuallyPassedToDocker()
+    {
+        var args = SandboxRunner.BuildRunArguments(new SandboxOptions("img"), ["echo"]).ToList();
+        Assert.Equal("65532:65532", args[args.IndexOf("--user") + 1]);
+    }
 }
 
-// The zero-Timeout clamp value itself is asserted directly above (EffectiveTimeoutClamps...).
-// What that pure test cannot prove is that RunAsync actually WIRES the clamp into
-// CancelAfter instead of, say, ignoring Timeout entirely — that needs a real run. Gated on
-// Docker like CodeActSandboxSmokeTests: passes vacuously without it rather than failing the suite.
+// The clamp VALUE is asserted purely above (EffectiveTimeout*). What a pure test cannot prove is
+// that RunAsync actually wires it into CancelAfter — that needs a real run whose command outlives
+// the bound. The previous version of this test ran `dotnet --version` and asserted TimedOut is
+// false, which stayed green with `timeoutCts.CancelAfter(...)` deleted, and green on CI where the
+// image it named (built only by ContainerCodeRunner.EnsureImageAsync) is absent and `docker run`
+// exits 125 having launched nothing. This one uses the SDK image StigmergicBuildGateSandboxTests
+// already depends on — pulled if absent — and asserts the timeout FIRES, so deleting the
+// CancelAfter line makes it fail rather than pass. Docker-gated like CodeActSandboxSmokeTests.
 public class SandboxTimeoutTests
 {
     private static readonly bool DockerAvailable = SandboxRunner.IsAvailable("docker");
 
     [Fact]
-    public async Task ZeroTimeoutDoesNotCancelTheRunImmediately()
+    public async Task TheConfiguredTimeoutIsWiredIntoTheRunAndKillsTheContainer()
     {
         if (!DockerAvailable) return;
 
-        var options = new SandboxOptions("agentic-patterns-codeact-sandbox",
+        var options = new SandboxOptions("mcr.microsoft.com/dotnet/sdk:10.0",
+            Timeout: TimeSpan.FromSeconds(3),
             ContainerName: $"sandbox-timeout-test-{Guid.NewGuid():N}");
-        var result = await SandboxRunner.RunAsync(options, ["dotnet", "--version"], stdin: null, CancellationToken.None);
 
-        Assert.False(result.TimedOut);
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var result = await SandboxRunner.RunAsync(options, ["sleep", "120"], stdin: null, CancellationToken.None);
+        started.Stop();
+
+        Assert.True(result.TimedOut);
+        Assert.Equal(-1, result.ExitCode);
+        // Bounded well below `sleep 120`: proves the run was cut short, not merely reported as such.
+        Assert.True(started.Elapsed < TimeSpan.FromSeconds(90), $"took {started.Elapsed}");
     }
 }

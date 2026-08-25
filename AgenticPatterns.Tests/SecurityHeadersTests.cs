@@ -32,3 +32,23 @@ public class SecurityHeadersTests
         Assert.DoesNotContain("*", SecurityHeaders.ContentSecurityPolicy);
     }
 }
+
+/// M5: `GET /api/run` starts a process and spends money, and the per-run token gates only /input
+/// and /cancel - so any page the operator visits could fire one with a bare `<img src=...>`.
+/// CSP frame-ancestors/form-action do not stop a cross-origin GET; Sec-Fetch-Site does.
+public class CrossSiteRequestTests
+{
+    [Theory]
+    [InlineData("cross-site")]
+    [InlineData("same-site")] // another localhost port is still not this app
+    public void Requests_the_browser_marks_as_foreign_are_rejected(string secFetchSite) =>
+        Assert.True(SecurityHeaders.IsCrossSiteRequest(secFetchSite));
+
+    [Theory]
+    [InlineData("same-origin")] // the page's own EventSource
+    [InlineData("none")]        // typed into the address bar
+    [InlineData("")]            // curl, or a browser too old to send the header
+    [InlineData(null)]
+    public void The_apps_own_requests_and_header_less_clients_are_allowed(string? secFetchSite) =>
+        Assert.False(SecurityHeaders.IsCrossSiteRequest(secFetchSite));
+}

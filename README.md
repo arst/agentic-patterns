@@ -52,13 +52,14 @@ docker run --rm --init \
 The image contains the .NET 10 SDK and prebuilt samples. It runs as a
 non-root user; the command above also binds only to loopback and drops Linux capabilities. Do
 not expose Pattern Explorer directly to the internet: its run endpoints intentionally execute
-samples with the supplied credentials. Enabling the two optional CodeAct variables runs generated
-code directly inside this outer container instead of a nested Docker sandbox. The generated code
-therefore shares the container's credentials, filesystem, and network access. The `MCP` sample
-cannot run inside this container at all: it needs a container runtime of its own to sandbox the
-MCP server, and this image ships neither a Docker client nor a daemon socket — running it here
-always hits the fail-closed path and exits. Run `MCP` from a terminal with Docker/Podman
-installed instead.
+samples with the supplied credentials. Enabling the two optional unsafe-execution variables
+affects **two** samples, not one: `CodeAct` then runs generated code directly inside this outer
+container instead of a nested Docker sandbox, and `StigmergicCoordination` likewise runs its
+`dotnet build` of model-written source there. Both then share the container's credentials,
+filesystem, and network access. The `MCP` sample cannot run inside this container at all: it needs
+a container runtime of its own to sandbox the MCP server, and this image ships neither a Docker
+client nor a daemon socket — running it here always hits the fail-closed path and exits. Run `MCP`
+from a terminal with Docker installed instead.
 
 Running a sample from the UI spawns `dotnet run` for that project and calls your Azure OpenAI
 deployment, exactly as running it from the terminal would. Samples that ask for approval get an
@@ -164,10 +165,12 @@ the catalog together; each result states its scope limits and cites a primary so
 
 ## Setup
 
-Requires the .NET 10 SDK and an Azure OpenAI deployment. The `CodeAct` and `MCP` samples
-additionally require Docker or Podman — both sandbox untrusted execution (model-generated
-code for `CodeAct`, a third-party MCP server for `MCP`) and refuse to run without isolation
-(see the security section below).
+Requires the .NET 10 SDK and an Azure OpenAI deployment. Three samples additionally require a
+container runtime and refuse to run without isolation, because each executes untrusted work:
+`CodeAct` (model-generated code, Docker or Podman via `CodeExecutionOptions.ContainerRuntime`),
+`MCP` (a third-party MCP server, Docker only), and `StigmergicCoordination` (`dotnet build` over
+model-written source, Docker only — a build runs build tasks, source generators and MSBuild
+targets). See the security section below.
 
 Configuration is read from `settings/appsettings.json` (linked into every project), environment variables, and user secrets. **Don't put your API key in `appsettings.json`** — it's tracked in git. Use user secrets instead:
 
@@ -220,10 +223,12 @@ Concretely, for the `CodeAct` sample:
 
 The same rule applies to the `MCP` sample: a third-party MCP server is untrusted code too.
 `@modelcontextprotocol/server-everything` is pinned at an exact version and baked into an
-image at build time, run in the same locked-down container as `CodeAct` (no network, no
-host environment or credentials, read-only filesystem, dropped capabilities, non-root),
-and only an explicit allowlist (`add`, `echo`) of its discovered tools is ever bound to the
-agent — discovery and authorization are kept separate. Build the image once before running
+image at build time, run in the same locked-down container as `CodeAct` — every flag from the
+same `Shared/Sandbox` defaults, opting out of none of them (no network, no host environment or
+credentials, read-only filesystem, dropped capabilities, non-root `--user 65532:65532`, bounded
+pids/memory/cpu) — and only an explicit allowlist (`add`, `echo`) of its discovered tools is ever
+bound to the agent — discovery and authorization are kept separate. Unlike `CodeAct`, this sample
+hardcodes the `docker` CLI, so Podman is not an option for it. Build the image once before running
 either flavor:
 
 ```bash
@@ -231,6 +236,15 @@ docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramew
 ```
 
 See `PatternExplorer/patterns/MCP.md` for the full walkthrough.
+
+And to the `StigmergicCoordination` sample, whose build gate compiles model-written C#: compiling
+untrusted source *is* running untrusted code, so `dotnet build` happens inside the same boundary
+(no network, read-only source mount, one bounded writable tmpfs, capped cpu/memory/pids, a
+wall-clock timeout, bounded output) rather than on the host. It pulls the stock
+`mcr.microsoft.com/dotnet/sdk` image rather than building a repo-controlled one, so its image
+provenance differs from `CodeAct`'s — the isolation flags do not. Like `CodeAct` it exits 1
+without Docker unless the same double opt-in is set; see
+`PatternExplorer/patterns/StigmergicCoordination.md`.
 
 The A2A samples need the server running first:
 

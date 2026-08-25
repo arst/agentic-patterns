@@ -19,8 +19,12 @@ public static class BuildGate
     // CodeAct's ContainerCodeRunner, which builds a repo-controlled image with an offline
     // package cache baked in (CodeAct.AgentFramework/Sandbox/Dockerfile). Same isolation
     // flags, different image provenance: a first-run pull failure is a real failure mode here
-    // that CodeAct doesn't have. Upgrade path: bake a similar offline image if this sample
-    // needs to run with zero host network access, including for the initial pull.
+    // that CodeAct doesn't have. The pull also happens INSIDE `docker run`, so it is inside
+    // SandboxRunner's timeout: warm it is ~9s, but on a cold CI runner a slow pull surfaces as
+    // `error AP0002: the build gate timed out` and fails StigmergicBuildGateSandboxTests. That
+    // fails red rather than falsely green, so it is a flake, not a hole. Upgrade path: bake a
+    // similar offline image (or pre-pull in CI) if this sample needs to run with zero host
+    // network access, including for the initial pull.
     private const string ContainerImage = "mcr.microsoft.com/dotnet/sdk:10.0";
     private const int MaxOutputCharacters = 65_536;
 
@@ -45,11 +49,12 @@ public static class BuildGate
 
     public static string FailClosedMessage =>
         $"""
-        No container runtime available. This sample compiles model-generated C# files, which
+        Docker is not available. This sample compiles model-generated C# files, which
         is untrusted code - build tasks, source generators, and MSBuild targets all run during
         a build, not just at execution. It will not be compiled on the host.
 
-        Install Docker or Podman to run it, or explicitly opt into an unsandboxed host build
+        Install Docker to run it (this sample hardcodes the docker CLI - only CodeAct takes the
+        runtime from an option), or explicitly opt into an unsandboxed host build
         (the build still gets a timeout and a source size cap, but none of the container
         isolation) with both:
           1. {UnsafeEnableVariable}={UnsafeEnableValue}
@@ -145,41 +150,19 @@ public static class BuildGate
     }
 
     /// <summary>
-    /// C2: the container runs as uid 65532, an unrelated uid on the host. The default
-    /// directory/file permissions `Directory.CreateDirectory`/`File.WriteAllText` produce
-    /// depend on the caller's umask - restrictive enough (0700, common with `umask 077`) and
-    /// the bind mount is unreadable to the sandbox, `cp` fails, and (pre-C1-fix) that silently
-    /// read as PASSED. Verified by hand that `Directory.CreateDirectory(path, unixCreateMode)`
-    /// ALONE is not enough: `mkdir()`'s mode argument is itself masked by the process umask
-    /// (0077 in, 0700 out, even though 0775 was requested) - the same call
-    /// `ContainerCodeRunner.CreateRunDirectory` makes, and the same gap. An explicit
-    /// `File.SetUnixFileMode` afterwards is what actually forces the bits: `chmod()`, unlike
-    /// `mkdir()`, is not subject to umask.
+    /// C2: the container runs as uid 65532, an unrelated uid on the host, so a workspace created
+    /// under a restrictive umask (0700, common with `umask 077`) is unreadable to the sandbox,
+    /// `cp` fails, and (pre-C1-fix) that silently read as PASSED. The umask fix itself lives in
+    /// <see cref="HostWorkspace"/> - it was found and fixed independently here and in CodeAct's
+    /// ContainerCodeRunner, which is exactly why it is shared now rather than copied.
     /// </summary>
-    public static string CreateWorkspaceDirectory(string path)
-    {
-        if (OperatingSystem.IsWindows()) return Directory.CreateDirectory(path).FullName;
+    public static string CreateWorkspaceDirectory(string path) =>
+        HostWorkspace.CreateWorldReadableDirectory(path);
 
-        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
-                                  UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
-                                  UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
-        var parent = Path.GetDirectoryName(path)!;
-        Directory.CreateDirectory(parent);
-        File.SetUnixFileMode(parent, mode);
-        Directory.CreateDirectory(path);
-        File.SetUnixFileMode(path, mode);
-        return path;
-    }
-
-    /// <summary>Mirrors <c>ContainerCodeRunner.WriteWorldReadableAsync</c> - every file written
-    /// into the workspace has to be readable by uid 65532, not just the directory.</summary>
-    public static async Task WriteWorldReadableAsync(string path, string content, CancellationToken cancellationToken)
-    {
-        await File.WriteAllTextAsync(path, content, cancellationToken);
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite |
-                                       UnixFileMode.GroupRead | UnixFileMode.OtherRead);
-    }
+    /// <summary>Every file written into the workspace has to be readable by uid 65532, not just
+    /// the directory - same shared helper, same reason.</summary>
+    public static Task WriteWorldReadableAsync(string path, string content, CancellationToken cancellationToken) =>
+        HostWorkspace.WriteWorldReadableAsync(path, content, cancellationToken);
 
     // ponytail: unsandboxed - only reachable behind the double opt-in in IsUnsafeHostBuildRequested,
     // same shape as CodeAct's UnsafeHostCodeRunner. Upgrade path is the same: delete this method

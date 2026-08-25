@@ -66,6 +66,14 @@ app.MapGet("/api/source", (string path) =>
 
 app.MapGet("/api/run", async (HttpContext context, string id, string flavor) =>
 {
+    // This GET starts a process and spends money. Nothing else on the page does, so it is the
+    // one endpoint a cross-site <img>/<script>/<link> could abuse - see SecurityHeaders.
+    if (SecurityHeaders.IsCrossSiteRequest(context.Request.Headers["Sec-Fetch-Site"]))
+    {
+        context.Response.StatusCode = 403;
+        return;
+    }
+
     var project = Catalog.Load(patternsDir).FirstOrDefault(p => p.Id == id)?
         .Meta.Projects.FirstOrDefault(p => p.Flavor == flavor);
     if (project is null)
