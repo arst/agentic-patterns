@@ -133,7 +133,7 @@ the catalog together; each result states its scope limits and cites a primary so
 
 | Pattern | What it demonstrates |
 |---|---|
-| BoundedExecution | Hard per-run limits on calls, tools, tokens, elapsed time, iterations, and cost |
+| BoundedExecution | Hard per-run limits on calls, tools, iterations, elapsed time, and output tokens/cost; input tokens are a conservative pre-dispatch estimate |
 | ConfidenceReporting | Uncertainty Signals |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |

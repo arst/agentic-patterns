@@ -25,6 +25,11 @@ var agent = new ChatClientAgent(client,
         "When stopped, summarize only what you established and clearly label it incomplete.",
         tools: [search])
     .AsBuilder()
+    .Use(async (messages, session, runOptions, next, cancellationToken) =>
+    {
+        state.RecordIteration();
+        await next(messages, session, runOptions, cancellationToken);
+    })
     .Use(async (_, context, next, cancellationToken) =>
     {
         state.RecordToolCall(context.Function.Name, perToolLimit: 8);
@@ -77,27 +82,38 @@ internal sealed record TokenPrices(decimal InputPerMillion, decimal OutputPerMil
             CultureInfo.InvariantCulture, out var value) ? value : fallback;
 }
 
-internal sealed class BudgetedChatClient(
-    IChatClient inner,
-    ExecutionBudgetState state,
-    TokenPrices prices) : DelegatingChatClient(inner)
+internal sealed class BudgetedChatClient(IChatClient inner, ExecutionBudgetState state, TokenPrices prices)
+    : DelegatingChatClient(inner)
 {
-    private const long ReservedInputTokens = 2_000;
-    private const long ReservedOutputTokens = 800;
+    private const long ReservationFloor = 256;
+    private const int DefaultOutputCap = 800;
 
     public override async Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages,
         ChatOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var reservation = state.ReserveModelCall(ReservedInputTokens, ReservedOutputTokens,
-            prices.Estimate(ReservedInputTokens, ReservedOutputTokens));
+        var request = messages as IList<ChatMessage> ?? [.. messages];
+
+        // ponytail: 4 chars per token is a coarse estimate. Swap for the provider's tokenizer
+        // (Microsoft.ML.Tokenizers) when the input ceiling has to be exact rather than conservative.
+        var estimatedInput = Math.Max(ReservationFloor,
+            request.Sum(m => m.Text?.Length ?? 0) / 4 + request.Count * 8);
+
+        // Cap the provider's own output so the worst case we reserve is the worst case that can
+        // happen. Without this the output ceiling is advisory.
+        var cap = Math.Min(options?.MaxOutputTokens ?? DefaultOutputCap, state.RemainingOutputTokens);
+        if (cap <= 0) throw new BudgetExceededException(StopReason.OutputTokenLimitReached, state.Snapshot());
+        options = options?.Clone() ?? new ChatOptions();
+        options.MaxOutputTokens = (int)cap;
+
+        var reservation = state.ReserveModelCall(estimatedInput, cap, prices.Estimate(estimatedInput, cap));
         try
         {
-            var response = await base.GetResponseAsync(messages, options, cancellationToken);
-            state.Reconcile(reservation, response.Usage?.InputTokenCount ?? 0,
-                response.Usage?.OutputTokenCount ?? 0,
-                prices.Estimate(response.Usage?.InputTokenCount ?? 0, response.Usage?.OutputTokenCount ?? 0));
+            var response = await base.GetResponseAsync(request, options, cancellationToken);
+            state.Reconcile(reservation, response.Usage?.InputTokenCount, response.Usage?.OutputTokenCount,
+                prices.Estimate);
             return response;
         }
+        catch (BudgetExceededException) { throw; }
         catch
         {
             state.Release(reservation);

@@ -10,9 +10,9 @@ namespace AgenticPatterns.Tests;
 public class BoundedExecutionTests
 {
     private static ExecutionBudget Budget(
-        int modelCalls = 2, int toolCalls = 2, long inputTokens = 100,
+        int iterations = 2, int modelCalls = 2, int toolCalls = 2, long inputTokens = 100, long outputTokens = 100,
         TimeSpan? elapsed = null, decimal cost = 10m) =>
-        new(2, modelCalls, toolCalls, inputTokens, 100, elapsed ?? TimeSpan.FromSeconds(10), cost);
+        new(iterations, modelCalls, toolCalls, inputTokens, outputTokens, elapsed ?? TimeSpan.FromSeconds(10), cost);
 
     [Fact]
     public void ModelCallsAndRetriesCountAgainstTheLimit()
@@ -40,12 +40,49 @@ public class BoundedExecutionTests
     {
         var state = new ExecutionBudgetState(Budget());
         var reservation = state.ReserveModelCall(50, 30, 2);
-        state.Reconcile(reservation, 12, 7, 0.25m);
+        state.Reconcile(reservation, 12, 7, (_, _) => 0.25m);
 
         var snapshot = state.Snapshot();
         Assert.Equal(12, snapshot.InputTokens);
         Assert.Equal(7, snapshot.OutputTokens);
         Assert.Equal(0.25m, snapshot.EstimatedCost);
+    }
+
+    [Fact]
+    public void IterationsAreCountedSeparatelyFromModelCalls()
+    {
+        var state = new ExecutionBudgetState(Budget(iterations: 2, modelCalls: 10));
+        state.RecordIteration();
+        state.ReserveModelCall(1, 1, 0m);
+        state.ReserveModelCall(1, 1, 0m);
+        Assert.Equal(1, state.Snapshot().Iterations);
+        Assert.Equal(2, state.Snapshot().ModelCalls);
+    }
+
+    [Fact]
+    public void MissingUsageIsChargedAtTheReservation()
+    {
+        var state = new ExecutionBudgetState(Budget(outputTokens: 1_000));
+        var reservation = state.ReserveModelCall(10, 800, 0m);
+        state.Reconcile(reservation, inputTokens: null, outputTokens: null, (_, _) => 0m);
+        Assert.Equal(800, state.Snapshot().OutputTokens);
+    }
+
+    [Fact]
+    public void AReservationLargerThanTheRemainingBudgetThrowsBeforeTheCall()
+    {
+        var state = new ExecutionBudgetState(Budget(outputTokens: 500));
+        Assert.Throws<BudgetExceededException>(() => state.ReserveModelCall(10, 800, 0m));
+    }
+
+    [Fact]
+    public void TimeoutUsesTheRemainingDurationNotTheWholeBudget()
+    {
+        var state = new ExecutionBudgetState(Budget(elapsed: TimeSpan.FromMilliseconds(200)));
+        Thread.Sleep(120);
+        using var source = state.CreateTimeout(CancellationToken.None);
+        Assert.True(source.Token.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(150)),
+            "timeout should fire within the REMAINING time, not restart the full budget");
     }
 
     [Fact]
