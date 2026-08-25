@@ -151,7 +151,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | LLMAsJudge | Judge-model rubric scoring plus a position-bias probe |
-| RedTeaming | Attacker agent vs a defended agent, judge-scored attack-success-rate |
+| RedTeaming | Deterministic leak checks first, judge second, against the real GuardRails output filter; reports a confidence interval, not a rate |
 | RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 
