@@ -1,4 +1,5 @@
 using CodeAct.AgentFramework.Execution;
+using Shared.Sandbox;
 using Xunit;
 
 #pragma warning disable CS0618 // testing the deliberately-[Obsolete] unsafe runner is the point
