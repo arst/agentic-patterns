@@ -15,8 +15,12 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = context => context.Context.Response.Headers.CacheControl = "no-store"
 });
 
+// EnvironmentAllowlist is server-side plumbing (what the child process is allowed to inherit) -
+// project it out of the wire shape rather than exposing "what does the server forward" to the page.
+object ProjectForWire(PatternProject p) => new { p.Flavor, p.Path, p.Interactive, p.Server, p.ServerPort, p.Note };
+
 app.MapGet("/api/patterns", () => Catalog.Load(patternsDir)
-    .Select(p => new { p.Id, p.Meta.Title, p.Meta.Summary, p.Meta.Category, p.Meta.Projects, p.Meta.Risk }));
+    .Select(p => new { p.Id, p.Meta.Title, p.Meta.Summary, p.Meta.Category, Projects = p.Meta.Projects.Select(ProjectForWire), p.Meta.Risk }));
 
 app.MapGet("/api/patterns/{id}", (string id) =>
 {
@@ -29,7 +33,7 @@ app.MapGet("/api/patterns/{id}", (string id) =>
         pattern.Meta.Title,
         pattern.Meta.Summary,
         pattern.Meta.Category,
-        pattern.Meta.Projects,
+        Projects = pattern.Meta.Projects.Select(ProjectForWire),
         pattern.Meta.Risk,
         pattern.Body,
         Sources = pattern.Meta.Projects.ToDictionary(

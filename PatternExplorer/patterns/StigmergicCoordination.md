@@ -3,7 +3,13 @@
   "title": "Stigmergic Coordination",
   "summary": "Workers coordinate through a shared workspace and compiler-enforced contracts instead of exchanging messages.",
   "category": "Orchestration",
-  "projects": [ { "flavor": "AgentFramework", "path": "StigmergicCoordination.AgentFramework" } ]
+  "projects": [
+    { "flavor": "AgentFramework", "path": "StigmergicCoordination.AgentFramework", "environmentAllowlist": [
+      "AzureOpenAi__ChatModelDeployment", "AzureOpenAi__EmbeddingModelDeployment",
+      "AzureOpenAi__Endpoint", "AzureOpenAi__ApiKey",
+      "AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION", "AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION"
+    ] }
+  ]
 }
 ---
 

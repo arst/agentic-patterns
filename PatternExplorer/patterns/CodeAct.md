@@ -4,7 +4,13 @@
   "summary": "One code-execution tool instead of many bound tools — intermediate results stay inside the script.",
   "category": "Orchestration",
   "risk": "Executes model-written C# in a locked-down local container (no network, read-only, non-root, resource limits); fails closed without Docker/Podman. Host execution requires an explicit double opt-in.",
-  "projects": [ { "flavor": "AgentFramework", "path": "CodeAct.AgentFramework" } ]
+  "projects": [
+    { "flavor": "AgentFramework", "path": "CodeAct.AgentFramework", "environmentAllowlist": [
+      "AzureOpenAi__ChatModelDeployment", "AzureOpenAi__EmbeddingModelDeployment",
+      "AzureOpenAi__Endpoint", "AzureOpenAi__ApiKey",
+      "AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION", "AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION"
+    ] }
+  ]
 }
 ---
 

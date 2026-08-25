@@ -15,23 +15,16 @@ public record Chunk(string S, string T);
 /// looked up by (id, token) so concurrent tabs don't fight over a single global.
 public sealed class RunSession
 {
-    // ponytail: a dictionary keyed by run id, capped at MaxLiveRuns. A single-user local tool does
-    // not need a scheduler; it does need two tabs not to fight. Upgrade to a real queue/scheduler
-    // if Explorer ever grows multi-user or needs to run more than a handful of samples at once.
+    // ponytail: a dictionary keyed by run id, capped at MaxLiveRuns and guarded by a single lock
+    // so the count-then-add is actually atomic. A single-user local tool does not need a
+    // scheduler; it does need two tabs not to fight. Upgrade to a real queue/scheduler if
+    // Explorer ever grows multi-user or needs to run more than a handful of samples at once.
     const int MaxLiveRuns = 8;
     static readonly ConcurrentDictionary<string, RunSession> Runs = new(StringComparer.Ordinal);
+    static readonly object RunsLock = new();
 
     static readonly TimeSpan MaxRuntime = TimeSpan.FromMinutes(15);
     const long MaxOutputBytes = 4 * 1024 * 1024;
-
-    // CodeAct's opt-in host-execution variables (see CodeAct.AgentFramework/Execution/CodeRunnerFactory.cs)
-    // are forwarded only when that's the project being started - no other sample reads them.
-    const string CodeActProjectPath = "CodeAct.AgentFramework";
-    static readonly string[] CodeActUnsafeExecutionVariables =
-    [
-        "AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION",
-        "AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION"
-    ];
 
     public string Id { get; } = Guid.NewGuid().ToString("N");
     public string Token { get; } = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
@@ -49,8 +42,9 @@ public sealed class RunSession
     // Test seam: lets tests write chunks and observe drop-oldest behavior without spawning a process.
     internal ChannelWriter<Chunk> Writer => _channel.Writer;
 
-    // Test seam: cancellation is otherwise unobservable from outside the session.
-    internal CancellationToken CancellationToken => _cts.Token;
+    // Test seam: cancellation is otherwise unobservable from outside the session. Named IsCancelled
+    // (not CancellationToken) so `CancellationToken.None` below keeps meaning the BCL type.
+    internal bool IsCancelled => _cts.IsCancellationRequested;
 
     public static RunSession? TryGet(string id, string token) =>
         Runs.TryGetValue(id, out var session) &&
@@ -70,9 +64,12 @@ public sealed class RunSession
     // lifetime (lookup, isolation, the live-run cap) without ever spawning `dotnet run`.
     internal static void Register(RunSession session)
     {
-        if (Runs.Count >= MaxLiveRuns)
-            throw new InvalidOperationException($"Too many live runs (max {MaxLiveRuns}). Cancel one and retry.");
-        Runs[session.Id] = session;
+        lock (RunsLock)
+        {
+            if (Runs.Count >= MaxLiveRuns)
+                throw new InvalidOperationException($"Too many live runs (max {MaxLiveRuns}). Cancel one and retry.");
+            Runs[session.Id] = session;
+        }
     }
 
     internal static void Unregister(RunSession session) => Runs.TryRemove(session.Id, out _);
@@ -135,9 +132,6 @@ public sealed class RunSession
             CopyIfSet(info.Environment, name);
         foreach (var name in project.EnvironmentAllowlist)
             CopyIfSet(info.Environment, name);
-        if (projectPath == CodeActProjectPath)
-            foreach (var name in CodeActUnsafeExecutionVariables)
-                CopyIfSet(info.Environment, name);
 
         var process = Process.Start(info) ?? throw new InvalidOperationException("dotnet run did not start.");
         lock (_processes) _processes.Add(process);
@@ -147,6 +141,9 @@ public sealed class RunSession
         return process;
     }
 
+    // ponytail: PATH/HOME/DOTNET_* is what `dotnet run` needs on Linux/macOS, which is all this
+    // repo targets (see README). Windows would also need USERPROFILE/APPDATA/SystemRoot/TEMP -
+    // add them here if Explorer ever needs to run there.
     static IEnumerable<string> HostEnvironmentNamesForDotnetRun() =>
         Environment.GetEnvironmentVariables().Keys.Cast<string>()
             .Where(name => name is "PATH" or "HOME" || name.StartsWith("DOTNET_", StringComparison.Ordinal));

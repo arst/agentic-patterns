@@ -19,10 +19,13 @@ public class RunSessionTests
             Assert.Same(a, RunSession.TryGet(a.Id, a.Token));
             Assert.Same(b, RunSession.TryGet(b.Id, b.Token));
 
+            // A valid token, just from the wrong live run, must not unlock this one.
+            Assert.Null(RunSession.TryGet(a.Id, b.Token));
+
             a.Cancel();
 
-            Assert.True(a.CancellationToken.IsCancellationRequested);
-            Assert.False(b.CancellationToken.IsCancellationRequested);
+            Assert.True(a.IsCancelled);
+            Assert.False(b.IsCancelled);
         }
         finally
         {
