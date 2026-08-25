@@ -50,7 +50,8 @@ public class SandboxArgumentTests
     [Fact]
     public void NullUserOmitsTheFlagAndItsValue()
     {
-        // Task 2.2 depends on this exact behaviour: User: null defers to the image's own USER.
+        // No sample opts out of the non-root default any more (MCP used to, and stopped).
+        // The option still has to behave: null omits the flag AND its value, never `--user ""`.
         var args = SandboxRunner.BuildRunArguments(new SandboxOptions("img", User: null), ["echo"]);
         Assert.DoesNotContain("--user", args);
         Assert.DoesNotContain("65532:65532", args);
