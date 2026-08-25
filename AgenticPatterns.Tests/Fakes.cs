@@ -1,6 +1,19 @@
+using CodeAct.AgentFramework.Execution;
 using Microsoft.Extensions.AI;
 
 namespace AgenticPatterns.Tests;
+
+/// <summary>Records the token it was invoked with, instead of actually running anything.</summary>
+internal sealed class RecordingCodeRunner : IGeneratedCodeRunner
+{
+    public CancellationToken ReceivedToken { get; private set; }
+
+    public Task<ExecutionResult> RunAsync(string sourceCode, CancellationToken cancellationToken)
+    {
+        ReceivedToken = cancellationToken;
+        return Task.FromResult(new ExecutionResult(0, "", "", TimedOut: false));
+    }
+}
 
 /// <summary>Returns pre-canned responses in order and counts calls.</summary>
 internal sealed class ScriptedChatClient(params ChatResponse[] responses) : IChatClient
