@@ -23,17 +23,18 @@ var (cases, awaitingReview) = CasePartition.Partition(allCases);
 // the OBSERVED answer straight from a recorded EvaluationAndMonitoring trajectory. A trace is
 // ground truth about what HAPPENED, never about what SHOULD have happened, so it lands in
 // candidates/ for a reviewer to supply/confirm the expected answer - it never joins `cases` above.
-var candidate = ExtractTraceCase(Path.Combine(baseDir, "sample-run-trace.json"));
+List<CandidateCase> candidates = [ExtractTraceCase(Path.Combine(baseDir, "sample-run-trace.json"))];
 var candidatesDir = Path.Combine(baseDir, "candidates");
 Directory.CreateDirectory(candidatesDir);
 // ponytail: candidates/ lives under bin/, build output wiped by `dotnet clean`, so a candidate
 // does not survive here to actually be reviewed. A real repo commits candidates beside
 // golden-cases.json and reviews the promotion (filling in expectedAnswer/tier/reviewedBy) in a PR.
-File.WriteAllText(Path.Combine(candidatesDir, $"{candidate.Id}.json"), JsonSerializer.Serialize(new
-{
-    candidate.Id, candidate.Question, candidate.ObservedAnswer, candidate.SourceTrace,
-    reviewedBy = (string?)null
-}, web));
+foreach (var candidate in candidates)
+    File.WriteAllText(Path.Combine(candidatesDir, $"{candidate.Id}.json"), JsonSerializer.Serialize(new
+    {
+        candidate.Id, candidate.Question, candidate.ObservedAnswer, candidate.SourceTrace,
+        reviewedBy = (string?)null
+    }, web));
 
 // Two different states, two different counts: an awaiting-review GoldenCase already has an
 // ExpectedAnswer and Tier and just needs sign-off, while a CandidateCase has neither and needs a
@@ -41,7 +42,7 @@ File.WriteAllText(Path.Combine(candidatesDir, $"{candidate.Id}.json"), JsonSeria
 // fully-specified unsigned golden case a "candidate", contradicting the distinction this task exists
 // to enforce.
 Console.WriteLine($"{awaitingReview.Count} golden case(s) awaiting sign-off - not evaluated.");
-Console.WriteLine("1 candidate case(s) awaiting review - not evaluated.\n");
+Console.WriteLine($"{candidates.Count} candidate case(s) awaiting review - not evaluated.\n");
 
 const string policy =
     "TechCorp laptops include a two-year limited warranty. Defective products may be " +
