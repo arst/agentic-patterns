@@ -31,7 +31,7 @@ builder.AddAzureOpenAIChatCompletion(
 var kernel = builder.Build();
 
 // 2¢ budget — deliberately small so the demo actually trips it on the reasoning query
-var budgetTracker = new BudgetTracker(2);
+var softBudgetTracker = new BudgetTracker(2);
 
 // Maps a service id back to its model for cost lookup
 var modelForService = new Dictionary<string, string>
@@ -96,7 +96,7 @@ async Task<string> HandleQueryAsync(string userQuery)
             var response = await chatService.GetChatMessageContentAsync(
                 history, settings, kernel);
 
-            budgetTracker.Record(modelForService[sid], response);
+            softBudgetTracker.Record(modelForService[sid], response);
 
             Console.WriteLine($"  [Router] Success with: {sid}");
             return response.Content ?? "No response generated.";
@@ -124,11 +124,11 @@ foreach (var query in queries)
     var answer = await HandleQueryAsync(query);
     Console.WriteLine($"Agent: {answer}");
 
-    if (budgetTracker.BudgetExceeded)
+    if (softBudgetTracker.BudgetExceeded)
     {
         Console.WriteLine("\n?Budget limit reached. Skipping remaining queries.");
         break;
     }
 }
 
-Console.WriteLine($"\nTotal estimated cost: {budgetTracker.TotalCostCents:F2}¢");
+Console.WriteLine($"\nTotal estimated cost: {softBudgetTracker.TotalCostCents:F2}¢");
