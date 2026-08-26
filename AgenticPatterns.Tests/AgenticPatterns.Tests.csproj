@@ -26,6 +26,7 @@
              (and Program.cs's top-level-statement type) are internal and invisible across the
              assembly boundary, so referencing it too would add nothing to test. -->
         <ProjectReference Include="..\IdempotentToolCalls.AgentFramework\IdempotentToolCalls.AgentFramework.csproj"/>
+        <ProjectReference Include="..\LLMAsJudge.AgentFramework\LLMAsJudge.AgentFramework.csproj"/>
         <ProjectReference Include="..\MCP.AgentFramework\MCP.AgentFramework.csproj"/>
         <!-- NOT MCP.SemanticKernel: excluded conservatively, not because it conflicts - McpToolBinding
              is mirrored into MCP.SemanticKernel's own namespace, so there is no name collision, and

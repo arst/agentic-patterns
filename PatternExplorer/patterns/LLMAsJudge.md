@@ -1,7 +1,7 @@
 ---
 {
   "title": "LLM as Judge",
-  "summary": "Score answers with a judge model against a rubric, and probe the judge's own position bias.",
+  "summary": "Score answers with a judge model against a rubric, and probe the judge's own position bias across randomized orderings, discarding verdicts it cannot parse.",
   "category": "Evaluation",
   "projects": [
     { "flavor": "AgentFramework", "path": "LLMAsJudge.AgentFramework" }
@@ -20,9 +20,12 @@ written directly against `IEvaluator`, and a **pairwise comparison** that picks 
 answers.
 
 The judge is not a neutral instrument, and the pairwise step exists to prove it: the same two
-candidates are judged twice with their positions swapped. If the verdict flips, the judge has
-**position bias** — one of its documented failure modes alongside verbosity bias (longer looks
-better) and self-preference (its own style looks better).
+candidates are judged across five randomized position orderings. If the same candidate does not
+win regardless of slot, the judge has **position bias** — one of its documented failure modes
+alongside verbosity bias (longer looks better) and self-preference (its own style looks better).
+A judge is also not a reliable narrator of its own output format: `JudgeParsing.Parse` treats any
+verdict it cannot parse as its own contract — `{"winner": "A"}` or `{"winner": "B"}`, matched
+exactly — as `Indeterminate` rather than silently counting it as a win for either side.
 
 **Builds on:** **SelfCorrectionLoop** and **Debate** use a judge *inline* to drive generation;
 this pattern is the same judge as a standalone measurement, plus its failure modes.
@@ -61,14 +64,17 @@ check the answer against the source rather than against the model's own memory.
 flowchart LR
     A[SupportAgent answer] --> E[Quality evaluators<br/>Relevance, Coherence, Groundedness]
     A --> R[RubricJudgeEvaluator<br/>1-5 + justification]
-    P[Two candidate answers] --> J[Pairwise judge]
-    J -->|swap positions| J
-    J --> B[Position-bias verdict]
+    P[Two candidate answers] --> J[Pairwise judge x5<br/>randomized position]
+    J --> Parse[JudgeParsing.Parse<br/>A / B / Indeterminate]
+    Parse --> B[Preference distribution<br/>+ position-bias rate]
 ```
 
-The pairwise section pits a precise answer against a vague one, judges them in both orders, and
-reports whether the same candidate won regardless of slot. `PositionBiasDetected` is the whole
-verdict: original pick ≠ swapped pick means bias.
+The pairwise section pits a precise answer against a vague one across five randomized orderings,
+parses each verdict with `JudgeParsing.Parse` (which returns `Indeterminate` — never a default
+winner — for anything that doesn't match the `{"winner": "A"}` / `{"winner": "B"}` contract), and
+reports the win distribution. `JudgeParsing.Summarize` excludes `Indeterminate` verdicts from the
+position-bias rate and reports their count separately; a well-behaved judge should pick the
+precise answer regardless of slot, so any determinate flip is the bias signal.
 
 ## Key APIs
 
@@ -79,6 +85,8 @@ verdict: original pick ≠ swapped pick means bias.
 | `GroundednessEvaluatorContext(policy)` | Supplies grounding source to the evaluator |
 | `IEvaluator.EvaluateAsync(messages, response, chatConfig, contexts)` | The evaluator contract |
 | `result.Get<NumericMetric>(name)` | Reads a score back out of the `EvaluationResult` |
+| `JudgeParsing.Parse(json)` | Strict verdict parse: `A` / `B` / `Indeterminate`, never throws |
+| `JudgeParsing.Summarize(picks)` | Win/loss/indeterminate counts plus a bias rate that excludes indeterminates |
 
 ```bash
 dotnet run --project LLMAsJudge.AgentFramework
@@ -88,9 +96,9 @@ dotnet run --project LLMAsJudge.AgentFramework -- --selfcheck   # offline bias-l
 ## What to watch in the output
 
 The first block prints each answer with four scored lines (`Relevance`, `Coherence`,
-`Groundedness`, `RubricScore`) and the judge's reason per metric. The second block prints the
-original-order pick, the swapped-order pick, and a `► Position bias` verdict. A well-behaved
-judge on a clear-cut pair should pick the precise answer both times — if it flips, you have just
-measured your instrument, not your agent. **RegressionEvals** builds a gate on top of these
-evaluators, and **EvaluationAndMonitoring** tracks the token cost of running a judge on every
-answer.
+`Groundedness`, `RubricScore`) and the judge's reason per metric. The second block runs five
+randomized orderings and prints the win/loss/indeterminate counts, the position-bias rate (of
+determinate verdicts only), and a `► Position bias` verdict. A well-behaved judge on a clear-cut
+pair should pick the precise answer regardless of slot — if it flips, you have just measured your
+instrument, not your agent. **RegressionEvals** builds a gate on top of these evaluators, and
+**EvaluationAndMonitoring** tracks the token cost of running a judge on every answer.

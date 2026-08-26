@@ -1,4 +1,3 @@
-using System.Text.Json;
 using LLMAsJudge.AgentFramework;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
@@ -43,22 +42,30 @@ foreach (var q in questions)
     Console.WriteLine();
 }
 
-// ---- Pairwise comparison with position swap ----
+// ---- Pairwise comparison across randomized position orderings ----
 Console.WriteLine("==== Pairwise comparison (position-bias probe) ====\n");
 const string pairwiseQuestion = "What warranty do TechCorp laptops come with?";
 var good = "TechCorp laptops come with a two-year limited warranty.";
 var vague = "TechCorp offers a warranty on its laptops for a period of time.";
 
-var firstWins = await PairwiseWinnerAsync(pairwiseQuestion, good, vague);   // good in position A
-var swappedWins = await PairwiseWinnerAsync(pairwiseQuestion, vague, good); // good in position B
-// Winner is reported as "A" or "B"; translate to the candidate identity.
-var pick1 = firstWins == "A" ? "good" : "vague";
-var pick2 = swappedWins == "A" ? "vague" : "good";
-Console.WriteLine($"Original order picked: {pick1}");
-Console.WriteLine($"Swapped order picked:  {pick2}");
-Console.WriteLine(PositionBiasDetected(pick1, pick2)
-    ? "► Position bias DETECTED: verdict flipped when candidates were swapped."
-    : "► Consistent verdict across positions.");
+const int orderings = 5;
+var picks = new List<bool?>();
+for (var i = 0; i < orderings; i++)
+{
+    var goodInPositionA = Random.Shared.Next(2) == 0;
+    var candidateA = goodInPositionA ? good : vague;
+    var candidateB = goodInPositionA ? vague : good;
+    var verdict = await PairwiseWinnerAsync(pairwiseQuestion, candidateA, candidateB);
+    picks.Add(JudgeParsing.Resolve(verdict, goodInPositionA));
+}
+
+var report = JudgeParsing.Summarize(picks);
+Console.WriteLine(
+    $"Good wins: {report.ReferenceWins}  Vague wins: {report.OtherWins}  Indeterminate: {report.Indeterminate}");
+Console.WriteLine($"Position-bias rate (of determinate verdicts): {report.PositionBiasRate:P0}");
+Console.WriteLine(report.PositionBiasRate > 0
+    ? "► Position bias DETECTED: the weaker candidate won at least once across randomized orderings."
+    : "► Consistent verdict across randomized orderings.");
 
 IEnumerable<(string, IEvaluator, EvaluationContext?)> Evaluators() =>
 [
@@ -68,7 +75,7 @@ IEnumerable<(string, IEvaluator, EvaluationContext?)> Evaluators() =>
     ("RubricScore", new RubricJudgeEvaluator(), null)
 ];
 
-async Task<string> PairwiseWinnerAsync(string q, string candidateA, string candidateB)
+async Task<Preference> PairwiseWinnerAsync(string q, string candidateA, string candidateB)
 {
     var prompt =
         $$"""
@@ -79,19 +86,29 @@ async Task<string> PairwiseWinnerAsync(string q, string candidateA, string candi
          """;
     var r = await chatClient.GetResponseAsync([new ChatMessage(ChatRole.User, prompt)],
         new ChatOptions { Temperature = 0f, ResponseFormat = ChatResponseFormat.Json });
-    var winner = JsonSerializer.Deserialize<Dictionary<string, string>>(r.Text,
-        new JsonSerializerOptions(JsonSerializerDefaults.Web))?.GetValueOrDefault("winner");
-    return winner == "B" ? "B" : "A";
+    return JudgeParsing.Parse(r.Text);
 }
-
-// Bias is present when the same candidate does NOT win regardless of its slot.
-static bool PositionBiasDetected(string pickOriginal, string pickSwapped) =>
-    pickOriginal != pickSwapped;
 
 static void SelfCheck()
 {
-    // Same candidate wins in both orders -> no bias. Different -> bias.
-    if (PositionBiasDetected("good", "good")) throw new Exception("false positive");
-    if (!PositionBiasDetected("good", "vague")) throw new Exception("missed flip");
+    // JudgeParsing.Parse: strict verdicts, Indeterminate on anything unrecognised or unparseable.
+    if (JudgeParsing.Parse("{\"winner\":\"A\"}") != Preference.A) throw new Exception("A misparsed");
+    if (JudgeParsing.Parse("{\"winner\":\"B\"}") != Preference.B) throw new Exception("B misparsed");
+    if (JudgeParsing.Parse("{\"winner\":\"a\"}") != Preference.Indeterminate) throw new Exception("lowercase not indeterminate");
+    if (JudgeParsing.Parse("garbage") != Preference.Indeterminate) throw new Exception("garbage not indeterminate");
+    if (JudgeParsing.Parse(null) != Preference.Indeterminate) throw new Exception("null not indeterminate");
+    if (JudgeParsing.Parse("") != Preference.Indeterminate) throw new Exception("empty not indeterminate");
+
+    // JudgeParsing.Resolve: verdict + slot -> did the reference candidate win?
+    if (JudgeParsing.Resolve(Preference.A, referenceInPositionA: true) != true) throw new Exception("resolve A/A wrong");
+    if (JudgeParsing.Resolve(Preference.B, referenceInPositionA: true) != false) throw new Exception("resolve B/A wrong");
+    if (JudgeParsing.Resolve(Preference.Indeterminate, referenceInPositionA: true) is not null) throw new Exception("resolve indeterminate wrong");
+
+    // JudgeParsing.Summarize: same candidate wins every time -> no bias; a flip -> bias.
+    if (JudgeParsing.Summarize([true, true, true, true, true]).PositionBiasRate != 0) throw new Exception("false positive bias");
+    if (JudgeParsing.Summarize([true, false, true, true, true]).PositionBiasRate <= 0) throw new Exception("missed bias");
+    var allIndeterminate = JudgeParsing.Summarize([null, null, null]);
+    if (allIndeterminate.Indeterminate != 3 || allIndeterminate.PositionBiasRate != 0) throw new Exception("indeterminate handling wrong");
+
     Console.WriteLine("selfcheck ok");
 }
