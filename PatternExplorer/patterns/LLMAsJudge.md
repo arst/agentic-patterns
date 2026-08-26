@@ -60,6 +60,12 @@ Each answer is scored by the three quality evaluators plus `RubricJudgeEvaluator
 as a `NumericMetric`. `GroundednessEvaluator` receives the policy text as its context so it can
 check the answer against the source rather than against the model's own memory.
 
+The rubric judge never throws and never invents a number. A reply that is empty, truncated, not
+JSON, missing a score, or scored outside 1–5 yields a `NumericMetric` with **no value** and an
+`Indeterminate` reason, printed as `INDETERMINATE`. A numeric `0` would be worse than that: it sits
+below the rubric's own floor of 1, so an unreadable verdict would be recorded as *worse than the
+worst possible answer* and would drag any average computed over the metric.
+
 ```mermaid
 flowchart LR
     A[SupportAgent answer] --> E[Quality evaluators<br/>Relevance, Coherence, Groundedness]
@@ -85,6 +91,7 @@ precise answer regardless of slot, so any determinate flip is the bias signal.
 | `GroundednessEvaluatorContext(policy)` | Supplies grounding source to the evaluator |
 | `IEvaluator.EvaluateAsync(messages, response, chatConfig, contexts)` | The evaluator contract |
 | `result.Get<NumericMetric>(name)` | Reads a score back out of the `EvaluationResult` |
+| `RubricJudgeEvaluator` | Custom 1–5 rubric judge; an unreadable verdict becomes a value-less metric, never a 0 |
 | `JudgeParsing.Parse(json)` | Strict verdict parse: `A` / `B` / `Indeterminate`, never throws |
 | `JudgeParsing.Summarize(picks)` | Win/loss/indeterminate counts plus a bias rate that excludes indeterminates |
 
@@ -96,7 +103,8 @@ dotnet run --project LLMAsJudge.AgentFramework -- --selfcheck   # offline bias-l
 ## What to watch in the output
 
 The first block prints each answer with four scored lines (`Relevance`, `Coherence`,
-`Groundedness`, `RubricScore`) and the judge's reason per metric. The second block runs five
+`Groundedness`, `RubricScore`) and the judge's reason per metric; a line reading `INDETERMINATE`
+means that judge's reply could not be read, not that the answer scored badly. The second block runs five
 randomized orderings and prints the win/loss/indeterminate counts, the position-bias rate (of
 determinate verdicts only), and a `► Position bias` verdict. A well-behaved judge on a clear-cut
 pair should pick the precise answer regardless of slot — if it flips, you have just measured your

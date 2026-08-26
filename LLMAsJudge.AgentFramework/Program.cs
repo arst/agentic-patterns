@@ -37,7 +37,9 @@ foreach (var q in questions)
         var result = await eval.EvaluateAsync(conversation, response, chatConfig,
             ctx is null ? null : [ctx]);
         var metric = result.Get<NumericMetric>(result.Metrics.Keys.First());
-        Console.WriteLine($"   {name,-14}: {metric.Value}  ({metric.Reason})");
+        // A null value means the judge's verdict could not be read — print that plainly rather
+        // than a blank column that reads like a zero.
+        Console.WriteLine($"   {name,-14}: {metric.Value?.ToString() ?? "INDETERMINATE"}  ({metric.Reason})");
     }
     Console.WriteLine();
 }

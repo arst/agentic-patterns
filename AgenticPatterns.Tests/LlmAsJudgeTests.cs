@@ -1,4 +1,6 @@
 using LLMAsJudge.AgentFramework;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.AI.Evaluation;
 using Xunit;
 
 namespace AgenticPatterns.Tests;
@@ -61,5 +63,58 @@ public class LlmAsJudgeTests
 
         Assert.Equal(3, report.Indeterminate);
         Assert.Equal(0.0, report.PositionBiasRate);
+    }
+}
+
+// Drives the real RubricJudgeEvaluator end to end - a scripted judge reply through
+// EvaluateAsync - because the defect lived in how the evaluator reads that reply.
+public class RubricJudgeEvaluatorTests
+{
+    private static async Task<NumericMetric> JudgeSaysAsync(string judgeReply)
+    {
+        var client = new ScriptedChatClient(
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, judgeReply)));
+
+        var result = await new RubricJudgeEvaluator().EvaluateAsync(
+            [new ChatMessage(ChatRole.User, "What warranty do the laptops come with?")],
+            new ChatResponse(new ChatMessage(ChatRole.Assistant, "Two years.")),
+            new ChatConfiguration(client));
+
+        return result.Get<NumericMetric>(RubricJudgeEvaluator.RubricScoreMetricName);
+    }
+
+    [Theory]
+    [InlineData("")]                                  // truncated to nothing
+    [InlineData("not json")]                          // prose instead of JSON
+    [InlineData("{}")]                                // JSON, but no score
+    [InlineData("null")]                              // literal JSON null
+    [InlineData("   ")]                               // whitespace only
+    [InlineData("[1,2,3]")]                           // JSON of the wrong shape
+    [InlineData("{\"score\":0,\"justification\":\"x\"}")]  // below the rubric floor
+    [InlineData("{\"score\":9,\"justification\":\"x\"}")]  // above the rubric ceiling
+    public async Task UnreadableVerdictIsIndeterminate_NeverThrows_NeverANumber(string judgeReply)
+    {
+        var metric = await JudgeSaysAsync(judgeReply);
+
+        // Indeterminate is "no value", not 0: 0 is below the rubric's own floor of 1, so scoring
+        // an unreadable verdict as a number would rank it worse than the worst possible answer.
+        Assert.Null(metric.Value);
+        Assert.Contains("Indeterminate", metric.Reason);
+    }
+
+    [Fact]
+    public async Task ParseableVerdictKeepsScoreAndJustification()
+    {
+        var metric = await JudgeSaysAsync("{\"score\":4,\"justification\":\"Accurate but terse.\"}");
+
+        Assert.Equal(4, metric.Value);
+        Assert.Equal("Accurate but terse.", metric.Reason);
+    }
+
+    [Fact]
+    public async Task ScoreIsNeverBelowTheRubricFloor()
+    {
+        foreach (var reply in new[] { "", "not json", "{}", "null", "{\"score\":-3}" })
+            Assert.True(await JudgeSaysAsync(reply) is { Value: null or >= 1 });
     }
 }
