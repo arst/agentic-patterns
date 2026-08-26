@@ -39,6 +39,40 @@ public class EvaluatorOptimizerTests
 public class TraceReplayTests
 {
     [Fact]
+    public void TracesAreRedactedUnlessFullContentIsRequestedExplicitly() =>
+        Assert.Equal(TracePrivacyMode.RedactedContent, new RunTrace("v1").PrivacyMode);
+
+    // xunit runs tests in one class sequentially, so mutating the process environment
+    // here cannot race another test in this class.
+    private static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
+    {
+        var original = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(name, value);
+        try { return body(); }
+        finally { Environment.SetEnvironmentVariable(name, original); }
+    }
+
+    [Fact]
+    public void FullTraceCaptureFailsClosedWithoutAcknowledgement()
+    {
+        var ex = WithEnvironmentVariable(FullTraceCaptureGate.AcknowledgementVariable, null, () =>
+            Assert.Throws<InvalidOperationException>(FullTraceCaptureGate.EnsureAcknowledgedOrThrow));
+        Assert.Contains(FullTraceCaptureGate.AcknowledgementVariable, ex.Message);
+        Assert.Contains(FullTraceCaptureGate.AcknowledgementValue, ex.Message);
+    }
+
+    [Fact]
+    public void WrongAcknowledgementValueIsInsufficientForFullTraceCapture() =>
+        WithEnvironmentVariable(FullTraceCaptureGate.AcknowledgementVariable, "yes", () =>
+            Assert.Throws<InvalidOperationException>(FullTraceCaptureGate.EnsureAcknowledgedOrThrow));
+
+    [Fact]
+    public void CorrectAcknowledgementValueUnblocksFullTraceCapture() =>
+        WithEnvironmentVariable(FullTraceCaptureGate.AcknowledgementVariable,
+            FullTraceCaptureGate.AcknowledgementValue,
+            () => { FullTraceCaptureGate.EnsureAcknowledgedOrThrow(); return true; });
+
+    [Fact]
     public async Task RecordedModelOutputReplaysWithoutCallingLiveClient()
     {
         var trace = new RunTrace("v1");

@@ -1,7 +1,7 @@
 ---
 {
   "title": "Evaluation, Monitoring, and Trace Replay",
-  "summary": "Observe agent runs, record model trajectories, and replay captured outputs without live calls.",
+  "summary": "Observe agent runs, record model trajectories with best-effort redaction by default, and replay captured outputs without live calls.",
   "category": "Production controls",
   "projects": [
     { "flavor": "AgentFramework", "path": "EvaluationAndMonitoring.AgentFramework" },
@@ -69,11 +69,12 @@ flowchart LR
   per-call latency and `response.Usage` token counts into `AgentTelemetry`, and
   `TrajectoryMiddleware` on the agent records end-to-end latency plus how many LLM calls that
   one request triggered. `.UseOpenTelemetry("AgentEvaluation")` on both builders emits the
-  built-in `gen_ai` and `invoke_agent` spans. In `record` mode, `RecordingChatClient` saves the
-  prompt version, model requests, structured function-call content, responses, tool schemas, model
-  ID, token counts, tool arguments/results, and final stop reason. `RecordedAIFunction` captures the
-  `GetSupportPolicy` boundary. In `replay` mode, recorded clients return captured model and tool
-  outputs, never invoke the live dependencies, and fail if request or argument hashes diverge.
+  built-in `gen_ai` and `invoke_agent` spans. In `record` mode (redacted by default),
+  `RecordingChatClient` saves the prompt version, model requests, structured function-call
+  content, responses, tool schemas, model ID, token counts, tool arguments/results, and final
+  stop reason. `RecordedAIFunction` captures the `GetSupportPolicy` boundary. In `replay` mode,
+  recorded clients return captured model and tool outputs, never invoke the live dependencies,
+  and fail if request or argument hashes diverge.
 - **Semantic Kernel** relies on the built-in instrumentation alone: the providers subscribe to
   the `Microsoft.SemanticKernel*` source and meter, an OTel `LoggerFactory` is registered on
   the kernel, and the app context switch
@@ -95,16 +96,25 @@ flowchart LR
 dotnet run --project EvaluationAndMonitoring.AgentFramework -- record
 dotnet run --project EvaluationAndMonitoring.AgentFramework -- record-redacted
 dotnet run --project EvaluationAndMonitoring.AgentFramework -- record-hashes
+AGENTIC_PATTERNS_ACKNOWLEDGE_FULL_TRACE_CAPTURE=I_UNDERSTAND_THIS_WRITES_PROMPTS_AND_OUTPUTS_IN_PLAINTEXT \
+  dotnet run --project EvaluationAndMonitoring.AgentFramework -- record-full
 dotnet run --project EvaluationAndMonitoring.AgentFramework -- replay EvaluationAndMonitoring.AgentFramework/bin/Debug/net10.0/run-trace.json
 ```
 
-`record` stores full content, `record-redacted` replaces email addresses and common credential
-forms before storage, and `record-hashes` stores hashes without payloads. Hash-only traces can prove
-that transitions match but cannot replay outputs. Trace files still require production-log access
-and retention controls. Replay is deterministic re-simulation from captured outputs, not a promise
-that a fresh stochastic model call or changing external API would return the same result. A
-redacted trace compares the redacted shape; use hash-only mode when exact equality of hidden values
-must be audited without storing them.
+`record` and `record-redacted` are the same mode under two names: both replace email addresses
+and common credential/bearer-token shapes with placeholders before anything touches disk. That
+redaction is **best-effort pattern matching, not a guarantee** — it recognises a limited set of
+shapes and will miss anything it was not taught, so treat the trace directory as production data
+regardless of mode. `record-hashes` stores hashes without payloads; hash-only traces can prove
+that transitions match but cannot replay outputs. `record-full` captures complete, unredacted
+prompts and outputs as plaintext JSON on disk and requires setting
+`AGENTIC_PATTERNS_ACKNOWLEDGE_FULL_TRACE_CAPTURE=I_UNDERSTAND_THIS_WRITES_PROMPTS_AND_OUTPUTS_IN_PLAINTEXT`
+first — without it the run fails closed, and with it a warning banner prints before recording
+starts. Trace files still require production-log access and retention controls. Replay is
+deterministic re-simulation from captured outputs, not a promise that a fresh stochastic model
+call or changing external API would return the same result. A redacted trace compares the
+redacted shape; use hash-only mode when exact equality of hidden values must be audited without
+storing them.
 
 ## What to watch in the output
 
