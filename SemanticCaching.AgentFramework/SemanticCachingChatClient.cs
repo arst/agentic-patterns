@@ -1,4 +1,6 @@
 using System.Numerics.Tensors;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Extensions.AI;
 
 namespace SemanticCaching.AgentFramework;
@@ -117,12 +119,20 @@ public sealed class SemanticCachingChatClient(
         var list = messages.ToList();
         var lastUser = list.FindLastIndex(m => m.Role == ChatRole.User);
         var priorTurns = string.Join("\n", list.Where((m, i) => i != lastUser).Select(DigestMessage));
+        var canonicalOptions = $"{options?.ModelId}|{options?.Temperature}|{options?.ResponseFormat}";
 
+        // Every component is hashed to a fixed-length digest before joining. A raw '|'-join of
+        // the raw fields would let a delimiter inside a field (e.g. TenantId "a|b") shift the
+        // boundary and collide with an unrelated namespace whose fields split differently — a
+        // hash has no delimiter to smuggle across the join, so no combination of field values
+        // can produce another combination's key.
         return string.Join('|',
-            ns.TenantId, ns.PrincipalScopeHash, ns.SystemPromptHash, ns.ToolSchemaHash, ns.ModelVersion, ns.DataRevision,
-            priorTurns,
-            options?.ModelId, options?.Temperature, options?.ResponseFormat);
+            Hash(ns.TenantId), Hash(ns.PrincipalScopeHash), Hash(ns.SystemPromptHash),
+            Hash(ns.ToolSchemaHash), Hash(ns.ModelVersion), Hash(ns.DataRevision),
+            Hash(priorTurns), Hash(canonicalOptions));
     }
+
+    private static string Hash(string s) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(s)));
 
     // Digest every AIContent kind, not just TextContent — a prior function call or its result
     // changes what a valid cached answer looks like just as much as prior text does, and a

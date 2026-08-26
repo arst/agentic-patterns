@@ -157,6 +157,21 @@ public class SemanticCachingTests
     }
 
     [Fact]
+    public void PartitionKeyDoesNotCollideWhenADelimiterAppearsInsideAField()
+    {
+        var messages = Ask("what is our refund window?");
+        // Raw '|'-joined fields collide here: "a|b" + "c" and "a" + "b|c" both flatten to
+        // "a|b|c|..." even though they're two different (TenantId, PrincipalScopeHash) pairs.
+        var nsA = new CacheNamespace("a|b", "c", "system-hash", "tools-v1", "gpt-x", "data-rev-1");
+        var nsB = new CacheNamespace("a", "b|c", "system-hash", "tools-v1", "gpt-x", "data-rev-1");
+
+        var keyA = SemanticCachingChatClient.PartitionKey(nsA, messages, null);
+        var keyB = SemanticCachingChatClient.PartitionKey(nsB, messages, null);
+
+        Assert.NotEqual(keyA, keyB);
+    }
+
+    [Fact]
     public async Task ExpiredEntriesAreNotServed()
     {
         var client = Client(Ns(), lifetime: TimeSpan.Zero);
@@ -181,9 +196,15 @@ public class SemanticCachingTests
     [Fact]
     public async Task ConcurrentCallersDoNotCorruptTheCache()
     {
+        // The fakes complete synchronously (Task.FromResult), so every await inside
+        // GetResponseAsync returns already-completed and never yields — Task.WhenAll over bare
+        // calls would just run them one after another on the calling thread and prove nothing.
+        // Task.Run forces each call onto its own thread-pool thread, so this test actually
+        // exercises concurrent access to the dictionary/list and the Hits/Misses counters.
+        const int callers = 500;
         var client = Client(Ns());
-        await Task.WhenAll(Enumerable.Range(0, 500)
-            .Select(_ => client.GetResponseAsync(Ask("what is our refund window?"))));
-        Assert.Equal(500, client.Hits + client.Misses);
+        await Task.WhenAll(Enumerable.Range(0, callers)
+            .Select(_ => Task.Run(() => client.GetResponseAsync(Ask("what is our refund window?")))));
+        Assert.Equal(callers, client.Hits + client.Misses);
     }
 }
