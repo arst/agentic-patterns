@@ -42,7 +42,13 @@ Two design choices carry as much weight as the checks themselves.
 rather than returning `"ApprovalRequired: ..."` as the function's output. Handing a refusal back on
 the tool channel gives the model a sentence to paraphrase — frequently into a claim that the work
 was done — and puts an approval request somewhere the model can answer. The host catches the
-exception, routes `decision.PendingApproval` to a human, and decides what the model is told. The
+exception, routes `decision.PendingApproval` to a human, and decides what the model is told.
+
+Throwing is necessary but not by itself sufficient: it keeps the refusal off the tool channel only
+because this host invokes the function directly. Run the same wrapper under
+`FunctionInvokingChatClient` — the loop the diagram above implies — and the framework catches the
+function's exception and feeds the model a generic error, discarding the `PendingApproval` entirely.
+A host on that path has to intercept the exception before the invocation loop does. The
 `PendingApproval` carries a *snapshot* of the arguments, not the caller's live dictionary, so the
 approver judges the values that were actually authorized.
 

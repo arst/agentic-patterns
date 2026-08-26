@@ -272,17 +272,41 @@ public class ToolAuthorizationTests
     public void ConcurrentAuthorizeReservesAOneTimeNonceExactlyOnce()
     {
         var policy = new ToolAuthorizationPolicy(Owners);
-        var capability = Grant("GetOrder", oneTime: true);
-        var allowed = 0;
 
-        Parallel.For(0, 64, _ =>
+        // One trial is not a gate: a read-then-write reserve wins the race the overwhelming
+        // majority of the time, and is *most* likely to win on a loaded machine, which is exactly
+        // how xUnit runs this. Repeat with a fresh nonce per trial so one lost race fails the test.
+        for (var trial = 0; trial < 5000; trial++)
         {
-            if (policy.Authorize(Principal, capability, "GetOrder",
-                    new AIFunctionArguments { ["orderId"] = "ORD-100" }).Outcome == AuthorizationOutcome.Allowed)
-                Interlocked.Increment(ref allowed);
-        });
+            var capability = Grant("GetOrder", oneTime: true);
+            var allowed = 0;
 
-        Assert.Equal(1, allowed);
+            Parallel.For(0, 4, _ =>
+            {
+                if (policy.Authorize(Principal, capability, "GetOrder",
+                        new AIFunctionArguments { ["orderId"] = "ORD-100" }).Outcome == AuthorizationOutcome.Allowed)
+                    Interlocked.Increment(ref allowed);
+            });
+
+            Assert.Equal(1, allowed);
+        }
+    }
+
+    [Fact]
+    public void ARefusedInvocationDoesNotBurnTheOneTimeCapability()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: 50m, oneTime: true);
+
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-OTHER-TENANT", ["amount"] = 25m }).Outcome);
+        Assert.Equal(AuthorizationOutcome.ApprovalRequired, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 500m }).Outcome);
+
+        // The reserve happens after every check, so neither refusal cost the caller the capability:
+        // the approved retry uses the very same grant.
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 25m }).Outcome);
     }
 
     [Fact]
@@ -311,6 +335,13 @@ public class ToolAuthorizationTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => tool.InvokeAsync(args).AsTask());
         // Failing closed: from inside the wrapper the failure is unverified, so the reservation stands.
         await Assert.ThrowsAsync<ToolAuthorizationException>(() => tool.InvokeAsync(args).AsTask());
+
+        // ...and it is still merely Reserved, never Consumed. This is what pins Commit to its
+        // position *after* the inner call: committing first would deny identically here while
+        // leaving a capability that threw pre-effect permanently unreleasable.
+        policy.Release(capability.Nonce);
+        Assert.Equal(AuthorizationOutcome.Allowed,
+            policy.Authorize(Principal, capability, "GetOrder", args).Outcome);
         static string Boom(string orderId) => throw new InvalidOperationException("simulated tool failure");
     }
 

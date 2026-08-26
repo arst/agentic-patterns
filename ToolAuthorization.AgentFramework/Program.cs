@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.AI;
 using ToolAuthorization.AgentFramework;
 
@@ -30,7 +31,10 @@ async Task Show(AIFunction tool, AIFunctionArguments arguments)
     }
     catch (ToolAuthorizationException ex)
     {
-        // The model never sees any of this: a refusal is a host event, not a tool result.
+        // The model never sees any of this — because this host invokes the function directly.
+        // Throwing alone does not guarantee it: under FunctionInvokingChatClient the framework
+        // catches a function exception and feeds the model a generic error, discarding the
+        // PendingApproval. A host on that path must intercept before the loop does.
         if (ex.Decision.PendingApproval is not { } pending)
         {
             Console.WriteLine($"  refused: {ex.Decision.Reason}");
@@ -56,13 +60,24 @@ async Task Escalate(PendingApproval pending)
         return;
     }
 
-    // The approver issues a *new* capability, sized to this one request and single-use. The
-    // original capability is never widened, and the model had no part in producing this grant.
-    // The sample has exactly one escalating tool, so the inner function is named directly.
+    // The approver issues a *new* capability, single-use and sized to this one request — the
+    // ceiling is read off the snapshot the approver saw, not hard-coded, so it stays correct when
+    // the probe changes. The original capability is never widened, and the model had no part in
+    // producing this grant. The sample has exactly one escalating tool, so the inner function is
+    // named directly.
+    var requested = Convert.ToDecimal(pending.Arguments["amount"], CultureInfo.InvariantCulture);
     var approved = new AuthorizedAIFunction(refundFunction, principal,
-        Grant(pending.ToolName, maximumAmount: 500m, oneTime: true), policy);
-    Console.WriteLine("  approver granted a single-use capability for this exact request.");
-    Console.WriteLine($"  result: {await approved.InvokeAsync(new AIFunctionArguments(pending.Arguments.ToDictionary()))}");
+        Grant(pending.ToolName, maximumAmount: requested, oneTime: true), policy);
+    Console.WriteLine($"  approver granted a single-use capability capped at €{requested:F2}.");
+    try
+    {
+        Console.WriteLine($"  result: {await approved.InvokeAsync(new AIFunctionArguments(pending.Arguments.ToDictionary()))}");
+    }
+    catch (ToolAuthorizationException ex)
+    {
+        // The approver's own grant is enforced too, and the sample must run unattended to the end.
+        Console.WriteLine($"  approved call still refused: {ex.Decision.Reason}");
+    }
 }
 
 Console.WriteLine("=== Capability-scoped tools ===");

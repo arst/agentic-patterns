@@ -16,6 +16,11 @@ public sealed class ToolAuthorizationPolicy(
     TimeProvider? timeProvider = null)
 {
     /// <summary>Tools that move money always need a present, positive, parseable amount.</summary>
+    // ponytail: "which tools move money" is a hand-maintained set in the policy rather than a
+    // property of the tool registration. The ceiling is a silent one: register `IssueCredit`, grant
+    // it without a MaximumAmount, forget this line, and it gets no amount floor at all — absent and
+    // negative amounts authorize. Upgrade path: move the flag onto the capability/tool registration
+    // so adding a money tool cannot compile without declaring it.
     private static readonly HashSet<string> MoneyMovingTools = new(StringComparer.Ordinal) { "IssueRefund" };
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
