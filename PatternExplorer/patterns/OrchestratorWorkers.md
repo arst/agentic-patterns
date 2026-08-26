@@ -11,8 +11,9 @@
 
 Orchestrator-Workers uses a central model to decide which independent subtasks a particular
 request needs. The host validates that typed plan, dispatches each task to a fixed worker registry,
-and asks a synthesizer to combine the results — successes and failures alike, so the synthesis
-never quietly infers over a gap.
+and asks a synthesizer to combine the results — successes and failures alike. A failed task is
+carried in with its error and an explicit instruction not to invent an output, so the gap is at
+least visible to the synthesizer; the host abstains outright when every worker fails.
 
 This is dynamic fan-out, but not an open-ended team protocol:
 

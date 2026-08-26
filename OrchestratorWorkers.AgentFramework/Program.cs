@@ -29,10 +29,12 @@ var results = await registry.ExecuteAsync(plan, maximumConcurrency: 2);
 foreach (var result in results)
     Console.WriteLine($"\n[{result.TaskId}/{result.Worker}] {(result.Succeeded ? result.Output : "FAILED: " + result.Error)}");
 
+// ponytail: this demo demands every planned task, so the quorum term can never be the
+// deciding one here; pass a real minimum-viable subset when a caller can act on less.
 var completeness = WorkerRegistry.Assess(results, requiredQuorum: plan.Tasks.Count);
 if (completeness == RunCompleteness.Abstained)
 {
-    Console.WriteLine("\n=== Synthesis ===\nAbstained: every worker failed, so there is no evidence to synthesize.");
+    Console.WriteLine("\n=== Synthesis (ABSTAINED) ===\nEvery worker failed, so there is no evidence to synthesize.");
     return;
 }
 
