@@ -1,3 +1,4 @@
+using System.ClientModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
@@ -101,7 +102,13 @@ async Task<string> HandleQueryAsync(string userQuery)
             Console.WriteLine($"  [Router] Success with: {sid}");
             return response.Content ?? "No response generated.";
         }
-        catch (Exception ex)
+        // Only transient failures (HTTP errors, timeouts, network) should trigger the fallback
+        // tier — same narrowing as the AgentFramework twin. That twin also excludes caller
+        // cancellation; this sample threads no CancellationToken through, so a TaskCanceledException
+        // here can only be a request timeout. Add the `&& !cancellationToken.IsCancellationRequested`
+        // guard alongside a token if one is ever introduced.
+        catch (Exception ex) when (ex is HttpOperationException or ClientResultException
+                                      or HttpRequestException or TaskCanceledException)
         {
             Console.WriteLine($"  [Fallback] {sid} failed: {ex.Message}");
         }

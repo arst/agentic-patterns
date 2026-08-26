@@ -45,9 +45,14 @@ flowchart LR
     R -->|bounded concurrency| W1[Market]
     R --> W2[Competition]
     R --> W3[Regulation]
-    W1 --> S[Synthesizer]
-    W2 --> S
-    W3 --> S
+    W1 --> A{WorkerRegistry.Assess}
+    W2 --> A
+    W3 --> A
+    A -->|complete| S[Synthesizer]
+    A -->|partial: some tasks FAILED| S
+    A -->|all failed| X[Abstain: no synthesis]
+    S -->|partial| P[Answer flagged incomplete]
+    S -->|complete| R[Answer]
     V -->|invalid| D[Reject before execution]
 ```
 
