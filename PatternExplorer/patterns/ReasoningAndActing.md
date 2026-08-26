@@ -54,9 +54,13 @@ flowchart LR
     A --> R[Final answer with ratio]
 ```
 
-There is one honest wart worth knowing: SK 1.79 exposes no max-auto-invoke setting on
-`FunctionChoiceBehavior`, so the loop is capped by a sentence in the system prompt — *"Use at
-most 10 tool calls before giving your final answer."* A prompt is a request, not a guardrail.
+SK 1.79 exposes no max-auto-invoke setting on `FunctionChoiceBehavior`, so the system prompt still
+carries *"Use at most 10 tool calls before giving your final answer."* — but that sentence is only
+a hint the model can ignore. The actual control is `ToolCallBudgetFilter`, an
+`IFunctionInvocationFilter` registered on the local kernel: it counts every tool call and throws
+once the 11th would run, so the call that would exceed the budget never executes. The top-level
+`try`/`catch` turns that exception into a `PARTIAL` result — the same shape **Bounded Execution**
+uses for its own hard stops — instead of letting the process crash mid-answer.
 
 ## Key APIs
 
@@ -66,11 +70,16 @@ most 10 tool calls before giving your final answer."* A prompt is a request, not
 - `new OpenAIPromptExecutionSettings { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() }`.
 - `chatService.GetChatMessageContentAsync(history, settings, kernel)` — the kernel argument is what
   makes auto-invocation possible.
+- `ToolCallBudgetFilter : IFunctionInvocationFilter` — the host-enforced call cap; see
+  **Bounded Execution** for the fuller pattern of hard, host-enforced run limits.
 
 ## What to watch in the output
 
 The demo prints a single block prefixed `ReAct Agent:`. The tool calls themselves are not logged,
 so the tell is in the content: the answer should quote the exact simulated figures — 40.1 million
 and 26.5 million — and a ratio near 1.5, none of which the model could produce without calling
-the plugin. **Tool Use** is the single-call foundation this loops over; **Middleware** shows how
-to log every invocation so the reasoning-acting alternation becomes visible.
+the plugin. If the model instead wanders past the tool-call budget, the output switches to
+`Result status: PARTIAL` with a `Stop reason:` line naming the exhausted budget — proof the bound
+stopped the loop rather than the model choosing to stop. **Tool Use** is the single-call
+foundation this loops over; **Middleware** shows how to log every invocation so the
+reasoning-acting alternation becomes visible.

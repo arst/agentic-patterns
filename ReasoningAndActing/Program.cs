@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
@@ -5,7 +6,9 @@ using ReasoningAndActing;
 using Shared;
 
 // Local kernel so the shared Settings.Kernel singleton stays unmodified
-var reactKernel = Settings.CreateKernelBuilder().Build();
+var reactBuilder = Settings.CreateKernelBuilder();
+reactBuilder.Services.AddSingleton<IFunctionInvocationFilter, ToolCallBudgetFilter>();
+var reactKernel = reactBuilder.Build();
 
 // Register tools the agent can use mid-reasoning
 reactKernel.Plugins.AddFromType<ResearchTools>();
@@ -33,12 +36,26 @@ reactHistory.AddUserMessage(
 var reactSettings = new OpenAIPromptExecutionSettings
 {
     // SK 1.79 exposes no max-auto-invoke option on FunctionChoiceBehavior/FunctionChoiceBehaviorOptions,
-    // so the tool-call loop is capped via the "at most 10 tool calls" instruction above.
+    // so the "at most 10 tool calls" instruction above is only a hint to the model. ToolCallBudgetFilter,
+    // registered on reactKernel above, is the actual control: it throws once the budget is exhausted,
+    // stopping the loop regardless of what the model intends to do next.
     FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
 };
 
 // The agent will autonomously call GetPopulation() for each country,
 // then reason about the results to compute the ratio.
-var reactResponse = await reactService.GetChatMessageContentAsync(
-    reactHistory, reactSettings, reactKernel);
-Console.WriteLine($"ReAct Agent:\n{reactResponse.Content}\n");
+try
+{
+    var reactResponse = await reactService.GetChatMessageContentAsync(
+        reactHistory, reactSettings, reactKernel);
+    Console.WriteLine($"ReAct Agent:\n{reactResponse.Content}\n");
+}
+catch (InvalidOperationException ex) when (ex.Message.Contains("Tool-call budget"))
+{
+    // Same shape as BoundedExecution: a PARTIAL result, the stop reason, and an explicit
+    // incomplete label rather than silently truncated output.
+    Console.WriteLine("Result status: PARTIAL");
+    Console.WriteLine($"Stop reason: {ex.Message}");
+    Console.WriteLine("ReAct Agent:\nStopped at the tool-call budget before a final answer was reached; " +
+                       "any reasoning gathered so far is incomplete.\n");
+}
