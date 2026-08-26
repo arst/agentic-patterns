@@ -334,8 +334,10 @@ public class GuardRailsTests
             { FinishReason = ChatFinishReason.Stop, Usage = new UsageDetails { OutputTokenCount = 12 } });
 
         // SafetyChecks.RedactPii tags matches by field ("[Phone_REDACTED]"), not a generic
-        // "[redacted]" placeholder, so assert on the field-agnostic part of the tag.
+        // "[redacted]" placeholder, so assert on the field-agnostic part of the tag — and assert
+        // the secret itself is gone, not just that some tag is present somewhere.
         Assert.Contains("REDACTED", response.Text);
+        Assert.DoesNotContain("555-867-5309", response.Text);
         Assert.Single(response.Messages[0].Contents.OfType<FunctionCallContent>());
         Assert.Equal(ChatFinishReason.Stop, response.FinishReason);
         Assert.Equal(12, response.Usage?.OutputTokenCount);
