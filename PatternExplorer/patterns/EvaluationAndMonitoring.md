@@ -128,5 +128,7 @@ signals to an answer where this pattern measures cost and speed.
 
 This pattern measures cost and speed and records ground truth; the **Evaluation** category
 (**LLMAsJudge**, **RegressionEvals**, **TrajectoryEvaluation**, **RedTeaming**) judges quality —
-**RegressionEvals** in particular turns the traces recorded here into a regression gate, and
-**TrajectoryEvaluation** judges whether the tool calls this pattern counts were the right ones.
+**RegressionEvals** in particular turns the traces recorded here into review candidates for its
+regression gate (a trace records what happened, not what should have happened, so a human still
+promotes each one), and **TrajectoryEvaluation** judges whether the tool calls this pattern counts
+were the right ones.

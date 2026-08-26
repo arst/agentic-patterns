@@ -160,7 +160,7 @@ the catalog together; each result states its scope limits and cites a primary so
 |---|---|
 | LLMAsJudge | Judge-model rubric scoring plus a randomized-ordering position-bias probe |
 | RedTeaming | Deterministic leak checks first, judge second, against the real GuardRails filter |
-| RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
+| RegressionEvals | Golden-dataset suite of reviewed cases with tiered assertions, cached as a CI gate |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 
 ## Setup
