@@ -152,7 +152,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | IdempotentToolCalls | Retry-safe side effects: the dedup record lives with the side effect, not the caller |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | ResourceAwareOptimization | Model routing under a cost budget |
-| ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
+| ToolAuthorization | Capability-scoped, argument-level authorization before tool execution; one-time grants are reserved, then committed after the effect |
 
 ### Evaluation
 

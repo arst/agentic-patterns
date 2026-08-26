@@ -206,6 +206,128 @@ public class ToolAuthorizationTests
         Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "GetOrder", args).Outcome);
         Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "GetOrder", args).Outcome);
     }
+
+    [Fact]
+    public void AVerifiedPreEffectFailureReleasesTheOneTimeCapability()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: 50m, oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 25m };
+
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+        policy.Release(capability.Nonce); // the tool threw before doing anything, and the caller verified that
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+    }
+
+    [Fact]
+    public void ACommittedOneTimeCapabilityCannotBeReused()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: 50m, oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 25m };
+
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+        policy.Commit(capability.Nonce);
+        policy.Release(capability.Nonce); // a late release must not resurrect a committed capability
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+    }
+
+    [Fact]
+    public void ARefundWithoutAConfiguredMaximumStillRequiresAPositiveAmount()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: null);
+
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = -5m }).Outcome);
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100" }).Outcome);
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = "not-money" }).Outcome);
+    }
+
+    [Fact]
+    public void ApprovalIsAPendingRequestNotToolOutput()
+    {
+        var decision = new ToolAuthorizationPolicy(Owners).Authorize(Principal, Grant("IssueRefund", 50m),
+            "IssueRefund", new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 10_000m });
+
+        Assert.NotNull(decision.PendingApproval);
+        Assert.Equal("IssueRefund", decision.PendingApproval!.ToolName);
+        Assert.Equal(10_000m, decision.PendingApproval.Arguments["amount"]);
+    }
+
+    [Fact]
+    public void PendingApprovalArgumentsAreSnapshottedNotAliased()
+    {
+        var arguments = new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 10_000m };
+        var decision = new ToolAuthorizationPolicy(Owners).Authorize(Principal, Grant("IssueRefund", 50m),
+            "IssueRefund", arguments);
+        arguments["amount"] = 1m;
+
+        Assert.Equal(10_000m, decision.PendingApproval!.Arguments["amount"]);
+    }
+
+    [Fact]
+    public void ConcurrentAuthorizeReservesAOneTimeNonceExactlyOnce()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("GetOrder", oneTime: true);
+        var allowed = 0;
+
+        Parallel.For(0, 64, _ =>
+        {
+            if (policy.Authorize(Principal, capability, "GetOrder",
+                    new AIFunctionArguments { ["orderId"] = "ORD-100" }).Outcome == AuthorizationOutcome.Allowed)
+                Interlocked.Increment(ref allowed);
+        });
+
+        Assert.Equal(1, allowed);
+    }
+
+    [Fact]
+    public async Task TheWrapperCommitsTheReservationOnlyAfterTheToolReturns()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("GetOrder", oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100" };
+        var tool = new AuthorizedAIFunction(
+            AIFunctionFactory.Create((string orderId) => $"{orderId}: ok", "GetOrder"), Principal, capability, policy);
+
+        Assert.Equal("ORD-100: ok", (await tool.InvokeAsync(args))?.ToString());
+        policy.Release(capability.Nonce); // committed already, so this cannot hand the capability back
+        await Assert.ThrowsAsync<ToolAuthorizationException>(() => tool.InvokeAsync(args).AsTask());
+    }
+
+    [Fact]
+    public async Task AnUnverifiedToolFailureDoesNotReleaseTheReservation()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("GetOrder", oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100" };
+        var tool = new AuthorizedAIFunction(
+            AIFunctionFactory.Create((Func<string, string>)Boom, "GetOrder"), Principal, capability, policy);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => tool.InvokeAsync(args).AsTask());
+        // Failing closed: from inside the wrapper the failure is unverified, so the reservation stands.
+        await Assert.ThrowsAsync<ToolAuthorizationException>(() => tool.InvokeAsync(args).AsTask());
+        static string Boom(string orderId) => throw new InvalidOperationException("simulated tool failure");
+    }
+
+    [Fact]
+    public async Task TheWrapperNeverHandsAnApprovalRequestBackAsToolOutput()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var tool = new AuthorizedAIFunction(
+            AIFunctionFactory.Create((string orderId, decimal amount) => "refunded", "IssueRefund"),
+            Principal, Grant("IssueRefund", 50m), policy);
+
+        var failure = await Assert.ThrowsAsync<ToolAuthorizationException>(() =>
+            tool.InvokeAsync(new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 500m }).AsTask());
+
+        Assert.Equal(AuthorizationOutcome.ApprovalRequired, failure.Decision.Outcome);
+        Assert.NotNull(failure.Decision.PendingApproval);
+    }
 }
 
 public class IdempotentToolCallTests

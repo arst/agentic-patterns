@@ -5,12 +5,25 @@ using Microsoft.Extensions.AI;
 
 namespace ToolAuthorization.AgentFramework;
 
+/// <summary>
+/// The lifecycle of a one-time capability. <see cref="Authorize"/> reserves; the host commits once
+/// the effect is durable, or releases after a <em>verified</em> pre-effect failure.
+/// </summary>
+public enum CapabilityState { Available, Reserved, Consumed }
+
 public sealed class ToolAuthorizationPolicy(
     IReadOnlyDictionary<string, RunPrincipal> orderOwners,
     TimeProvider? timeProvider = null)
 {
+    /// <summary>Tools that move money always need a present, positive, parseable amount.</summary>
+    private static readonly HashSet<string> MoneyMovingTools = new(StringComparer.Ordinal) { "IssueRefund" };
+
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
-    private readonly ConcurrentDictionary<string, byte> _usedNonces = new(StringComparer.Ordinal);
+
+    // ponytail: in-process nonce ledger, so a restart forgets every reservation and a crashed host
+    // leaks one. Upgrade path: the same three states in the transactional store that already owns
+    // the side effect, which is where the commit becomes atomic with the effect.
+    private readonly ConcurrentDictionary<string, CapabilityState> _nonceStates = new(StringComparer.Ordinal);
 
     public AuthorizationDecision Authorize(RunPrincipal principal, ToolCapability capability,
         string toolName, AIFunctionArguments arguments)
@@ -33,7 +46,10 @@ public sealed class ToolAuthorizationPolicy(
                 return AuthorizationDecision.Deny("Order is outside the capability resource scope.");
         }
 
-        if (capability.MaximumAmount is { } maximum)
+        // The amount is validated whenever the tool moves money, not only when the grant happens to
+        // carry a ceiling: an absent, negative, or unparseable amount is never authorizable. A
+        // configured maximum only adds the ceiling on top of that.
+        if (MoneyMovingTools.Contains(toolName) || capability.MaximumAmount is not null)
         {
             decimal? amount;
             try { amount = ReadDecimal(arguments, "amount"); }
@@ -43,15 +59,31 @@ public sealed class ToolAuthorizationPolicy(
             }
             if (amount is null or <= 0)
                 return AuthorizationDecision.Deny("A valid amount is required for authorization.");
-            if (amount > maximum)
-                return AuthorizationDecision.RequireApproval($"Amount €{amount:F2} exceeds the capability limit of €{maximum:F2}.");
+            if (capability.MaximumAmount is { } maximum && amount > maximum)
+                return AuthorizationDecision.RequireApproval(
+                    $"Amount €{amount:F2} exceeds the capability limit of €{maximum:F2}.", toolName, arguments);
         }
 
-        if (capability.OneTimeUse && !_usedNonces.TryAdd(capability.Nonce, 0))
-            return AuthorizationDecision.Deny("One-time capability has already been used.");
+        // Reserve last, so a refusal above never costs the caller a one-time capability.
+        if (capability.OneTimeUse && !TryReserve(capability.Nonce))
+            return AuthorizationDecision.Deny("One-time capability is already reserved or consumed.");
 
         return AuthorizationDecision.Allow();
     }
+
+    /// <summary>Call once the effect is durable. Moves <c>Reserved -> Consumed</c>.</summary>
+    public void Commit(string nonce) => _nonceStates.TryUpdate(nonce, CapabilityState.Consumed, CapabilityState.Reserved);
+
+    /// <summary>
+    /// Call after a <em>verified</em> pre-effect failure — the caller must know the side effect did
+    /// not happen. Moves <c>Reserved -> Available</c>; a committed capability stays consumed.
+    /// </summary>
+    public void Release(string nonce) => _nonceStates.TryUpdate(nonce, CapabilityState.Available, CapabilityState.Reserved);
+
+    /// <summary>Atomic <c>Available -> Reserved</c>; two racing callers cannot both win.</summary>
+    private bool TryReserve(string nonce) =>
+        _nonceStates.TryAdd(nonce, CapabilityState.Reserved) ||
+        _nonceStates.TryUpdate(nonce, CapabilityState.Reserved, CapabilityState.Available);
 
     private static string? ReadString(AIFunctionArguments arguments, string name) =>
         arguments.TryGetValue(name, out var value) ? value switch
