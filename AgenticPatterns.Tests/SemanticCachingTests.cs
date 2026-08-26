@@ -6,18 +6,32 @@ namespace AgenticPatterns.Tests;
 
 public class SemanticCachingTests
 {
-    // Identical vectors -> cosine similarity 1.0, guaranteed over the 0.9 threshold
+    // Identical vectors -> cosine similarity 1.0, guaranteed over the 0.9 threshold.
+    // The eviction test's three questions get their own mutually orthogonal vectors below
+    // so they don't all collide on the shared default vector.
     private static readonly Dictionary<string, float[]> Vectors = new()
     {
         ["What is the capital of France?"] = [1f, 0f, 0f],
         ["Tell me France's capital city"] = [1f, 0f, 0f],
-        ["What is the tallest mountain?"] = [0f, 1f, 0f]
+        ["What is the tallest mountain?"] = [0f, 1f, 0f],
+        ["first question about refunds"] = [1f, 0f, 0f],
+        ["second question about shipping"] = [0f, 1f, 0f],
+        ["third question about warranties"] = [0f, 0f, 1f]
     };
 
     private static ChatResponse Reply(string text) => new(new ChatMessage(ChatRole.Assistant, text));
 
-    private static SemanticCachingChatClient MakeCache(ScriptedChatClient inner) =>
-        new(inner, new FixedEmbeddingGenerator(Vectors));
+    private static SemanticCachingChatClient MakeCache(ScriptedChatClient inner, CacheNamespace? ns = null) =>
+        new(inner, new FixedEmbeddingGenerator(Vectors), ns ?? Ns(), TimeSpan.FromMinutes(10), 100);
+
+    private static CacheNamespace Ns(string tenant = "tenant-a", string tools = "tools-v1") =>
+        new(tenant, "principal-hash", "system-hash", tools, "gpt-x", "data-rev-1");
+
+    private static SemanticCachingChatClient Client(CacheNamespace ns, TimeSpan? lifetime = null, int max = 100) =>
+        new(new ScriptedChatClient(Reply("cached answer")), new FixedEmbeddingGenerator(Vectors), ns,
+            lifetime ?? TimeSpan.FromMinutes(10), max);
+
+    private static ChatMessage[] Ask(string text) => [new ChatMessage(ChatRole.User, text)];
 
     [Fact]
     public async Task SimilarQuery_SameContext_IsAHit_AndReturnsACopy()
@@ -80,5 +94,145 @@ public class SemanticCachingTests
 
         Assert.Equal(2, inner.Calls);
         Assert.Equal("Mount Everest", second.Text);
+    }
+
+    [Fact]
+    public async Task DifferentTenantsNeverShareACachedAnswer()
+    {
+        var a = Client(Ns(tenant: "tenant-a"));
+        var b = Client(Ns(tenant: "tenant-b"));
+        await a.GetResponseAsync(Ask("what is our refund window?"));
+        await b.GetResponseAsync(Ask("what is our refund window?"));
+        Assert.Equal(0, a.Hits);
+        Assert.Equal(0, b.Hits);
+    }
+
+    [Fact]
+    public async Task ADifferentToolSchemaIsADifferentPartition()
+    {
+        var client = Client(Ns(tools: "tools-v1"));
+        await client.GetResponseAsync(Ask("what is our refund window?"));
+        var upgraded = Client(Ns(tools: "tools-v2"));
+        await upgraded.GetResponseAsync(Ask("what is our refund window?"));
+        Assert.Equal(0, upgraded.Hits);
+        Assert.Equal(1, upgraded.Misses);
+    }
+
+    // Replaces the old TenantId-only / ToolSchemaHash-only tests: the mutation review found that
+    // deleting ModelVersion and DataRevision from PartitionKey's join left the suite green
+    // because no test exercised those two dimensions. This theory covers all six.
+    [Theory]
+    [InlineData("TenantId")]
+    [InlineData("PrincipalScopeHash")]
+    [InlineData("SystemPromptHash")]
+    [InlineData("ToolSchemaHash")]
+    [InlineData("ModelVersion")]
+    [InlineData("DataRevision")]
+    public void PartitionKeyDiffersWhenOnlyOneNamespaceFieldDiffers(string field)
+    {
+        var messages = Ask("what is our refund window?");
+        var baseNs = Ns();
+        var mutated = field switch
+        {
+            "TenantId" => baseNs with { TenantId = "tenant-b" },
+            "PrincipalScopeHash" => baseNs with { PrincipalScopeHash = "principal-hash-2" },
+            "SystemPromptHash" => baseNs with { SystemPromptHash = "system-hash-2" },
+            "ToolSchemaHash" => baseNs with { ToolSchemaHash = "tools-v2" },
+            "ModelVersion" => baseNs with { ModelVersion = "gpt-y" },
+            "DataRevision" => baseNs with { DataRevision = "data-rev-2" },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+
+        var keyA = SemanticCachingChatClient.PartitionKey(baseNs, messages, null);
+        var keyB = SemanticCachingChatClient.PartitionKey(mutated, messages, null);
+        Assert.NotEqual(keyA, keyB);
+    }
+
+    [Fact]
+    public void PartitionKeyCoversFunctionCallsAndResultsNotJustText()
+    {
+        // Neither message below carries TextContent, so the old `.Text`-based digest saw
+        // both histories as identical ("Assistant:" / "Tool:" with nothing to compare) —
+        // a tool call with a different argument, or a different result, must not collide.
+        ChatMessage[] History(string argument, string result) =>
+        [
+            new ChatMessage(ChatRole.Assistant,
+                [new FunctionCallContent("call-1", "Lookup", new Dictionary<string, object?> { ["id"] = argument })]),
+            new ChatMessage(ChatRole.Tool, [new FunctionResultContent("call-1", result)]),
+            new ChatMessage(ChatRole.User, "what is our refund window?")
+        ];
+
+        var keyA = SemanticCachingChatClient.PartitionKey(Ns(), History("acct-1", "active"), null);
+        var keyB = SemanticCachingChatClient.PartitionKey(Ns(), History("acct-2", "suspended"), null);
+
+        Assert.NotEqual(keyA, keyB);
+    }
+
+    [Fact]
+    public void PartitionKeyDiffersWhenOnlyAGenerationOptionDiffers()
+    {
+        // ModelId/Temperature/ResponseFormat were already in the key; MaxOutputTokens and Seed
+        // were not — two requests that differ only there must still land in different
+        // partitions, or one gets served the other's answer under a different token budget.
+        var messages = Ask("what is our refund window?");
+        var keyA = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { MaxOutputTokens = 100 });
+        var keyB = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { MaxOutputTokens = 500 });
+        var keyC = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { Seed = 1 });
+        var keyD = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { Seed = 2 });
+
+        Assert.NotEqual(keyA, keyB);
+        Assert.NotEqual(keyC, keyD);
+    }
+
+    [Fact]
+    public void PartitionKeyDoesNotCollideWhenADelimiterAppearsInsideAField()
+    {
+        var messages = Ask("what is our refund window?");
+        // Raw '|'-joined fields collide here: "a|b" + "c" and "a" + "b|c" both flatten to
+        // "a|b|c|..." even though they're two different (TenantId, PrincipalScopeHash) pairs.
+        var nsA = new CacheNamespace("a|b", "c", "system-hash", "tools-v1", "gpt-x", "data-rev-1");
+        var nsB = new CacheNamespace("a", "b|c", "system-hash", "tools-v1", "gpt-x", "data-rev-1");
+
+        var keyA = SemanticCachingChatClient.PartitionKey(nsA, messages, null);
+        var keyB = SemanticCachingChatClient.PartitionKey(nsB, messages, null);
+
+        Assert.NotEqual(keyA, keyB);
+    }
+
+    [Fact]
+    public async Task ExpiredEntriesAreNotServed()
+    {
+        var client = Client(Ns(), lifetime: TimeSpan.Zero);
+        await client.GetResponseAsync(Ask("what is our refund window?"));
+        await client.GetResponseAsync(Ask("what is our refund window?"));
+        Assert.Equal(0, client.Hits);
+        Assert.Equal(2, client.Misses);
+    }
+
+    [Fact]
+    public async Task ThePartitionIsBoundedAndEvictsOldest()
+    {
+        var client = Client(Ns(), max: 2);
+        await client.GetResponseAsync(Ask("first question about refunds"));
+        await client.GetResponseAsync(Ask("second question about shipping"));
+        await client.GetResponseAsync(Ask("third question about warranties"));
+        await client.GetResponseAsync(Ask("first question about refunds"));   // evicted
+        Assert.Equal(0, client.Hits);
+        Assert.Equal(4, client.Misses);
+    }
+
+    [Fact]
+    public async Task ConcurrentCallersDoNotCorruptTheCache()
+    {
+        // The fakes complete synchronously (Task.FromResult), so every await inside
+        // GetResponseAsync returns already-completed and never yields — Task.WhenAll over bare
+        // calls would just run them one after another on the calling thread and prove nothing.
+        // Task.Run forces each call onto its own thread-pool thread, so this test actually
+        // exercises concurrent access to the dictionary/list and the Hits/Misses counters.
+        const int callers = 500;
+        var client = Client(Ns());
+        await Task.WhenAll(Enumerable.Range(0, callers)
+            .Select(_ => Task.Run(() => client.GetResponseAsync(Ask("what is our refund window?")))));
+        Assert.Equal(callers, client.Hits + client.Misses);
     }
 }

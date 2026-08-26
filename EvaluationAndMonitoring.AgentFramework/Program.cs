@@ -30,13 +30,19 @@ if (mode == "replay")
 else
 {
     sourceClient = Settings.ChatClient;
-    if (mode is "record" or "record-redacted" or "record-hashes")
+    if (mode is "record" or "record-redacted" or "record-hashes" or "record-full")
     {
+        if (mode == "record-full")
+        {
+            FullTraceCaptureGate.EnsureAcknowledgedOrThrow();
+            FullTraceCaptureGate.PrintWarning();
+        }
+
         var privacy = mode switch
         {
-            "record-redacted" => TracePrivacyMode.RedactedContent,
             "record-hashes" => TracePrivacyMode.HashesOnly,
-            _ => TracePrivacyMode.FullContent
+            "record-full" => TracePrivacyMode.FullContent,
+            _ => TracePrivacyMode.RedactedContent // record, record-redacted
         };
         recordedTrace = new RunTrace(promptVersion, privacy);
         sourceClient = new RecordingChatClient(sourceClient, recordedTrace);
@@ -44,7 +50,8 @@ else
         Console.WriteLine($"---- Recording {privacy} trace to {tracePath} ----\n");
     }
     else if (mode != "live")
-        throw new ArgumentException("Mode must be live, record, record-redacted, record-hashes, or replay.");
+        throw new ArgumentException(
+            "Mode must be live, record, record-redacted, record-hashes, record-full, or replay.");
     else
         Console.WriteLine("---- Running agent with telemetry ----\n");
 }

@@ -65,12 +65,16 @@ flowchart LR
 - **Agent Framework** composes three delegates: `InputGuardMiddleware` and
   `OutputGuardMiddleware` on the agent builder, and `PiiGuardMiddleware` on the `IChatClient`
   builder. A blocked input returns a hand-written `AgentResponse` without ever calling the
-  inner agent; the output guard truncates anything over 2000 characters.
+  inner agent; the output guard truncates anything over 2000 characters. Redaction and
+  truncation both go through the `GuardRails` static class, which rewrites only `TextContent`
+  items — function calls, function results, finish reason, usage and the rest of the response's
+  structure pass through untouched instead of being flattened into a single text message.
 - **Semantic Kernel** registers an `InputGuardFilter` (`IPromptRenderFilter`) that sets
   `context.Result` to cancel the LLM call, and an `OutputGuardFilter`
-  (`IFunctionInvocationFilter`) that rewrites the result. The prompt passes user text as the
-  `{{$input}}` template variable, so injected `<message role="system">` tags are encoded as
-  data rather than rewriting roles.
+  (`IFunctionInvocationFilter`) that rewrites the result via `new FunctionResult(context.Result,
+  text)`, which copies the original result's metadata and culture instead of discarding them.
+  The prompt passes user text as the `{{$input}}` template variable, so injected
+  `<message role="system">` tags are encoded as data rather than rewriting roles.
 
 ## Key APIs
 
@@ -79,6 +83,7 @@ flowchart LR
 | `agent.AsBuilder().Use(InputGuardMiddleware, null)` | `IPromptRenderFilter` + `context.Result = …` |
 | `chatClient.AsBuilder().Use(PiiGuardMiddleware, null)` | `context.RenderedPrompt = SafetyChecks.RedactPii(...)` |
 | `return new AgentResponse([...])` to short-circuit | `IFunctionInvocationFilter` for the output side |
+| `GuardRails.Redact(ChatResponse)`; `OutputGuardMiddleware` calls `GuardRails.TruncateMessages(messages, max)` directly (`GuardRails.Truncate(ChatResponse, max)` wraps the same logic for a `ChatResponse` caller but has no call site in this sample) | `new FunctionResult(context.Result, text)` |
 
 ## What to watch in the output
 

@@ -20,6 +20,11 @@
         <ProjectReference Include="..\DurableHumanInTheLoop.AgentFramework\DurableHumanInTheLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\EvaluationAndMonitoring.AgentFramework\EvaluationAndMonitoring.AgentFramework.csproj"/>
         <ProjectReference Include="..\ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj"/>
+        <ProjectReference Include="..\GuardRails.AgentFramework\GuardRails.AgentFramework.csproj"/>
+        <!-- NOT GuardRails.SemanticKernel: excluded conservatively, not because it conflicts - it
+             defines the same global-namespace SafetyChecks type as the AF flavor, but that type
+             (and Program.cs's top-level-statement type) are internal and invisible across the
+             assembly boundary, so referencing it too would add nothing to test. -->
         <ProjectReference Include="..\IdempotentToolCalls.AgentFramework\IdempotentToolCalls.AgentFramework.csproj"/>
         <ProjectReference Include="..\MCP.AgentFramework\MCP.AgentFramework.csproj"/>
         <!-- NOT MCP.SemanticKernel: excluded conservatively, not because it conflicts - McpToolBinding

@@ -43,13 +43,14 @@ async Task<ChatResponse> PiiGuardMiddleware(
     IChatClient chatClient,
     CancellationToken cancellationToken)
 {
-    // Redact PII from input messages before the model sees them
+    // Redact PII from input messages before the model sees them. GuardRails.RedactMessage only
+    // rewrites TextContent, so any other content on the message (e.g. an attached image) survives.
     var sanitizedMessages = messages.Select(m =>
     {
         if (m.Role == ChatRole.User && SafetyChecks.HasPii(m.Text ?? ""))
         {
             Console.WriteLine("  [PiiGuard] Redacting PII from input.");
-            return new ChatMessage(m.Role, SafetyChecks.RedactPii(m.Text!));
+            return GuardRails.RedactMessage(m);
         }
 
         return m;
@@ -57,14 +58,12 @@ async Task<ChatResponse> PiiGuardMiddleware(
 
     var response = await chatClient.GetResponseAsync(sanitizedMessages, options, cancellationToken);
 
-    // Redact PII from the model's response
-    var responseText = string.Join("",
-        response.Messages.SelectMany(m => m.Contents).OfType<TextContent>().Select(c => c.Text));
-    if (SafetyChecks.HasPii(responseText))
+    // Redact PII from the model's response, preserving function calls, finish reason and usage
+    // instead of rebuilding a text-only response.
+    if (SafetyChecks.HasPii(response.Text))
     {
         Console.WriteLine("  [PiiGuard] Redacting PII from output.");
-        return new ChatResponse(
-            new ChatMessage(ChatRole.Assistant, SafetyChecks.RedactPii(responseText)));
+        return GuardRails.Redact(response);
     }
 
     return response;
@@ -79,16 +78,23 @@ async Task<AgentResponse> OutputGuardMiddleware(
 {
     var response = await innerAgent.RunAsync(messages, session, options, cancellationToken);
 
-    var responseText = string.Join("",
-        response.Messages.Select(m => m.Text ?? ""));
-
-    if (responseText.Length > 2000)
+    // Truncate on total text length, but only rewrite the last TextContent — function calls,
+    // function results and earlier text stay intact instead of being flattened into one message.
+    var truncatedMessages = GuardRails.TruncateMessages(response.Messages, 2000);
+    if (!ReferenceEquals(truncatedMessages, response.Messages))
     {
         Console.WriteLine("  [OutputGuard] Response too long — truncating.");
-        return new AgentResponse([
-            new ChatMessage(ChatRole.Assistant,
-                responseText[..2000] + "\n\n[Response truncated for safety.]")
-        ]);
+        return new AgentResponse(truncatedMessages)
+        {
+            AgentId = response.AgentId,
+            ResponseId = response.ResponseId,
+            // Not ContinuationToken: it's marked [Experimental("MEAI001")] on this package version,
+            // and this sample never produces background responses that would set it anyway.
+            CreatedAt = response.CreatedAt,
+            FinishReason = response.FinishReason,
+            Usage = response.Usage,
+            AdditionalProperties = response.AdditionalProperties
+        };
     }
 
     return response;

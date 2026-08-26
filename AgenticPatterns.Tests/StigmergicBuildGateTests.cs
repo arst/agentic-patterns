@@ -1,6 +1,7 @@
 using Shared.Sandbox;
 using StigmergicCoordination.AgentFramework;
 using Xunit;
+using static AgenticPatterns.Tests.TestEnvironment;
 
 namespace AgenticPatterns.Tests;
 
@@ -8,16 +9,11 @@ namespace AgenticPatterns.Tests;
 // the size cap fires before anything is compiled, error lines are parsed correctly, the
 // sandboxed options grant nothing beyond what an offline `dotnet build` needs, and the host
 // fallback needs the same double opt-in as CodeAct.
+// Shares AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION with CodeActExecutionTests;
+// same collection so xunit never interleaves the two classes (see Fakes.cs:TestEnvironment).
+[Collection("process-environment")]
 public class StigmergicBuildGateTests
 {
-    private static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
-    {
-        var original = Environment.GetEnvironmentVariable(name);
-        Environment.SetEnvironmentVariable(name, value);
-        try { return body(); }
-        finally { Environment.SetEnvironmentVariable(name, original); }
-    }
-
     // ---- size cap ----
 
     [Fact]

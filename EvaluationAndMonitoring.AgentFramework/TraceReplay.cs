@@ -8,7 +8,7 @@ namespace EvaluationAndMonitoring.AgentFramework;
 
 public enum TracePrivacyMode { FullContent, RedactedContent, HashesOnly }
 
-public sealed class RunTrace(string promptVersion, TracePrivacyMode privacyMode = TracePrivacyMode.FullContent)
+public sealed class RunTrace(string promptVersion, TracePrivacyMode privacyMode = TracePrivacyMode.RedactedContent)
 {
     public string PromptVersion { get; init; } = promptVersion;
     public TracePrivacyMode PrivacyMode { get; init; } = privacyMode;
@@ -221,4 +221,50 @@ public static class TraceStore
 
     private static string Hash(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+}
+
+/// <summary>
+/// Gates <c>record-full</c>. Full-content capture writes complete prompts and model outputs
+/// to a plaintext JSON file on disk, so selecting it requires an explicit acknowledgement
+/// (the same double-opt-in shape CodeAct uses for unsafe host execution) and prints a
+/// warning before any recording starts. It never falls back silently to a safer mode.
+/// </summary>
+public static class FullTraceCaptureGate
+{
+    public const string AcknowledgementVariable = "AGENTIC_PATTERNS_ACKNOWLEDGE_FULL_TRACE_CAPTURE";
+    public const string AcknowledgementValue = "I_UNDERSTAND_THIS_WRITES_PROMPTS_AND_OUTPUTS_IN_PLAINTEXT";
+
+    public static void EnsureAcknowledgedOrThrow()
+    {
+        if (Environment.GetEnvironmentVariable(AcknowledgementVariable) == AcknowledgementValue)
+            return;
+
+        throw new InvalidOperationException(
+            $"""
+            Full-content trace capture was blocked.
+
+            record-full writes complete prompts, tool arguments, and model outputs to a
+            plaintext JSON file on disk.
+
+            Full-content capture requires:
+              {AcknowledgementVariable}={AcknowledgementValue}
+            """);
+    }
+
+    public static void PrintWarning() =>
+        Console.Error.WriteLine(
+            """
+            ================================================================
+            DANGER: FULL-CONTENT TRACE CAPTURE IS ENABLED
+
+            PROMPTS, TOOL ARGUMENTS, AND MODEL OUTPUTS WILL BE WRITTEN TO
+            DISK IN PLAINTEXT JSON.
+
+            The trace file may contain customer messages, credentials passed
+            through prompts or tools, or anything else the agent saw or
+            produced while running.
+
+            DO NOT USE THIS MODE FOR TRACES THAT LEAVE YOUR MACHINE.
+            ================================================================
+            """);
 }

@@ -2,6 +2,7 @@ using CodeAct.AgentFramework.Execution;
 using Microsoft.Extensions.AI;
 using Shared.Sandbox;
 using Xunit;
+using static AgenticPatterns.Tests.TestEnvironment;
 
 #pragma warning disable CS0618 // testing the deliberately-[Obsolete] unsafe runner is the point
 
@@ -10,19 +11,12 @@ namespace AgenticPatterns.Tests;
 // These tests verify the SECURITY CONTROL FLOW of the CodeAct executor without a model
 // or a container runtime: runner selection fails closed, the unsafe path needs a double
 // opt-in, and the container arguments grant nothing beyond what `dotnet run` needs.
+// Shares AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION with StigmergicBuildGateTests;
+// same collection so xunit never interleaves the two classes (see Fakes.cs:TestEnvironment).
+[Collection("process-environment")]
 public class CodeActExecutionTests
 {
     private static readonly CodeExecutionOptions Options = new();
-
-    // xunit runs tests in one class sequentially, so mutating the process environment
-    // here cannot race another test in this class.
-    private static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
-    {
-        var original = Environment.GetEnvironmentVariable(name);
-        Environment.SetEnvironmentVariable(name, value);
-        try { return body(); }
-        finally { Environment.SetEnvironmentVariable(name, original); }
-    }
 
     private static T WithAcknowledgement<T>(string? value, Func<T> body) =>
         WithEnvironmentVariable(CodeRunnerFactory.UnsafeAcknowledgementVariable, value, body);
