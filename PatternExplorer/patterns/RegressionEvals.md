@@ -66,9 +66,12 @@ sixth candidate is extracted from `sample-run-trace.json` (a minimal `RunTrace` 
 EvaluationAndMonitoring's format) by reading its first question and observed answer with
 `JsonDocument`, and written to `candidates/from-trace.json` with `reviewedBy: null` — it never
 joins the evaluated set. `CasePartition.Partition` splits `golden-cases.json` into cases with a
-reviewer (evaluated) and cases without one (reported and skipped); combined with the freshly
-written candidate, the run prints `N candidate case(s) awaiting review — not evaluated`. Each
-evaluated case runs through a `ScenarioRun` created from a cache-enabled
+reviewer (evaluated) and cases without one (reported and skipped). The run prints two separate
+counts, because the two states are not the same thing: `N golden case(s) awaiting sign-off` for
+`golden-cases.json` rows that already have an expected answer and tier but no reviewer yet, and
+`1 candidate case(s) awaiting review` for the trace-extracted `CandidateCase`, which has neither
+and needs a reviewer to write the expected answer from scratch. Each evaluated case runs through
+a `ScenarioRun` created from a cache-enabled
 `DiskBasedReportingConfiguration`; the tier's assertion decides pass/fail; any failure, or an
 empty evaluated set, sets the process exit code to 1.
 
@@ -78,7 +81,7 @@ flowchart LR
     C -->|reviewer supplies/verifies the expected result| G[golden-cases.json]
     G --> P{CasePartition: reviewedBy?}
     P -->|non-empty| S[Suite runner]
-    P -->|empty/missing| W[awaiting review — not evaluated]
+    P -->|empty/missing| W[awaiting sign-off — not evaluated]
     S --> A{tier}
     A -->|contains| X[Contains check]
     A -->|nlp| F[F1Evaluator]
@@ -110,9 +113,10 @@ dotnet run --project RegressionEvals.AgentFramework -- --selfcheck   # offline t
 
 ## What to watch in the output
 
-The first line reports how many candidate cases are awaiting review and were skipped — the
-trace-derived one every run, plus any hand-added `golden-cases.json` row missing a `reviewedBy`.
-Each evaluated case then prints a `[PASS]`/`[FAIL]` line with its tier and the assertion detail,
+The first two lines report what was skipped, split by state: unsigned `golden-cases.json` rows
+(fully specified, just need a reviewer's sign-off) and the trace-derived candidate (no expected
+answer yet, needs one written from scratch). Each evaluated case then prints a `[PASS]`/`[FAIL]`
+line with its tier and the assertion detail,
 then the answer. The summary line reports the pass count and the `aieval` command to render the
 report; the process exits non-zero if anything failed *or* if nothing was evaluated at all — both
 are the CI gate. Run it twice: the second run returns the judged case from the response cache

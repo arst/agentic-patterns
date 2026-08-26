@@ -35,8 +35,13 @@ File.WriteAllText(Path.Combine(candidatesDir, $"{candidate.Id}.json"), JsonSeria
     reviewedBy = (string?)null
 }, web));
 
-var awaitingCount = awaitingReview.Count + 1; // + the candidate just extracted from the trace
-Console.WriteLine($"{awaitingCount} candidate case(s) awaiting review - not evaluated.\n");
+// Two different states, two different counts: an awaiting-review GoldenCase already has an
+// ExpectedAnswer and Tier and just needs sign-off, while a CandidateCase has neither and needs a
+// reviewer to write the expected answer from scratch. Folding them into one number would call a
+// fully-specified unsigned golden case a "candidate", contradicting the distinction this task exists
+// to enforce.
+Console.WriteLine($"{awaitingReview.Count} golden case(s) awaiting sign-off - not evaluated.");
+Console.WriteLine("1 candidate case(s) awaiting review - not evaluated.\n");
 
 const string policy =
     "TechCorp laptops include a two-year limited warranty. Defective products may be " +
