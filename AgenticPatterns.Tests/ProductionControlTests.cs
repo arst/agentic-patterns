@@ -319,8 +319,43 @@ public class OrchestratorWorkerTests
         var synthesis = WorkerRegistry.BuildSynthesisInput(results);
         Assert.Contains("one", synthesis);
         Assert.Contains("three", synthesis);
-        Assert.DoesNotContain("simulated failure", synthesis);
+        Assert.Contains("simulated failure", synthesis);
+        Assert.Contains("bad", synthesis);
     }
+
+    [Fact]
+    public void SynthesisInputNamesTheFailures()
+    {
+        var input = WorkerRegistry.BuildSynthesisInput([
+            new WorkerResult("t1", "research", "found A", null),
+            new WorkerResult("t2", "research", null, "timed out")]);
+        Assert.Contains("t2", input);
+        Assert.Contains("FAILED", input);
+        Assert.Contains("timed out", input);
+    }
+
+    [Fact]
+    public void EveryWorkerFailingAbstainsInsteadOfSynthesising() =>
+        Assert.Equal(RunCompleteness.Abstained,
+            WorkerRegistry.Assess([new WorkerResult("t1", "r", null, "boom")], requiredQuorum: 1));
+
+    [Fact]
+    public void PartialSuccessIsLabelledPartial() =>
+        Assert.Equal(RunCompleteness.Partial, WorkerRegistry.Assess(
+            [new WorkerResult("t1", "r", "ok", null), new WorkerResult("t2", "r", null, "boom")],
+            requiredQuorum: 1));
+
+    [Fact]
+    public void AllSucceedingAndMeetingQuorumIsComplete() =>
+        Assert.Equal(RunCompleteness.Complete, WorkerRegistry.Assess(
+            [new WorkerResult("t1", "r", "ok", null), new WorkerResult("t2", "r", "ok", null)],
+            requiredQuorum: 2));
+
+    [Fact]
+    public void AllSucceedingButBelowQuorumIsPartial() =>
+        Assert.Equal(RunCompleteness.Partial, WorkerRegistry.Assess(
+            [new WorkerResult("t1", "r", "ok", null), new WorkerResult("t2", "r", "ok", null)],
+            requiredQuorum: 3));
 }
 
 public class GuardRailsTests
