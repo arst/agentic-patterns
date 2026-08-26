@@ -17,7 +17,7 @@ var fastModel = (Client: azureClient.GetChatClient(fastModelDeployment).AsIChatC
 
 var reasoningModel = (Client: azureClient.GetChatClient(ReasoningModelDeployment).AsIChatClient(),
     ModelId: ReasoningModelDeployment);
-var budget = new BudgetState(50);
+var softBudget = new BudgetState(50);
 
 async Task<ChatResponse> RoutingMiddleware(
     IEnumerable<ChatMessage> messages,
@@ -34,7 +34,7 @@ async Task<ChatResponse> RoutingMiddleware(
         : new[] { fastModel, reasoningModel };
 
     // If budget is exceeded, force the cheapest model
-    if (budget.Exceeded)
+    if (softBudget.Exceeded)
     {
         Console.WriteLine("  [Router] Budget exceeded — forcing fast tier.");
         chain = [fastModel];
@@ -50,7 +50,7 @@ async Task<ChatResponse> RoutingMiddleware(
             var response = await client.GetResponseAsync(
                 messages.ToList(), options, cancellationToken);
 
-            budget.RecordUsage(modelId, response);
+            softBudget.RecordUsage(modelId, response);
 
             Console.WriteLine($"  [Router] Success with: {modelId}");
             return response;
@@ -66,7 +66,11 @@ async Task<ChatResponse> RoutingMiddleware(
 
     // All models failed — call the original pipeline as last resort
     Console.WriteLine("  [Fallback] All tier models failed. Trying original pipeline.");
-    return await chatClient.GetResponseAsync(messages, options, cancellationToken);
+    var fallbackResponse = await chatClient.GetResponseAsync(messages, options, cancellationToken);
+    // chatClient wraps fastModel.Client (see the pipeline built below), so the cost belongs to
+    // fastModel.ModelId — not to whichever tier was last attempted in the chain above.
+    softBudget.RecordUsage(fastModel.ModelId, fallbackResponse);
+    return fallbackResponse;
 }
 
 async Task<AgentResponse> BudgetEnforcementMiddleware(
@@ -78,7 +82,7 @@ async Task<AgentResponse> BudgetEnforcementMiddleware(
 {
     // Soft budget: only refuse work that would need the expensive tier —
     // simple queries still run and RoutingMiddleware forces the fast tier for them.
-    if (QueryRouter.RefuseForBudget(messages, budget.Exceeded))
+    if (QueryRouter.RefuseForBudget(messages, softBudget.Exceeded))
     {
         Console.WriteLine("  [BudgetMiddleware] Budget exceeded. Refusing expensive-tier work.");
         return new AgentResponse([
@@ -125,4 +129,4 @@ foreach (var query in queries)
     Console.WriteLine($"Agent: {result}");
 }
 
-Console.WriteLine($"\nTotal estimated cost: {budget.TotalCostCents:F2}¢");
+Console.WriteLine($"\nTotal estimated cost: {softBudget.TotalCostCents:F2}¢");
