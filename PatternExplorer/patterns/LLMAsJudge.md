@@ -36,7 +36,7 @@ where this is what a second model says about the answer.
 
 A judge score is a proxy, and Goodhart's law applies the moment you optimize against it (see
 `docs/coordination-physics.md`): tune a prompt to please the judge and you may buy judge points
-without buying quality. The position-swap probe is the honest correction — it measures the
+without buying quality. The randomized-ordering probe is the honest correction — it measures the
 *instrument's* noise floor before you trust its readings. A judge that flips on position is not
 measuring answer quality; it is measuring slot order, and any score it emits is that much less
 information about the thing you actually care about.
