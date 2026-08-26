@@ -11,6 +11,9 @@ namespace AgenticPatterns.Tests;
 // These tests verify the SECURITY CONTROL FLOW of the CodeAct executor without a model
 // or a container runtime: runner selection fails closed, the unsafe path needs a double
 // opt-in, and the container arguments grant nothing beyond what `dotnet run` needs.
+// Shares AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION with StigmergicBuildGateTests;
+// same collection so xunit never interleaves the two classes (see Fakes.cs:TestEnvironment).
+[Collection("process-environment")]
 public class CodeActExecutionTests
 {
     private static readonly CodeExecutionOptions Options = new();

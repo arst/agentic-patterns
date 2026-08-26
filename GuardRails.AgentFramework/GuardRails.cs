@@ -100,6 +100,8 @@ public static class GuardRails
         return clone;
     }
 
+    // RawRepresentation is deliberately NOT copied: it would hand the caller a route back to
+    // the un-redacted provider payload, defeating the redaction this class exists to do.
     private static ChatResponse WithMessages(ChatResponse response, IList<ChatMessage> messages) =>
         new(messages)
         {
@@ -107,6 +109,7 @@ public static class GuardRails
             Usage = response.Usage,
             ModelId = response.ModelId,
             ResponseId = response.ResponseId,
+            ConversationId = response.ConversationId,
             CreatedAt = response.CreatedAt,
             AdditionalProperties = response.AdditionalProperties
         };

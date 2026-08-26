@@ -118,21 +118,33 @@ public class SemanticCachingTests
         Assert.Equal(1, upgraded.Misses);
     }
 
-    [Fact]
-    public void PartitionKeyDiffersWhenOnlyTenantIdDiffers()
+    // Replaces the old TenantId-only / ToolSchemaHash-only tests: the mutation review found that
+    // deleting ModelVersion and DataRevision from PartitionKey's join left the suite green
+    // because no test exercised those two dimensions. This theory covers all six.
+    [Theory]
+    [InlineData("TenantId")]
+    [InlineData("PrincipalScopeHash")]
+    [InlineData("SystemPromptHash")]
+    [InlineData("ToolSchemaHash")]
+    [InlineData("ModelVersion")]
+    [InlineData("DataRevision")]
+    public void PartitionKeyDiffersWhenOnlyOneNamespaceFieldDiffers(string field)
     {
         var messages = Ask("what is our refund window?");
-        var keyA = SemanticCachingChatClient.PartitionKey(Ns(tenant: "tenant-a"), messages, null);
-        var keyB = SemanticCachingChatClient.PartitionKey(Ns(tenant: "tenant-b"), messages, null);
-        Assert.NotEqual(keyA, keyB);
-    }
+        var baseNs = Ns();
+        var mutated = field switch
+        {
+            "TenantId" => baseNs with { TenantId = "tenant-b" },
+            "PrincipalScopeHash" => baseNs with { PrincipalScopeHash = "principal-hash-2" },
+            "SystemPromptHash" => baseNs with { SystemPromptHash = "system-hash-2" },
+            "ToolSchemaHash" => baseNs with { ToolSchemaHash = "tools-v2" },
+            "ModelVersion" => baseNs with { ModelVersion = "gpt-y" },
+            "DataRevision" => baseNs with { DataRevision = "data-rev-2" },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
 
-    [Fact]
-    public void PartitionKeyDiffersWhenOnlyToolSchemaHashDiffers()
-    {
-        var messages = Ask("what is our refund window?");
-        var keyA = SemanticCachingChatClient.PartitionKey(Ns(tools: "tools-v1"), messages, null);
-        var keyB = SemanticCachingChatClient.PartitionKey(Ns(tools: "tools-v2"), messages, null);
+        var keyA = SemanticCachingChatClient.PartitionKey(baseNs, messages, null);
+        var keyB = SemanticCachingChatClient.PartitionKey(mutated, messages, null);
         Assert.NotEqual(keyA, keyB);
     }
 
@@ -154,6 +166,22 @@ public class SemanticCachingTests
         var keyB = SemanticCachingChatClient.PartitionKey(Ns(), History("acct-2", "suspended"), null);
 
         Assert.NotEqual(keyA, keyB);
+    }
+
+    [Fact]
+    public void PartitionKeyDiffersWhenOnlyAGenerationOptionDiffers()
+    {
+        // ModelId/Temperature/ResponseFormat were already in the key; MaxOutputTokens and Seed
+        // were not — two requests that differ only there must still land in different
+        // partitions, or one gets served the other's answer under a different token budget.
+        var messages = Ask("what is our refund window?");
+        var keyA = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { MaxOutputTokens = 100 });
+        var keyB = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { MaxOutputTokens = 500 });
+        var keyC = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { Seed = 1 });
+        var keyD = SemanticCachingChatClient.PartitionKey(Ns(), messages, new ChatOptions { Seed = 2 });
+
+        Assert.NotEqual(keyA, keyB);
+        Assert.NotEqual(keyC, keyD);
     }
 
     [Fact]

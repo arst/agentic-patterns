@@ -1,6 +1,7 @@
 using System.Numerics.Tensors;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 
 namespace SemanticCaching.AgentFramework;
@@ -37,7 +38,10 @@ public sealed class SemanticCachingChatClient(
     // Partitioned by namespace + context: similar user text under a different tenant, system
     // prompt, model, tool policy, data revision, or options must never reuse another partition's
     // answer.
-    // ponytail: in-memory dictionary with O(n) scan per partition — swap for a persistent vector store in production
+    // ponytail: in-memory dictionary with O(n) scan per partition, and expired entries are only
+    // reclaimed when their partition is next read (a partition nobody ever queries again holds
+    // its expired entries for the process lifetime, bounded only by maxEntriesPerPartition) —
+    // swap for a persistent vector store with its own TTL sweep in production
     private readonly Dictionary<string, List<(float[] Embedding, ChatResponse Response, DateTimeOffset ExpiresAt)>> _cache = [];
 
     public int Hits { get; private set; }
@@ -119,7 +123,7 @@ public sealed class SemanticCachingChatClient(
         var list = messages.ToList();
         var lastUser = list.FindLastIndex(m => m.Role == ChatRole.User);
         var priorTurns = string.Join("\n", list.Where((m, i) => i != lastUser).Select(DigestMessage));
-        var canonicalOptions = $"{options?.ModelId}|{options?.Temperature}|{options?.ResponseFormat}";
+        var canonicalOptions = CanonicalOptions(options);
 
         // Every component is hashed to a fixed-length digest before joining. A raw '|'-join of
         // the raw fields would let a delimiter inside a field (e.g. TenantId "a|b") shift the
@@ -130,6 +134,37 @@ public sealed class SemanticCachingChatClient(
             Hash(ns.TenantId), Hash(ns.PrincipalScopeHash), Hash(ns.SystemPromptHash),
             Hash(ns.ToolSchemaHash), Hash(ns.ModelVersion), Hash(ns.DataRevision),
             Hash(priorTurns), Hash(canonicalOptions));
+    }
+
+    // Every option that changes what a valid answer looks like belongs in the key, not just
+    // ModelId/Temperature/ResponseFormat — a runtime ChatOptions.Tools that diverges from the
+    // namespace's declared ToolSchemaHash, or a different MaxOutputTokens/Seed/StopSequences
+    // etc., must not collide with an unrelated request. Deliberately the same shape as
+    // EvaluationAndMonitoring.AgentFramework/TraceReplay.cs's TraceStore.CanonicalOptions (the
+    // two projects don't reference each other, so this is the pattern copied, not code shared).
+    // ConversationId, AllowBackgroundResponses, ContinuationToken and RawRepresentationFactory
+    // are excluded: none of them changes what a valid answer looks like.
+    private static string CanonicalOptions(ChatOptions? options)
+    {
+        var tools = string.Join(";", options?.Tools?.Select(tool => tool is AIFunctionDeclaration function
+            ? $"{function.Name}:{function.JsonSchema.GetRawText()}"
+            : $"{tool.Name}:{tool.Description}") ?? []);
+        var toolMode = options?.ToolMode is RequiredChatToolMode required
+            ? $"Required:{required.RequiredFunctionName}"
+            : options?.ToolMode?.GetType().Name ?? "";
+        var additionalProperties = options?.AdditionalProperties is { } props
+            ? JsonSerializer.Serialize(props.OrderBy(p => p.Key, StringComparer.Ordinal))
+            : "";
+
+        return string.Join('|',
+            $"model:{options?.ModelId}", $"temperature:{options?.Temperature}", $"format:{options?.ResponseFormat}",
+            $"tools:{tools}", $"toolMode:{toolMode}", $"allowMultipleToolCalls:{options?.AllowMultipleToolCalls}",
+            $"instructions:{options?.Instructions}", $"maxOutputTokens:{options?.MaxOutputTokens}",
+            $"topP:{options?.TopP}", $"topK:{options?.TopK}", $"seed:{options?.Seed}",
+            $"stopSequences:{string.Join(",", options?.StopSequences ?? [])}",
+            $"frequencyPenalty:{options?.FrequencyPenalty}", $"presencePenalty:{options?.PresencePenalty}",
+            $"reasoningEffort:{options?.Reasoning?.Effort}", $"reasoningOutput:{options?.Reasoning?.Output}",
+            $"additionalProperties:{additionalProperties}");
     }
 
     private static string Hash(string s) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(s)));

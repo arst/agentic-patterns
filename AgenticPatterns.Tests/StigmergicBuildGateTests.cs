@@ -9,6 +9,9 @@ namespace AgenticPatterns.Tests;
 // the size cap fires before anything is compiled, error lines are parsed correctly, the
 // sandboxed options grant nothing beyond what an offline `dotnet build` needs, and the host
 // fallback needs the same double opt-in as CodeAct.
+// Shares AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION with CodeActExecutionTests;
+// same collection so xunit never interleaves the two classes (see Fakes.cs:TestEnvironment).
+[Collection("process-environment")]
 public class StigmergicBuildGateTests
 {
     // ---- size cap ----

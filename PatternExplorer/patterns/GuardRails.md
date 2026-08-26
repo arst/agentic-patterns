@@ -83,7 +83,7 @@ flowchart LR
 | `agent.AsBuilder().Use(InputGuardMiddleware, null)` | `IPromptRenderFilter` + `context.Result = …` |
 | `chatClient.AsBuilder().Use(PiiGuardMiddleware, null)` | `context.RenderedPrompt = SafetyChecks.RedactPii(...)` |
 | `return new AgentResponse([...])` to short-circuit | `IFunctionInvocationFilter` for the output side |
-| `GuardRails.Redact(ChatResponse)` / `GuardRails.Truncate(ChatResponse, max)` | `new FunctionResult(context.Result, text)` |
+| `GuardRails.Redact(ChatResponse)`; `OutputGuardMiddleware` calls `GuardRails.TruncateMessages(messages, max)` directly (`GuardRails.Truncate(ChatResponse, max)` wraps the same logic for a `ChatResponse` caller but has no call site in this sample) | `new FunctionResult(context.Result, text)` |
 
 ## What to watch in the output
 

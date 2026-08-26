@@ -58,9 +58,15 @@ internal sealed class FixedEmbeddingGenerator(Dictionary<string, float[]> vector
 }
 
 /// <summary>Shared by every test that flips a process environment variable for a double-opt-in
-/// gate (CodeAct, StigmergicCoordination, EvaluationAndMonitoring). xunit runs tests in one
-/// class sequentially, so mutating the process environment here cannot race another test in
-/// the same class.</summary>
+/// gate (CodeAct, StigmergicCoordination, EvaluationAndMonitoring) — now three classes, not one.
+/// xunit runs tests within a class sequentially, but parallelises across classes by default,
+/// which is unsafe for two of the three: <c>CodeActExecutionTests</c> and
+/// <c>StigmergicBuildGateTests</c> both mutate
+/// <c>AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION</c>, so both carry
+/// <c>[Collection("process-environment")]</c> to force them onto the same xunit collection and
+/// stop them interleaving. <c>ProductionControlsPhaseTwoTests</c> uses a different variable
+/// (<c>AGENTIC_PATTERNS_ACKNOWLEDGE_FULL_TRACE_CAPTURE</c>), so it has nothing to collide
+/// with and needs no collection.</summary>
 internal static class TestEnvironment
 {
     public static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)

@@ -59,12 +59,23 @@ public sealed class SkillLifecycle(string skillsDirectory)
     {
         var manifest = Require(name, SkillStage.Tested);
         if (string.IsNullOrWhiteSpace(reviewer)) throw new ArgumentException("A trusted reviewer is required.");
+        ReadVerified(manifest);
         return Transition(manifest with { ApprovedBy = reviewer }, SkillStage.Approved);
     }
 
-    public SkillManifest Activate(string name) => Transition(Require(name, SkillStage.Approved), SkillStage.Active);
+    public SkillManifest Activate(string name)
+    {
+        var manifest = Require(name, SkillStage.Approved);
+        ReadVerified(manifest);
+        return Transition(manifest, SkillStage.Active);
+    }
 
-    public SkillManifest Retire(string name) => Transition(Require(name, SkillStage.Active), SkillStage.Retired);
+    public SkillManifest Retire(string name)
+    {
+        var manifest = Require(name, SkillStage.Active);
+        ReadVerified(manifest);
+        return Transition(manifest, SkillStage.Retired);
+    }
 
     public string? ReadActive(string name)
     {
@@ -105,8 +116,9 @@ public sealed class SkillLifecycle(string skillsDirectory)
     private static string Digest(string path) =>
         Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
 
-    // Every transition and every read re-verifies. A version directory is immutable once the
-    // candidate is created; the only legal way to change a skill is a new version.
+    // Every transition and every read re-verifies. A version directory is immutable by policy
+    // once the candidate is created (nothing here enforces that on disk); the only legal way to
+    // change a skill is a new version.
     private string ReadVerified(SkillManifest manifest)
     {
         var path = SkillPath(manifest);

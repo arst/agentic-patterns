@@ -362,6 +362,7 @@ public class GuardRailsTests
         {
             ModelId = "gpt-test",
             ResponseId = "resp-1",
+            ConversationId = "conv-1",
             CreatedAt = createdAt,
             AdditionalProperties = new AdditionalPropertiesDictionary { ["k"] = "v" }
         };
@@ -370,6 +371,9 @@ public class GuardRailsTests
 
         Assert.Equal("gpt-test", redacted.ModelId);
         Assert.Equal("resp-1", redacted.ResponseId);
+        // A stateful IChatClient uses ConversationId as its handle to continue the same
+        // server-side thread; dropping it here would silently break that continuity.
+        Assert.Equal("conv-1", redacted.ConversationId);
         Assert.Equal(createdAt, redacted.CreatedAt);
         Assert.Equal("v", redacted.AdditionalProperties?["k"]);
     }
