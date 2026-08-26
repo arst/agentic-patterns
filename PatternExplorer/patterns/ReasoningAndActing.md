@@ -65,12 +65,16 @@ every auto-invoked call; the 10th runs, and the 11th never reaches the tool beca
 Throwing from a filter does *not* end it. SK 1.79 wraps every auto-invoked call in a catch-all that
 converts any exception into a tool-result error message and keeps looping, so a throwing filter
 blocks the tool body, hands the model its own budget refusal as tool output to paraphrase, and lets
-the loop run on to SK's internal 128-round ceiling — measured at 129 model calls against a stub that
-always requests a tool, versus 11 with `Terminate`. `Terminate` is the stop SK honours, and it is
-the same mechanism **Goal Settings and Monitoring**'s `GoalMonitoringFilter` uses for its own
-max-iteration bound. Because SK returns normally after terminating (with empty content), the filter
-exposes the stop as a `BudgetExhausted` flag rather than an exception; `Program.cs` reads it and
-prints a `PARTIAL` result — the same shape **Bounded Execution** uses for its own hard stops.
+the loop run on to SK's internal auto-invoke ceiling instead of stopping at 10. `Terminate` is the
+stop SK honours, and it is the same mechanism **Goal Settings and Monitoring**'s
+`GoalMonitoringFilter` uses for its own max-iteration bound. Because SK returns normally after
+terminating (with empty content), the filter exposes the stop as a `BudgetExhausted` flag rather
+than an exception; `Program.cs` reads it and prints a `PARTIAL` result — the same shape
+**Bounded Execution** uses for its own hard stops.
+`AgenticPatterns.Tests.ToolCallBudgetFilterRealLoopTests` drives this against a real SK
+auto-invocation loop (a stubbed HTTP handler that always returns a tool call, no network) and pins
+both the exact `Terminate` behaviour and the fact that reverting to a throwing filter blows past the
+budget by more than an order of magnitude.
 
 ## Key APIs
 

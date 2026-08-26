@@ -1,3 +1,6 @@
+using System.Net;
+using System.Text;
+using System.Text.Json;
 using CodeAct.AgentFramework.Execution;
 using Microsoft.Extensions.AI;
 
@@ -75,5 +78,67 @@ internal static class TestEnvironment
         Environment.SetEnvironmentVariable(name, value);
         try { return body(); }
         finally { Environment.SetEnvironmentVariable(name, original); }
+    }
+}
+
+/// <summary>Stands in for the OpenAI endpoint at the <see cref="HttpMessageHandler"/> seam: no
+/// port, no socket, no real network call. Answers every chat-completion request with an assistant
+/// message that calls back whichever function the request offered, repeated
+/// <paramref name="toolCallsPerTurn"/> times per response — so a Semantic Kernel auto-invocation
+/// loop driven against this handler only ever stops if something (a filter) stops it.</summary>
+internal sealed class ScriptedToolCallHttpHandler(int toolCallsPerTurn = 1) : HttpMessageHandler
+{
+    private int _requestCount;
+
+    public int RequestCount => _requestCount;
+
+    /// <summary>Every request body this handler has answered, in order — lets a test assert the
+    /// model was never fed a budget-refusal message to paraphrase.</summary>
+    public List<string> RequestBodies { get; } = [];
+
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var body = request.Content is null
+            ? ""
+            : await request.Content.ReadAsStringAsync(cancellationToken);
+        lock (RequestBodies) RequestBodies.Add(body);
+        var requestNumber = Interlocked.Increment(ref _requestCount);
+
+        using var doc = JsonDocument.Parse(body);
+        var toolName = doc.RootElement.GetProperty("tools")[0].GetProperty("function")
+            .GetProperty("name").GetString();
+
+        // Built via object graph + JsonSerializer, not a hand-assembled string: OpenAI's
+        // chat-completion response has enough nested braces that a raw string literal fights
+        // its own interpolation syntax.
+        var toolCalls = Enumerable.Range(0, toolCallsPerTurn).Select(i => new
+        {
+            id = $"call_{requestNumber}_{i}",
+            type = "function",
+            function = new { name = toolName, arguments = "{}" }
+        });
+        var responseBody = new
+        {
+            id = $"chatcmpl-{requestNumber}",
+            @object = "chat.completion",
+            created = 0,
+            model = "stub-model",
+            choices = new[]
+            {
+                new
+                {
+                    index = 0,
+                    message = new { role = "assistant", content = (string?)null, tool_calls = toolCalls },
+                    finish_reason = "tool_calls"
+                }
+            },
+            usage = new { prompt_tokens = 1, completion_tokens = 1, total_tokens = 2 }
+        };
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(responseBody), Encoding.UTF8, "application/json")
+        };
     }
 }
