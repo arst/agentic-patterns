@@ -363,6 +363,7 @@ public class GuardRailsTests
             ModelId = "gpt-test",
             ResponseId = "resp-1",
             ConversationId = "conv-1",
+            ContinuationToken = ResponseContinuationToken.FromBytes(new byte[] { 1, 2, 3 }),
             CreatedAt = createdAt,
             AdditionalProperties = new AdditionalPropertiesDictionary { ["k"] = "v" }
         };
@@ -374,6 +375,8 @@ public class GuardRailsTests
         // A stateful IChatClient uses ConversationId as its handle to continue the same
         // server-side thread; dropping it here would silently break that continuity.
         Assert.Equal("conv-1", redacted.ConversationId);
+        // Same argument for the background-response handle.
+        Assert.Same(original.ContinuationToken, redacted.ContinuationToken);
         Assert.Equal(createdAt, redacted.CreatedAt);
         Assert.Equal("v", redacted.AdditionalProperties?["k"]);
     }

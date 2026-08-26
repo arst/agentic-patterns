@@ -4,8 +4,8 @@ using Microsoft.Extensions.AI;
 /// Redacts PII and truncates overlong output while keeping the rest of the response intact:
 /// function calls, function results, and every other non-text <see cref="AIContent"/> kind pass
 /// through untouched, and response-level metadata (finish reason, usage, model id, response id,
-/// created-at, additional properties) is copied onto the rewritten response. Lives in the global
-/// namespace, matching <see cref="SafetyChecks"/> in this project — a type named
+/// conversation id, continuation token, created-at, additional properties) is copied onto the
+/// rewritten response. Lives in the global namespace, matching <see cref="SafetyChecks"/> in this project — a type named
 /// <c>GuardRails</c> inside a <c>GuardRails.*</c> namespace would make <c>GuardRails.Redact(...)</c>
 /// ambiguous at the call site.
 /// </summary>
@@ -110,6 +110,9 @@ public static class GuardRails
             ModelId = response.ModelId,
             ResponseId = response.ResponseId,
             ConversationId = response.ConversationId,
+            // The handle a background response is polled with. Dropping it on a redacted
+            // turn would strand the caller exactly as dropping ConversationId would.
+            ContinuationToken = response.ContinuationToken,
             CreatedAt = response.CreatedAt,
             AdditionalProperties = response.AdditionalProperties
         };
