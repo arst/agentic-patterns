@@ -54,9 +54,27 @@ flowchart LR
     A --> R[Final answer with ratio]
 ```
 
-There is one honest wart worth knowing: SK 1.79 exposes no max-auto-invoke setting on
-`FunctionChoiceBehavior`, so the loop is capped by a sentence in the system prompt — *"Use at
-most 10 tool calls before giving your final answer."* A prompt is a request, not a guardrail.
+SK 1.79 exposes no max-auto-invoke setting on `FunctionChoiceBehavior`, so the system prompt still
+carries *"Use at most 10 tool calls before giving your final answer."* — but that sentence is only
+a hint the model can ignore. The actual control is `ToolCallBudgetFilter`, an
+`IAutoFunctionInvocationFilter` registered on the local kernel as a single instance created for
+this run — the counter lives on the instance, so the budget is per run, not per process. It counts
+every auto-invoked call; the 10th runs, and the 11th never reaches the tool because the filter sets
+`context.Terminate = true`, which ends SK's auto-invocation loop.
+
+Throwing from a filter does *not* end it. SK 1.79 wraps every auto-invoked call in a catch-all that
+converts any exception into a tool-result error message and keeps looping, so a throwing filter
+blocks the tool body, hands the model its own budget refusal as tool output to paraphrase, and lets
+the loop run on to SK's internal auto-invoke ceiling instead of stopping at 10. `Terminate` is the
+stop SK honours, and it is the same mechanism **Goal Settings and Monitoring**'s
+`GoalMonitoringFilter` uses for its own max-iteration bound. Because SK returns normally after
+terminating (with empty content), the filter exposes the stop as a `BudgetExhausted` flag rather
+than an exception; `Program.cs` reads it and prints a `PARTIAL` result — the same shape
+**Bounded Execution** uses for its own hard stops.
+`AgenticPatterns.Tests.ToolCallBudgetFilterRealLoopTests` drives this against a real SK
+auto-invocation loop (a stubbed HTTP handler that always returns a tool call, no network) and pins
+both the exact `Terminate` behaviour and the fact that reverting to a throwing filter blows past the
+budget by more than an order of magnitude.
 
 ## Key APIs
 
@@ -66,11 +84,18 @@ most 10 tool calls before giving your final answer."* A prompt is a request, not
 - `new OpenAIPromptExecutionSettings { FunctionChoiceBehavior = FunctionChoiceBehavior.Auto() }`.
 - `chatService.GetChatMessageContentAsync(history, settings, kernel)` — the kernel argument is what
   makes auto-invocation possible.
+- `ToolCallBudgetFilter : IAutoFunctionInvocationFilter` — the host-enforced call cap, stopping
+  the loop with `context.Terminate = true`; see **Bounded Execution** for the fuller pattern of
+  hard, host-enforced run limits.
 
 ## What to watch in the output
 
 The demo prints a single block prefixed `ReAct Agent:`. The tool calls themselves are not logged,
 so the tell is in the content: the answer should quote the exact simulated figures — 40.1 million
 and 26.5 million — and a ratio near 1.5, none of which the model could produce without calling
-the plugin. **Tool Use** is the single-call foundation this loops over; **Middleware** shows how
-to log every invocation so the reasoning-acting alternation becomes visible.
+the plugin. If the model instead wanders past the tool-call budget, the answer block is
+replaced by `Result status: PARTIAL`, a `Stop reason:` line naming the exhausted budget, and an
+explicit incomplete label — proof the bound stopped the loop rather than the model choosing to
+stop. **Tool Use** is the single-call
+foundation this loops over; **Middleware** shows how to log every invocation so the
+reasoning-acting alternation becomes visible.

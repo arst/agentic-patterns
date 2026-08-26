@@ -206,6 +206,159 @@ public class ToolAuthorizationTests
         Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "GetOrder", args).Outcome);
         Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "GetOrder", args).Outcome);
     }
+
+    [Fact]
+    public void AVerifiedPreEffectFailureReleasesTheOneTimeCapability()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: 50m, oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 25m };
+
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+        policy.Release(capability.Nonce); // the tool threw before doing anything, and the caller verified that
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+    }
+
+    [Fact]
+    public void ACommittedOneTimeCapabilityCannotBeReused()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: 50m, oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 25m };
+
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+        policy.Commit(capability.Nonce);
+        policy.Release(capability.Nonce); // a late release must not resurrect a committed capability
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund", args).Outcome);
+    }
+
+    [Fact]
+    public void ARefundWithoutAConfiguredMaximumStillRequiresAPositiveAmount()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: null);
+
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = -5m }).Outcome);
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100" }).Outcome);
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = "not-money" }).Outcome);
+    }
+
+    [Fact]
+    public void ApprovalIsAPendingRequestNotToolOutput()
+    {
+        var decision = new ToolAuthorizationPolicy(Owners).Authorize(Principal, Grant("IssueRefund", 50m),
+            "IssueRefund", new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 10_000m });
+
+        Assert.NotNull(decision.PendingApproval);
+        Assert.Equal("IssueRefund", decision.PendingApproval!.ToolName);
+        Assert.Equal(10_000m, decision.PendingApproval.Arguments["amount"]);
+    }
+
+    [Fact]
+    public void PendingApprovalArgumentsAreSnapshottedNotAliased()
+    {
+        var arguments = new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 10_000m };
+        var decision = new ToolAuthorizationPolicy(Owners).Authorize(Principal, Grant("IssueRefund", 50m),
+            "IssueRefund", arguments);
+        arguments["amount"] = 1m;
+
+        Assert.Equal(10_000m, decision.PendingApproval!.Arguments["amount"]);
+    }
+
+    [Fact]
+    public void ConcurrentAuthorizeReservesAOneTimeNonceExactlyOnce()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+
+        // One trial is not a gate: a read-then-write reserve wins the race the overwhelming
+        // majority of the time, and is *most* likely to win on a loaded machine, which is exactly
+        // how xUnit runs this. Repeat with a fresh nonce per trial so one lost race fails the test.
+        for (var trial = 0; trial < 5000; trial++)
+        {
+            var capability = Grant("GetOrder", oneTime: true);
+            var allowed = 0;
+
+            Parallel.For(0, 4, _ =>
+            {
+                if (policy.Authorize(Principal, capability, "GetOrder",
+                        new AIFunctionArguments { ["orderId"] = "ORD-100" }).Outcome == AuthorizationOutcome.Allowed)
+                    Interlocked.Increment(ref allowed);
+            });
+
+            Assert.Equal(1, allowed);
+        }
+    }
+
+    [Fact]
+    public void ARefusedInvocationDoesNotBurnTheOneTimeCapability()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("IssueRefund", maximum: 50m, oneTime: true);
+
+        Assert.Equal(AuthorizationOutcome.Denied, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-OTHER-TENANT", ["amount"] = 25m }).Outcome);
+        Assert.Equal(AuthorizationOutcome.ApprovalRequired, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 500m }).Outcome);
+
+        // The reserve happens after every check, so neither refusal cost the caller the capability:
+        // the approved retry uses the very same grant.
+        Assert.Equal(AuthorizationOutcome.Allowed, policy.Authorize(Principal, capability, "IssueRefund",
+            new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 25m }).Outcome);
+    }
+
+    [Fact]
+    public async Task TheWrapperCommitsTheReservationOnlyAfterTheToolReturns()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("GetOrder", oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100" };
+        var tool = new AuthorizedAIFunction(
+            AIFunctionFactory.Create((string orderId) => $"{orderId}: ok", "GetOrder"), Principal, capability, policy);
+
+        Assert.Equal("ORD-100: ok", (await tool.InvokeAsync(args))?.ToString());
+        policy.Release(capability.Nonce); // committed already, so this cannot hand the capability back
+        await Assert.ThrowsAsync<ToolAuthorizationException>(() => tool.InvokeAsync(args).AsTask());
+    }
+
+    [Fact]
+    public async Task AnUnverifiedToolFailureDoesNotReleaseTheReservation()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var capability = Grant("GetOrder", oneTime: true);
+        var args = new AIFunctionArguments { ["orderId"] = "ORD-100" };
+        var tool = new AuthorizedAIFunction(
+            AIFunctionFactory.Create((Func<string, string>)Boom, "GetOrder"), Principal, capability, policy);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => tool.InvokeAsync(args).AsTask());
+        // Failing closed: from inside the wrapper the failure is unverified, so the reservation stands.
+        await Assert.ThrowsAsync<ToolAuthorizationException>(() => tool.InvokeAsync(args).AsTask());
+
+        // ...and it is still merely Reserved, never Consumed. This is what pins Commit to its
+        // position *after* the inner call: committing first would deny identically here while
+        // leaving a capability that threw pre-effect permanently unreleasable.
+        policy.Release(capability.Nonce);
+        Assert.Equal(AuthorizationOutcome.Allowed,
+            policy.Authorize(Principal, capability, "GetOrder", args).Outcome);
+        static string Boom(string orderId) => throw new InvalidOperationException("simulated tool failure");
+    }
+
+    [Fact]
+    public async Task TheWrapperNeverHandsAnApprovalRequestBackAsToolOutput()
+    {
+        var policy = new ToolAuthorizationPolicy(Owners);
+        var tool = new AuthorizedAIFunction(
+            AIFunctionFactory.Create((string orderId, decimal amount) => "refunded", "IssueRefund"),
+            Principal, Grant("IssueRefund", 50m), policy);
+
+        var failure = await Assert.ThrowsAsync<ToolAuthorizationException>(() =>
+            tool.InvokeAsync(new AIFunctionArguments { ["orderId"] = "ORD-100", ["amount"] = 500m }).AsTask());
+
+        Assert.Equal(AuthorizationOutcome.ApprovalRequired, failure.Decision.Outcome);
+        Assert.NotNull(failure.Decision.PendingApproval);
+    }
 }
 
 public class IdempotentToolCallTests
@@ -319,8 +472,43 @@ public class OrchestratorWorkerTests
         var synthesis = WorkerRegistry.BuildSynthesisInput(results);
         Assert.Contains("one", synthesis);
         Assert.Contains("three", synthesis);
-        Assert.DoesNotContain("simulated failure", synthesis);
+        Assert.Contains("simulated failure", synthesis);
+        Assert.Contains("bad", synthesis);
     }
+
+    [Fact]
+    public void SynthesisInputNamesTheFailures()
+    {
+        var input = WorkerRegistry.BuildSynthesisInput([
+            new WorkerResult("t1", "research", "found A", null),
+            new WorkerResult("t2", "research", null, "timed out")]);
+        Assert.Contains("t2", input);
+        Assert.Contains("FAILED", input);
+        Assert.Contains("timed out", input);
+    }
+
+    [Fact]
+    public void EveryWorkerFailingAbstainsInsteadOfSynthesising() =>
+        Assert.Equal(RunCompleteness.Abstained,
+            WorkerRegistry.Assess([new WorkerResult("t1", "r", null, "boom")], requiredQuorum: 1));
+
+    [Fact]
+    public void PartialSuccessIsLabelledPartial() =>
+        Assert.Equal(RunCompleteness.Partial, WorkerRegistry.Assess(
+            [new WorkerResult("t1", "r", "ok", null), new WorkerResult("t2", "r", null, "boom")],
+            requiredQuorum: 1));
+
+    [Fact]
+    public void AllSucceedingAndMeetingQuorumIsComplete() =>
+        Assert.Equal(RunCompleteness.Complete, WorkerRegistry.Assess(
+            [new WorkerResult("t1", "r", "ok", null), new WorkerResult("t2", "r", "ok", null)],
+            requiredQuorum: 2));
+
+    [Fact]
+    public void AllSucceedingButBelowQuorumIsPartial() =>
+        Assert.Equal(RunCompleteness.Partial, WorkerRegistry.Assess(
+            [new WorkerResult("t1", "r", "ok", null), new WorkerResult("t2", "r", "ok", null)],
+            requiredQuorum: 3));
 }
 
 public class GuardRailsTests

@@ -1,7 +1,7 @@
 ---
 {
   "title": "Exception Handling, Recovery, and Circuit Breaker",
-  "summary": "Retry transient faults, fail fast through an open dependency circuit, then degrade safely.",
+  "summary": "Retry transient faults on idempotent turns, fail fast through an open dependency circuit, then degrade safely — caller cancellation is never retried.",
   "category": "Production controls",
   "projects": [
     { "flavor": "AgentFramework", "path": "ExceptionHandlingAndRecovery.AgentFramework" },
@@ -21,6 +21,13 @@ Four ideas travel together here — detect the error, retry it, stop hammering a
 dependency, and degrade gracefully. A circuit breaker is distinct from **Bounded Execution**:
 the breaker shares dependency health across calls through closed, open, and half-open states;
 a run budget limits one agent execution.
+
+Both flavors retry the *whole turn*, which replays every tool call the turn made. That is only
+safe when the turn's tools are read-only or idempotent, as `GetPreciseLocation` is here. A turn
+that issues a refund must not be retried this way — retry at the tool boundary instead, with an
+idempotency key, as **IdempotentToolCalls** does. And in both flavors, caller cancellation
+(`OperationCanceledException`) is always rethrown, never retried or turned into a fallback —
+the caller asked to stop, and retrying is not recovery.
 
 ## When to use it
 

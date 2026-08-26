@@ -13,6 +13,11 @@ public class RetryAndFallbackFilter : IFunctionInvocationFilter
         _logger = logger;
     }
 
+    /// <summary>
+    /// Whole-turn retry replays every tool call the turn made. Only use it for turns whose tools are
+    /// read-only or idempotent; a turn that issues a refund must retry at the tool boundary with an
+    /// idempotency key instead (see IdempotentToolCalls).
+    /// </summary>
     public async Task OnFunctionInvocationAsync(
         FunctionInvocationContext context, Func<FunctionInvocationContext, Task> next)
     {
@@ -37,6 +42,12 @@ public class RetryAndFallbackFilter : IFunctionInvocationFilter
                 // If we get here, the call succeeded
                 _logger.LogInformation("[Recovery] {Function} succeeded on attempt {Attempt}", functionName, attempt);
                 return;
+            }
+            catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+            {
+                // the caller asked to stop; retrying (and then falling back to a different
+                // function) is not recovery
+                throw;
             }
             catch (Exception ex)
             {

@@ -1,7 +1,7 @@
 [
-  { "id": "warranty-length", "question": "How long is the TechCorp laptop warranty?", "expectedAnswer": "two-year limited warranty", "tier": "exact" },
-  { "id": "return-window", "question": "How many days do I have to return a defective product?", "expectedAnswer": "30 days", "tier": "exact" },
-  { "id": "warranty-phrasing", "question": "What warranty comes with TechCorp laptops?", "expectedAnswer": "TechCorp laptops include a two-year limited warranty.", "tier": "nlp" },
-  { "id": "returns-phrasing", "question": "How do I return a defective item?", "expectedAnswer": "Return defective products within 30 days with your order number.", "tier": "nlp" },
-  { "id": "warranty-semantic", "question": "Tell me about laptop warranty coverage.", "expectedAnswer": "TechCorp laptops have a two-year limited warranty.", "tier": "judge" }
+  { "id": "warranty-length", "question": "How long is the TechCorp laptop warranty?", "expectedAnswer": "two-year limited warranty", "tier": "contains", "reviewedBy": "maintainer" },
+  { "id": "return-window", "question": "How many days do I have to return a defective product?", "expectedAnswer": "30 days", "tier": "contains", "reviewedBy": "maintainer" },
+  { "id": "warranty-phrasing", "question": "What warranty comes with TechCorp laptops?", "expectedAnswer": "TechCorp laptops include a two-year limited warranty.", "tier": "nlp", "reviewedBy": "maintainer" },
+  { "id": "returns-phrasing", "question": "How do I return a defective item?", "expectedAnswer": "Return defective products within 30 days with your order number.", "tier": "nlp", "reviewedBy": "maintainer" },
+  { "id": "warranty-semantic", "question": "Tell me about laptop warranty coverage.", "expectedAnswer": "TechCorp laptops have a two-year limited warranty.", "tier": "judge", "reviewedBy": "maintainer" }
 ]

@@ -29,11 +29,23 @@ var results = await registry.ExecuteAsync(plan, maximumConcurrency: 2);
 foreach (var result in results)
     Console.WriteLine($"\n[{result.TaskId}/{result.Worker}] {(result.Succeeded ? result.Output : "FAILED: " + result.Error)}");
 
+// ponytail: this demo demands every planned task, so the quorum term can never be the
+// deciding one here; pass a real minimum-viable subset when a caller can act on less.
+var completeness = WorkerRegistry.Assess(results, requiredQuorum: plan.Tasks.Count);
+if (completeness == RunCompleteness.Abstained)
+{
+    Console.WriteLine("\n=== Synthesis (ABSTAINED) ===\nEvery worker failed, so there is no evidence to synthesize.");
+    return;
+}
+
+var instruction = completeness == RunCompleteness.Partial
+    ? "Some tasks failed. State clearly which conclusions are unsupported; do not fill the gaps. " +
+      "Synthesize the worker reports into a concise recommendation."
+    : "Synthesize the worker reports into a concise recommendation.";
 var evidence = WorkerRegistry.BuildSynthesisInput(results);
-var synthesizer = new ChatClientAgent(client,
-    "Synthesize the successful worker reports into a concise recommendation.",
-    "Synthesizer");
-Console.WriteLine($"\n=== Synthesis ===\n{await synthesizer.RunAsync($"Request: {request}\n\nWorker reports:\n{evidence}")}");
+var synthesizer = new ChatClientAgent(client, instruction, "Synthesizer");
+var label = completeness == RunCompleteness.Partial ? "PARTIAL" : "COMPLETE";
+Console.WriteLine($"\n=== Synthesis ({label}) ===\n{await synthesizer.RunAsync($"Request: {request}\n\nWorker reports:\n{evidence}")}");
 return;
 
 Func<WorkerTask, CancellationToken, Task<string>> Run(string roleInstruction) => async (task, cancellationToken) =>

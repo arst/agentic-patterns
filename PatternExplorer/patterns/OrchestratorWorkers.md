@@ -1,7 +1,7 @@
 ---
 {
   "title": "Orchestrator-Workers",
-  "summary": "Let an orchestrator choose request-specific tasks, validate them, run fixed workers with bounded concurrency, and synthesize the results.",
+  "summary": "Let an orchestrator choose request-specific tasks, validate them, run fixed workers with bounded concurrency, and synthesize the results while naming any that failed.",
   "category": "Orchestration",
   "projects": [ { "flavor": "AgentFramework", "path": "OrchestratorWorkers.AgentFramework" } ]
 }
@@ -11,7 +11,9 @@
 
 Orchestrator-Workers uses a central model to decide which independent subtasks a particular
 request needs. The host validates that typed plan, dispatches each task to a fixed worker registry,
-and asks a synthesizer to combine successful results.
+and asks a synthesizer to combine the results — successes and failures alike. A failed task is
+carried in with its error and an explicit instruction not to invent an output, so the gap is at
+least visible to the synthesizer; the host abstains outright when every worker fails.
 
 This is dynamic fan-out, but not an open-ended team protocol:
 
@@ -43,14 +45,23 @@ flowchart LR
     R -->|bounded concurrency| W1[Market]
     R --> W2[Competition]
     R --> W3[Regulation]
-    W1 --> S[Synthesizer]
-    W2 --> S
-    W3 --> S
+    W1 --> A{WorkerRegistry.Assess}
+    W2 --> A
+    W3 --> A
+    A -->|complete| S[Synthesizer]
+    A -->|partial: some tasks FAILED| S
+    A -->|all failed| X[Abstain: no synthesis]
+    S -->|partial| P[Answer flagged incomplete]
+    S -->|complete| Ans[Answer]
     V -->|invalid| D[Reject before execution]
 ```
 
 `WorkerRegistry` uses `SemaphoreSlim` to cap concurrency and captures per-task failures without
-discarding successful reports. Only successful outputs enter the synthesis evidence.
+discarding successful reports. Every result enters the synthesis evidence, failed tasks included,
+each tagged `STATUS: FAILED` with its error so the synthesizer cannot silently paper over a gap.
+`WorkerRegistry.Assess` labels the run `Complete`, `Partial`, or `Abstained`; an all-failed run
+skips synthesis entirely, and a partial run tells the synthesizer to call out unsupported
+conclusions instead of inferring them.
 
 ## Key APIs
 
@@ -58,9 +69,12 @@ discarding successful reports. Only successful outputs enter the synthesis evide
 - `PlanValidator.Validate(...)` — trusted-host validation before dispatch.
 - `WorkerRegistry` — fixed role-to-executor mapping; the model cannot create arbitrary workers.
 - `Task.WhenAll(...)` + `SemaphoreSlim` — concurrent execution with a hard concurrency ceiling.
+- `WorkerRegistry.Assess(...)` — labels a run `Complete`, `Partial`, or `Abstained` from its results.
 
 ## What to watch in the output
 
 First inspect the serialized validated plan: its tasks should reflect the request rather than a
-hard-coded fan-out. Worker outputs follow, then one synthesis. A worker failure becomes a failed
-`WorkerResult`; it does not erase independent successful evidence.
+hard-coded fan-out. Worker outputs follow, then one synthesis, labelled `COMPLETE` or `PARTIAL` —
+or, if every worker failed, an abstention with no synthesis at all. A worker failure becomes a
+failed `WorkerResult`; it does not erase independent successful evidence, and it is not hidden
+from the synthesizer either.

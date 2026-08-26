@@ -44,6 +44,18 @@ public sealed class WorkerRegistry
     }
 
     public static string BuildSynthesisInput(IEnumerable<WorkerResult> results) =>
-        string.Join("\n\n", results.Where(r => r.Succeeded)
-            .Select(r => $"## {r.TaskId} ({r.Worker})\n{r.Output}"));
+        string.Join("\n\n", results.Select(r => r.Succeeded
+            ? $"## {r.TaskId} ({r.Worker})\nSTATUS: OK\n{r.Output}"
+            : $"## {r.TaskId} ({r.Worker})\nSTATUS: FAILED\nERROR: {r.Error}\nNO OUTPUT - do not infer one."));
+
+    public static RunCompleteness Assess(IReadOnlyList<WorkerResult> results, int requiredQuorum)
+    {
+        var succeeded = results.Count(r => r.Succeeded);
+        if (succeeded == 0) return RunCompleteness.Abstained;
+        return succeeded == results.Count && succeeded >= requiredQuorum
+            ? RunCompleteness.Complete
+            : RunCompleteness.Partial;
+    }
 }
+
+public enum RunCompleteness { Complete, Partial, Abstained }

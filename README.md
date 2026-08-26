@@ -151,16 +151,16 @@ the catalog together; each result states its scope limits and cites a primary so
 | HumanInTheLoop | Tool-call approval gates |
 | IdempotentToolCalls | Retry-safe side effects: the dedup record lives with the side effect, not the caller |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
-| ResourceAwareOptimization | Model routing under a cost budget |
-| ToolAuthorization | Capability-scoped, argument-level authorization before tool execution |
+| ResourceAwareOptimization | Model routing under a soft, post-call cost budget |
+| ToolAuthorization | Capability-scoped, argument-level authorization before tool execution; one-time grants are reserved, then committed after the effect |
 
 ### Evaluation
 
 | Pattern | What it demonstrates |
 |---|---|
-| LLMAsJudge | Judge-model rubric scoring plus a position-bias probe |
+| LLMAsJudge | Judge-model rubric scoring plus a position-bias probe that compares verdicts across balanced candidate orderings |
 | RedTeaming | Deterministic leak checks first, judge second, against the real GuardRails filter |
-| RegressionEvals | Golden-dataset suite with tiered assertions, cached as a CI gate |
+| RegressionEvals | Golden-dataset suite of reviewed cases with tiered assertions, cached as a CI gate |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 
 ## Setup

@@ -26,6 +26,7 @@
              (and Program.cs's top-level-statement type) are internal and invisible across the
              assembly boundary, so referencing it too would add nothing to test. -->
         <ProjectReference Include="..\IdempotentToolCalls.AgentFramework\IdempotentToolCalls.AgentFramework.csproj"/>
+        <ProjectReference Include="..\LLMAsJudge.AgentFramework\LLMAsJudge.AgentFramework.csproj"/>
         <ProjectReference Include="..\MCP.AgentFramework\MCP.AgentFramework.csproj"/>
         <!-- NOT MCP.SemanticKernel: excluded conservatively, not because it conflicts - McpToolBinding
              is mirrored into MCP.SemanticKernel's own namespace, so there is no name collision, and
@@ -36,7 +37,9 @@
         <ProjectReference Include="..\PatternExplorer\PatternExplorer.csproj"/>
         <ProjectReference Include="..\Planning.AgentFramework\Planning.AgentFramework.csproj"/>
         <!-- NOT Planning.SemanticKernel: it defines the same global-namespace types as the AF flavor -->
+        <ProjectReference Include="..\ReasoningAndActing\ReasoningAndActing.csproj"/>
         <ProjectReference Include="..\RedTeaming.AgentFramework\RedTeaming.AgentFramework.csproj"/>
+        <ProjectReference Include="..\RegressionEvals.AgentFramework\RegressionEvals.AgentFramework.csproj"/>
         <ProjectReference Include="..\ResourceAwareOptimization.AgentFramework\ResourceAwareOptimization.AgentFramework.csproj"/>
         <ProjectReference Include="..\SelfCorrectionLoop\SelfCorrectionLoop.csproj"/>
         <ProjectReference Include="..\SelfCorrectionLoop.AgentFramework\SelfCorrectionLoop.AgentFramework.csproj"/>
