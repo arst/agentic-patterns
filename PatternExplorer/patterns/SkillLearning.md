@@ -74,8 +74,17 @@ flowchart LR
   model call with the trajectory in the prompt.
 - `AIFunctionFactory.Create(...)` for `read_skill`, plus instance-method tools bound
   from the fake provisioning system.
-- `SkillLifecycle` persists a versioned manifest and enforces legal promotion transitions.
-- `ProvisionEmployeeSkillTests.Pass(...)` verifies the learned formats before review.
+- `SkillLifecycle` persists a versioned manifest and enforces legal promotion transitions. Every
+  read and transition re-hashes the on-disk `SKILL.md` against the SHA-256 recorded at candidate
+  creation and refuses to load it on mismatch, so an approved file edited in place is **detected**,
+  not prevented — whoever can write `SKILL.md` can also write `manifest.json` and update the digest
+  to match. Closing that gap means signing the approved manifest or keeping the manifest store
+  outside the agent's write scope.
+- `ProvisionEmployeeSkillTests.Pass(...)` verifies the learned formats before review. It is a
+  substring-order check on the markdown — it confirms the four facts appear in the right order,
+  not that the skill actually works. A real behavioural test would run the procedure against the
+  fake provisioning system (or a sandboxed copy) and assert the resulting account has the right
+  username, license, and team, the way an integration test would.
 
 ## What to watch in the output
 

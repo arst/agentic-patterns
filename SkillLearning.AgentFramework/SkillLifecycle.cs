@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace SkillLearning.AgentFramework;
@@ -9,6 +10,7 @@ public sealed record SkillManifest(
     int Version,
     SkillStage Stage,
     DateTimeOffset CreatedAt,
+    string ContentSha256,
     string? ApprovedBy = null);
 
 public sealed class SkillLifecycle(string skillsDirectory)
@@ -22,9 +24,10 @@ public sealed class SkillLifecycle(string skillsDirectory)
         if (existing is not null && existing.Stage != SkillStage.Retired)
             throw new InvalidOperationException("The current skill version must be retired before creating another.");
         var manifest = new SkillManifest(name, (existing?.Version ?? 0) + 1, SkillStage.Candidate,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow, ContentSha256: "");
         Directory.CreateDirectory(VersionDirectory(manifest));
         File.WriteAllText(SkillPath(manifest), markdown);
+        manifest = manifest with { ContentSha256 = Digest(SkillPath(manifest)) };
         Save(manifest);
         return manifest;
     }
@@ -32,7 +35,7 @@ public sealed class SkillLifecycle(string skillsDirectory)
     public SkillManifest Validate(string name)
     {
         var manifest = Require(name, SkillStage.Candidate);
-        var markdown = File.ReadAllText(SkillPath(manifest));
+        var markdown = ReadVerified(manifest);
         var lines = markdown.Replace("\r\n", "\n").Split('\n');
         var closingFence = Array.IndexOf(lines, "---", 1);
         var frontmatter = closingFence > 0 ? lines[1..closingFence] : [];
@@ -47,7 +50,7 @@ public sealed class SkillLifecycle(string skillsDirectory)
     public SkillManifest MarkTested(string name, Func<string, bool> test)
     {
         var manifest = Require(name, SkillStage.Validated);
-        if (!test(File.ReadAllText(SkillPath(manifest))))
+        if (!test(ReadVerified(manifest)))
             throw new InvalidDataException("Skill contract tests failed; candidate was not promoted.");
         return Transition(manifest, SkillStage.Tested);
     }
@@ -66,12 +69,15 @@ public sealed class SkillLifecycle(string skillsDirectory)
     public string? ReadActive(string name)
     {
         var manifest = Load(SafeName(name));
-        return manifest?.Stage == SkillStage.Active ? File.ReadAllText(SkillPath(manifest)) : null;
+        return manifest?.Stage == SkillStage.Active ? ReadVerified(manifest) : null;
     }
 
     public SkillManifest? Load(string name)
     {
         var path = ManifestPath(SafeName(name));
+        // ponytail: a manifest.json written before ContentSha256 existed deserializes with a null
+        // digest and then fails ReadVerified with the tamper message, not a migration message. No
+        // migration path for a sample; add one if this ever needs to read pre-existing manifests.
         return File.Exists(path) ? JsonSerializer.Deserialize<SkillManifest>(File.ReadAllText(path), Json) : null;
     }
 
@@ -94,6 +100,20 @@ public sealed class SkillLifecycle(string skillsDirectory)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(ManifestPath(manifest.Name))!);
         File.WriteAllText(ManifestPath(manifest.Name), JsonSerializer.Serialize(manifest, Json));
+    }
+
+    private static string Digest(string path) =>
+        Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
+
+    // Every transition and every read re-verifies. A version directory is immutable once the
+    // candidate is created; the only legal way to change a skill is a new version.
+    private string ReadVerified(SkillManifest manifest)
+    {
+        var path = SkillPath(manifest);
+        if (Digest(path) != manifest.ContentSha256)
+            throw new InvalidDataException(
+                $"Skill '{manifest.Name}' v{manifest.Version} was modified after approval; refusing to load it.");
+        return File.ReadAllText(path);
     }
 
     private string VersionDirectory(SkillManifest manifest) =>
