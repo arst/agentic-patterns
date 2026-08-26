@@ -20,7 +20,7 @@ public class ToolCallBudgetFilterTests
 
         Assert.Equal(ToolCallBudgetFilter.MaxToolCalls, calls);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<ToolCallBudgetExceededException>(() =>
             filter.GuardAsync(() =>
             {
                 calls++;
@@ -40,7 +40,7 @@ public class ToolCallBudgetFilterTests
 
         var innerInvoked = false;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<ToolCallBudgetExceededException>(() =>
             filter.GuardAsync(() =>
             {
                 innerInvoked = true;
@@ -57,7 +57,7 @@ public class ToolCallBudgetFilterTests
         for (var i = 0; i < ToolCallBudgetFilter.MaxToolCalls; i++)
             await filter.GuardAsync(() => Task.CompletedTask);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var ex = await Assert.ThrowsAsync<ToolCallBudgetExceededException>(() =>
             filter.GuardAsync(() => Task.CompletedTask));
 
         Assert.Contains(ToolCallBudgetFilter.MaxToolCalls.ToString(), ex.Message);

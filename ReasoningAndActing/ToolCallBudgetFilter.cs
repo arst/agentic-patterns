@@ -3,11 +3,13 @@
 namespace ReasoningAndActing;
 
 /// <summary>
-/// Hard bound on tool calls: the prompt asks the model to stop at 10, this enforces it. The
-/// counting/throwing logic lives in <see cref="GuardAsync"/>, a context-free core that a test can
-/// drive directly — <see cref="FunctionInvocationContext"/>'s constructor is internal to Semantic
-/// Kernel, so a test cannot build one to call <see cref="OnFunctionInvocationAsync"/> itself.
+/// Hard bound on tool calls: the prompt asks the model to stop at 10, this enforces it.
 /// </summary>
+// ponytail: GuardAsync(Func<Task>) is a context-free stand-in for OnFunctionInvocationAsync so
+// the counting/throwing logic is unit-testable. Upgrade path: SemanticKernel's
+// FunctionInvocationContext constructor is internal, so a test can't build a real one - if a
+// future SK version makes it public, this seam can be dropped and the test can drive
+// OnFunctionInvocationAsync directly.
 public class ToolCallBudgetFilter : IFunctionInvocationFilter
 {
     public const int MaxToolCalls = 10;
@@ -22,7 +24,7 @@ public class ToolCallBudgetFilter : IFunctionInvocationFilter
     public async Task GuardAsync(Func<Task> next)
     {
         if (Interlocked.Increment(ref _toolCalls) > MaxToolCalls)
-            throw new InvalidOperationException($"Tool-call budget of {MaxToolCalls} exhausted.");
+            throw new ToolCallBudgetExceededException(MaxToolCalls);
 
         await next();
     }

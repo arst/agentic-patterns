@@ -35,8 +35,8 @@
         <ProjectReference Include="..\OrchestratorWorkers.AgentFramework\OrchestratorWorkers.AgentFramework.csproj"/>
         <ProjectReference Include="..\PatternExplorer\PatternExplorer.csproj"/>
         <ProjectReference Include="..\Planning.AgentFramework\Planning.AgentFramework.csproj"/>
-        <ProjectReference Include="..\ReasoningAndActing\ReasoningAndActing.csproj"/>
         <!-- NOT Planning.SemanticKernel: it defines the same global-namespace types as the AF flavor -->
+        <ProjectReference Include="..\ReasoningAndActing\ReasoningAndActing.csproj"/>
         <ProjectReference Include="..\RedTeaming.AgentFramework\RedTeaming.AgentFramework.csproj"/>
         <ProjectReference Include="..\ResourceAwareOptimization.AgentFramework\ResourceAwareOptimization.AgentFramework.csproj"/>
         <ProjectReference Include="..\SelfCorrectionLoop\SelfCorrectionLoop.csproj"/>

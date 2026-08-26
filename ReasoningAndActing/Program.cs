@@ -50,7 +50,7 @@ try
         reactHistory, reactSettings, reactKernel);
     Console.WriteLine($"ReAct Agent:\n{reactResponse.Content}\n");
 }
-catch (InvalidOperationException ex) when (ex.Message.Contains("Tool-call budget"))
+catch (ToolCallBudgetExceededException ex)
 {
     // Same shape as BoundedExecution: a PARTIAL result, the stop reason, and an explicit
     // incomplete label rather than silently truncated output.
