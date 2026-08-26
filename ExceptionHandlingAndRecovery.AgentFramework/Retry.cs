@@ -17,6 +17,18 @@ internal static class Retry
     /// Runs attempt() up to maxRetries times. Returns (null, lastError) when every attempt threw
     /// OR the final attempt still reported a tool error — a persistent tool failure is never a success.
     /// </summary>
+    /// <remarks>
+    /// Whole-turn retry replays every tool call the turn made. Only use it for turns whose tools are
+    /// read-only or idempotent; a turn that issues a refund must retry at the tool boundary with an
+    /// idempotency key instead (see IdempotentToolCalls).
+    ///
+    /// <see cref="OperationCanceledException"/> is always rethrown, never retried. RunAsync takes no
+    /// <see cref="CancellationToken"/> of its own, so it has nothing to test the exception against
+    /// (the caller's token lives inside <paramref name="attempt"/>) — there is no way to tell "the
+    /// caller cancelled" apart from "the tool timed out internally" here. One consequence: a tool that
+    /// raises <see cref="OperationCanceledException"/> for its own internal timeout will no longer be
+    /// retried by this helper either.
+    /// </remarks>
     public static async Task<(AgentResponse? Response, Exception? LastError)> RunAsync(
         Func<int, Task<AgentResponse>> attempt, int maxRetries, Func<int, Task> backoff)
     {
@@ -33,6 +45,10 @@ internal static class Retry
                 Console.WriteLine("  [RunMiddleware] Agent reported a tool error.");
                 if (attemptNumber < maxRetries)
                     await backoff(attemptNumber);
+            }
+            catch (OperationCanceledException)
+            {
+                throw; // the caller asked to stop; retrying is not recovery
             }
             catch (Exception ex)
             {

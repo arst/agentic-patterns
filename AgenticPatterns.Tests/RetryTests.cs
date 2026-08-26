@@ -63,6 +63,15 @@ public class RetryTests
     }
 
     [Fact]
+    public async Task CallerCancellationIsNotTurnedIntoAFallback()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            Retry.RunAsync(_ => Task.FromCanceled<AgentResponse>(cts.Token), maxRetries: 3, NoBackoff));
+    }
+
+    [Fact]
     public void HasToolError_DetectsExceptionAndErrorString()
     {
         Assert.True(Retry.HasToolError(ResponseWithToolResult(null, new InvalidOperationException())));
