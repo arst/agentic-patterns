@@ -37,10 +37,19 @@ public class LlmAsJudgeTests
     public void ResolveIsNullForIndeterminate() =>
         Assert.Null(JudgeParsing.Resolve(Preference.Indeterminate, referenceInPositionA: true));
 
+    private static Trial InA(Preference verdict) => new(ReferenceInPositionA: true, verdict);
+    private static Trial InB(Preference verdict) => new(ReferenceInPositionA: false, verdict);
+
     [Fact]
     public void SummarizeCountsWinsAndIndeterminates()
     {
-        var report = JudgeParsing.Summarize([true, false, null, true, true]);
+        var report = JudgeParsing.Summarize([
+            InA(Preference.A),             // reference in A, judge picks A -> reference wins
+            InA(Preference.B),             // reference in A, judge picks B -> other wins
+            InA(Preference.Indeterminate),
+            InB(Preference.B),             // reference in B, judge picks B -> reference wins
+            InB(Preference.B)
+        ]);
 
         Assert.Equal(3, report.ReferenceWins);
         Assert.Equal(1, report.OtherWins);
@@ -48,21 +57,88 @@ public class LlmAsJudgeTests
     }
 
     [Fact]
-    public void SummarizeExcludesIndeterminateFromBiasRate()
+    public void JudgeThatAlwaysPicksTheSameSlot_IsFullPositionBias()
     {
-        // 4 determinate results, 1 of them a flip away from the reference: rate is 1/4, not 1/5.
-        var report = JudgeParsing.Summarize([true, true, true, false, null]);
+        var report = JudgeParsing.Summarize([
+            InA(Preference.A), InA(Preference.A), InB(Preference.A), InB(Preference.A)
+        ]);
 
-        Assert.Equal(0.25, report.PositionBiasRate);
+        // Reference wins 100% of the time it sits in A, 0% of the time it sits in B.
+        Assert.Equal(1.0, report.PositionSwing);
     }
 
     [Fact]
-    public void SummarizeBiasRateIsZeroWhenAllIndeterminate()
+    public void JudgeThatIsSimplyWrong_IsNotPositionBias()
     {
-        var report = JudgeParsing.Summarize([null, null, null]);
+        // The judge prefers the weaker candidate every single time, in both slots. That is a bad
+        // judge, not a position-dependent one - the pre-fix rate reported this as 100% bias
+        // because it folded the slot away before forming the statistic.
+        var report = JudgeParsing.Summarize([
+            InA(Preference.B), InA(Preference.B), InB(Preference.A), InB(Preference.A)
+        ]);
+
+        Assert.Equal(4, report.OtherWins);
+        Assert.Equal(0.0, report.PositionSwing);
+    }
+
+    [Fact]
+    public void ConsistentJudge_HasNoPositionSwing()
+    {
+        var report = JudgeParsing.Summarize([
+            InA(Preference.A), InA(Preference.A), InB(Preference.B), InB(Preference.B)
+        ]);
+
+        Assert.Equal(0.0, report.PositionSwing);
+    }
+
+    [Fact]
+    public void IdenticalOutcomesInDifferentSlotsProduceDifferentStatistics()
+    {
+        // The reference candidate wins every trial in both runs - identical outcomes - but one run
+        // never left slot A. The pre-fix rate folded the slot away before forming the number and
+        // so reported the same value for both, making the randomisation do no work at all.
+        var oneSlot = JudgeParsing.Summarize([InA(Preference.A), InA(Preference.A), InA(Preference.A)]);
+        var bothSlots = JudgeParsing.Summarize([InA(Preference.A), InB(Preference.B), InA(Preference.A)]);
+
+        Assert.Equal(oneSlot.ReferenceWins, bothSlots.ReferenceWins);
+        Assert.NotEqual(oneSlot.PositionSwing, bothSlots.PositionSwing);
+    }
+
+    [Fact]
+    public void SwingIsUnmeasurableWhenOnlyOneSlotWasSampled()
+    {
+        // Five coin flips land all five trials in one slot 6.25% of the time; Program.cs uses a
+        // balanced 3/2 shuffle so this cannot happen there, but the statistic still refuses to
+        // invent a position measurement from a single slot.
+        var report = JudgeParsing.Summarize([InA(Preference.A), InA(Preference.B), InA(Preference.A)]);
+
+        Assert.Null(report.PositionSwing);
+    }
+
+    [Fact]
+    public void IndeterminateVerdictsAreExcludedFromTheSwing()
+    {
+        // Both slots: every determinate verdict is a reference win, so both rates are 1 and the
+        // swing is 0. The unparseable verdicts are piled onto slot B only - count them in the
+        // denominator and slot B's rate drops to 1/3, inventing a swing out of noise.
+        var report = JudgeParsing.Summarize([
+            InA(Preference.A),
+            InB(Preference.B), InB(Preference.Indeterminate), InB(Preference.Indeterminate)
+        ]);
+
+        Assert.Equal(2, report.Indeterminate);
+        Assert.Equal(0.0, report.PositionSwing);
+    }
+
+    [Fact]
+    public void SwingIsUnmeasurableWhenEverythingIsIndeterminate()
+    {
+        var report = JudgeParsing.Summarize([
+            InA(Preference.Indeterminate), InB(Preference.Indeterminate), InA(Preference.Indeterminate)
+        ]);
 
         Assert.Equal(3, report.Indeterminate);
-        Assert.Equal(0.0, report.PositionBiasRate);
+        Assert.Null(report.PositionSwing);
     }
 }
 

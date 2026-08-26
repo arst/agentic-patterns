@@ -4,7 +4,12 @@ namespace LLMAsJudge.AgentFramework;
 
 public enum Preference { A, B, Indeterminate }
 
-// Parses judge verdicts and summarizes them across randomized position-bias orderings.
+/// <summary>One pairwise trial: which slot the reference candidate sat in, and what the judge said.
+/// The slot must survive into the statistic — fold it away early and the randomisation stops
+/// measuring anything.</summary>
+public readonly record struct Trial(bool ReferenceInPositionA, Preference Verdict);
+
+// Parses judge verdicts and summarizes them across balanced position orderings.
 public static class JudgeParsing
 {
     public static Preference Parse(string? json)
@@ -41,17 +46,41 @@ public static class JudgeParsing
         _ => null
     };
 
+    /// <param name="PositionSwing">How much the reference candidate's win rate moved when it
+    /// changed slots: |win rate with the reference in A − win rate with it in B|. 0 means the
+    /// verdict did not depend on position; 1 means it depended on nothing else. <c>null</c> when
+    /// either slot produced no determinate verdict — one slot cannot measure position bias.</param>
     public readonly record struct PreferenceReport(
-        int ReferenceWins, int OtherWins, int Indeterminate, double PositionBiasRate);
+        int ReferenceWins, int OtherWins, int Indeterminate, double? PositionSwing);
 
-    // Indeterminate results (null) are excluded from the bias rate but counted separately.
-    public static PreferenceReport Summarize(IReadOnlyList<bool?> results)
+    // Indeterminate verdicts are excluded from the swing but counted separately.
+    public static PreferenceReport Summarize(IReadOnlyList<Trial> trials)
     {
-        var referenceWins = results.Count(r => r == true);
-        var otherWins = results.Count(r => r == false);
-        var indeterminate = results.Count(r => r is null);
-        var determinate = referenceWins + otherWins;
-        var biasRate = determinate == 0 ? 0.0 : (double)otherWins / determinate;
-        return new PreferenceReport(referenceWins, otherWins, indeterminate, biasRate);
+        var outcomes = trials.Select(t => Resolve(t.Verdict, t.ReferenceInPositionA)).ToList();
+
+        var inA = ReferenceWinRate(trials, referenceInPositionA: true);
+        var inB = ReferenceWinRate(trials, referenceInPositionA: false);
+
+        return new PreferenceReport(
+            outcomes.Count(r => r == true),
+            outcomes.Count(r => r == false),
+            outcomes.Count(r => r is null),
+            inA is null || inB is null ? null : Math.Abs(inA.Value - inB.Value));
+    }
+
+    // A judge that is simply wrong — it prefers the same candidate in both slots — has a win rate
+    // of 0 in both and so a swing of 0: wrong is not the same defect as position-dependent, and
+    // this is what folding the slot away before the statistic used to hide.
+    private static double? ReferenceWinRate(IReadOnlyList<Trial> trials, bool referenceInPositionA)
+    {
+        var determinate = trials
+            .Where(t => t.ReferenceInPositionA == referenceInPositionA)
+            .Select(t => Resolve(t.Verdict, referenceInPositionA))
+            .Where(r => r is not null)
+            .ToList();
+
+        return determinate.Count == 0
+            ? null
+            : (double)determinate.Count(r => r == true) / determinate.Count;
     }
 }

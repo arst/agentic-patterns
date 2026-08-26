@@ -1,7 +1,7 @@
 ---
 {
   "title": "LLM as Judge",
-  "summary": "Score answers with a judge model against a rubric, and probe the judge's own position bias across randomized orderings, discarding verdicts it cannot parse.",
+  "summary": "Score answers with a judge model against a rubric, and measure the judge's own position bias by comparing its verdicts across balanced candidate orderings, discarding verdicts it cannot parse.",
   "category": "Evaluation",
   "projects": [
     { "flavor": "AgentFramework", "path": "LLMAsJudge.AgentFramework" }
@@ -19,10 +19,17 @@ sample scores answers three ways: built-in **quality evaluators** (`Relevance`, 
 written directly against `IEvaluator`, and a **pairwise comparison** that picks the better of two
 answers.
 
-The judge is not a neutral instrument, and the pairwise step exists to prove it: the same two
-candidates are judged across five randomized position orderings. If the same candidate does not
-win regardless of slot, the judge has **position bias** — one of its documented failure modes
-alongside verbosity bias (longer looks better) and self-preference (its own style looks better).
+The judge is not a neutral instrument, and the pairwise step exists to measure it: the same two
+candidates are judged five times, with the better answer placed in slot A three times and slot B
+twice, shuffled. The statistic is the **position swing** — how far the better answer's win rate
+moves when it changes slots. A judge whose verdict does not depend on position swings 0; a judge
+that just picks whatever sits in slot A swings 1. That is **position bias** — one of its documented
+failure modes alongside verbosity bias (longer looks better) and self-preference (its own style
+looks better).
+
+Crucially, a judge that is simply *wrong* — it prefers the vague answer in both slots — also swings
+0. Wrongness and position-dependence are different defects, and a statistic that cannot tell them
+apart is not measuring position.
 A judge is also not a reliable narrator of its own output format: `JudgeParsing.Parse` treats any
 verdict it cannot parse as its own contract — `{"winner": "A"}` or `{"winner": "B"}`, matched
 exactly — as `Indeterminate` rather than silently counting it as a win for either side.
@@ -72,15 +79,23 @@ flowchart LR
     A --> R[RubricJudgeEvaluator<br/>1-5 + justification]
     P[Two candidate answers] --> J[Pairwise judge x5<br/>randomized position]
     J --> Parse[JudgeParsing.Parse<br/>A / B / Indeterminate]
-    Parse --> B[Preference distribution<br/>+ position-bias rate]
+    Parse --> B[Preference distribution<br/>+ position swing across slots]
 ```
 
-The pairwise section pits a precise answer against a vague one across five randomized orderings,
-parses each verdict with `JudgeParsing.Parse` (which returns `Indeterminate` — never a default
-winner — for anything that doesn't match the `{"winner": "A"}` / `{"winner": "B"}` contract), and
-reports the win distribution. `JudgeParsing.Summarize` excludes `Indeterminate` verdicts from the
-position-bias rate and reports their count separately; a well-behaved judge should pick the
-precise answer regardless of slot, so any determinate flip is the bias signal.
+The pairwise section pits a precise answer against a vague one across five orderings, parses each
+verdict with `JudgeParsing.Parse` (which returns `Indeterminate` — never a default winner — for
+anything that doesn't match the `{"winner": "A"}` / `{"winner": "B"}` contract), and records each
+result as a `Trial` that keeps **which slot the precise answer occupied**. The slot has to survive
+into the statistic: fold it away first and five trials drawn in one slot yield the same number as
+five alternating ones, and the randomisation measures nothing.
+
+`JudgeParsing.Summarize` partitions the trials by slot, computes the precise answer's win rate
+within each, and reports the absolute difference as `PositionSwing`. `Indeterminate` verdicts are
+excluded from both rates and counted separately. If either slot produced no determinate verdict the
+swing is `null` — *not measurable* rather than zero, because one slot cannot say anything about
+position. The five orderings are a balanced 3/2 split, shuffled, rather than five coin flips: five
+flips land every trial in one slot 6.25% of the time, and a balanced split costs nothing and rules
+that out.
 
 ## Key APIs
 
@@ -93,7 +108,8 @@ precise answer regardless of slot, so any determinate flip is the bias signal.
 | `result.Get<NumericMetric>(name)` | Reads a score back out of the `EvaluationResult` |
 | `RubricJudgeEvaluator` | Custom 1–5 rubric judge; an unreadable verdict becomes a value-less metric, never a 0 |
 | `JudgeParsing.Parse(json)` | Strict verdict parse: `A` / `B` / `Indeterminate`, never throws |
-| `JudgeParsing.Summarize(picks)` | Win/loss/indeterminate counts plus a bias rate that excludes indeterminates |
+| `Trial(referenceInPositionA, verdict)` | One pairwise result with its slot kept, not folded away |
+| `JudgeParsing.Summarize(trials)` | Win/loss/indeterminate counts plus the position swing between slots |
 
 ```bash
 dotnet run --project LLMAsJudge.AgentFramework
@@ -104,9 +120,10 @@ dotnet run --project LLMAsJudge.AgentFramework -- --selfcheck   # offline bias-l
 
 The first block prints each answer with four scored lines (`Relevance`, `Coherence`,
 `Groundedness`, `RubricScore`) and the judge's reason per metric; a line reading `INDETERMINATE`
-means that judge's reply could not be read, not that the answer scored badly. The second block runs five
-randomized orderings and prints the win/loss/indeterminate counts, the position-bias rate (of
-determinate verdicts only), and a `► Position bias` verdict. A well-behaved judge on a clear-cut
-pair should pick the precise answer regardless of slot — if it flips, you have just measured your
-instrument, not your agent. **RegressionEvals** builds a gate on top of these evaluators, and
+means that judge's reply could not be read, not that the answer scored badly. The second block runs five balanced
+orderings and prints the win/loss/indeterminate counts, the position swing between the two slots
+(computed from determinate verdicts only), and a `► Position bias` verdict. A well-behaved judge on
+a clear-cut pair picks the precise answer regardless of slot and swings 0 — if the swing is above
+0, you have just measured your instrument, not your agent. A judge that picks the vague answer in
+both slots also swings 0: that shows up in the win counts, which is where wrongness belongs. **RegressionEvals** builds a gate on top of these evaluators, and
 **EvaluationAndMonitoring** tracks the token cost of running a judge on every answer.

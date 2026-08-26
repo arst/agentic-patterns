@@ -50,24 +50,34 @@ const string pairwiseQuestion = "What warranty do TechCorp laptops come with?";
 var good = "TechCorp laptops come with a two-year limited warranty.";
 var vague = "TechCorp offers a warranty on its laptops for a period of time.";
 
-const int orderings = 5;
-var picks = new List<bool?>();
-for (var i = 0; i < orderings; i++)
+// A balanced 3/2 split, shuffled: both slots are always sampled, so the position statistic is
+// always defined. Five independent coin flips land every trial in one slot 6.25% of the time,
+// and a statistic conditioned on position cannot be computed from a single slot.
+var slots = new[] { true, true, true, false, false };
+Random.Shared.Shuffle(slots);
+
+var trials = new List<Trial>();
+foreach (var goodInPositionA in slots)
 {
-    var goodInPositionA = Random.Shared.Next(2) == 0;
     var candidateA = goodInPositionA ? good : vague;
     var candidateB = goodInPositionA ? vague : good;
     var verdict = await PairwiseWinnerAsync(pairwiseQuestion, candidateA, candidateB);
-    picks.Add(JudgeParsing.Resolve(verdict, goodInPositionA));
+    trials.Add(new Trial(goodInPositionA, verdict));
 }
 
-var report = JudgeParsing.Summarize(picks);
+var report = JudgeParsing.Summarize(trials);
 Console.WriteLine(
     $"Good wins: {report.ReferenceWins}  Vague wins: {report.OtherWins}  Indeterminate: {report.Indeterminate}");
-Console.WriteLine($"Position-bias rate (of determinate verdicts): {report.PositionBiasRate:P0}");
-Console.WriteLine(report.PositionBiasRate > 0
-    ? "► Position bias DETECTED: the weaker candidate won at least once across randomized orderings."
-    : "► Consistent verdict across randomized orderings.");
+Console.WriteLine(report.PositionSwing is { } swing
+    ? $"Position swing (good answer's win rate in slot A vs slot B): {swing:P0}"
+    : "Position swing: not measurable — one slot produced no determinate verdict.");
+Console.WriteLine(report.PositionSwing switch
+{
+    > 0 => "► Position bias DETECTED: the same pair got a different verdict depending on which slot "
+           + "the better answer sat in.",
+    0 => "► No position bias: the verdict did not change when the candidates swapped slots.",
+    _ => "► Position bias not measured this run."
+});
 
 IEnumerable<(string, IEvaluator, EvaluationContext?)> Evaluators() =>
 [
@@ -106,11 +116,33 @@ static void SelfCheck()
     if (JudgeParsing.Resolve(Preference.B, referenceInPositionA: true) != false) throw new Exception("resolve B/A wrong");
     if (JudgeParsing.Resolve(Preference.Indeterminate, referenceInPositionA: true) is not null) throw new Exception("resolve indeterminate wrong");
 
-    // JudgeParsing.Summarize: same candidate wins every time -> no bias; a flip -> bias.
-    if (JudgeParsing.Summarize([true, true, true, true, true]).PositionBiasRate != 0) throw new Exception("false positive bias");
-    if (JudgeParsing.Summarize([true, false, true, true, true]).PositionBiasRate <= 0) throw new Exception("missed bias");
-    var allIndeterminate = JudgeParsing.Summarize([null, null, null]);
-    if (allIndeterminate.Indeterminate != 3 || allIndeterminate.PositionBiasRate != 0) throw new Exception("indeterminate handling wrong");
+    // JudgeParsing.Summarize: the swing is position-conditioned, so it must separate "the judge
+    // depends on the slot" from "the judge is simply wrong". Fixed inputs, no randomness.
+    Trial InA(Preference v) => new(ReferenceInPositionA: true, v);
+    Trial InB(Preference v) => new(ReferenceInPositionA: false, v);
+
+    // Judge always picks the reference candidate, whichever slot it is in: no position dependence.
+    if (JudgeParsing.Summarize([InA(Preference.A), InA(Preference.A), InB(Preference.B), InB(Preference.B)])
+        .PositionSwing != 0) throw new Exception("false positive bias");
+
+    // Judge is simply wrong — always picks the other candidate, in both slots. Still no position
+    // dependence: the old rate reported 100% bias here, which is the defect this replaces.
+    var alwaysWrong = JudgeParsing.Summarize(
+        [InA(Preference.B), InA(Preference.B), InB(Preference.A), InB(Preference.A)]);
+    if (alwaysWrong.PositionSwing != 0) throw new Exception("wrongness misreported as position bias");
+    if (alwaysWrong.OtherWins != 4) throw new Exception("win counting wrong");
+
+    // Judge always picks whatever sits in slot A: total position dependence.
+    if (JudgeParsing.Summarize([InA(Preference.A), InA(Preference.A), InB(Preference.A), InB(Preference.A)])
+        .PositionSwing != 1) throw new Exception("missed bias");
+
+    // Five verdicts drawn in the same slot say nothing about position, however lopsided.
+    if (JudgeParsing.Summarize([InA(Preference.A), InA(Preference.B), InA(Preference.A)])
+        .PositionSwing is not null) throw new Exception("one-slot swing should be unmeasurable");
+
+    var allIndeterminate = JudgeParsing.Summarize(
+        [InA(Preference.Indeterminate), InB(Preference.Indeterminate), InA(Preference.Indeterminate)]);
+    if (allIndeterminate.Indeterminate != 3 || allIndeterminate.PositionSwing is not null) throw new Exception("indeterminate handling wrong");
 
     Console.WriteLine("selfcheck ok");
 }
