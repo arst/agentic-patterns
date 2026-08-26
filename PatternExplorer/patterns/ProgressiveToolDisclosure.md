@@ -67,5 +67,7 @@ answered with `[tool definitions sent to the model: 1 of 16 available]`: the mod
 only `search_tools`, used it, and confirmed what it loaded. Turn two shows `3 of 16` —
 search_tools plus the two discovered tools — and the actual answers. The closing line
 names what was loaded on demand and notes that the other 13 definitions never entered
-the context. **MCP** is the contrast case, binding every discovered tool up front;
-**SkillLearning** applies the same frontmatter-first trick to learned procedures.
+the context. **MCP** is a related contrast case: it still sends every *bound* tool's
+definition on every call rather than searching on demand, though it narrows which
+discovered tools get bound at all with an explicit allowlist. **SkillLearning** applies
+the same frontmatter-first trick to learned procedures.

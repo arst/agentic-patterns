@@ -1,4 +1,6 @@
 using CodeAct.AgentFramework.Execution;
+using Microsoft.Extensions.AI;
+using Shared.Sandbox;
 using Xunit;
 
 #pragma warning disable CS0618 // testing the deliberately-[Obsolete] unsafe runner is the point
@@ -154,6 +156,35 @@ public class CodeActExecutionTests
         Assert.Equal([Options.ContainerImage, "dotnet", "run", "/workspace/script.cs"], Args()[^4..]);
     }
 
+    // ---- run-directory permissions must not depend on the operator's umask ----
+
+    // Directory.CreateDirectory(path, mode)'s mode is a mkdir(2) mode, masked by the
+    // process umask like any mkdir call - a restrictive umask (e.g. 077, common in CI/hardened
+    // hosts) silently drops the group/other bits the container's uid 65532 needs to traverse
+    // the bind mount and read script.cs, and CodeAct fails loudly with "Script failed" inside
+    // the container. This asserts the ACTUAL mode via File.GetUnixFileMode - regardless of
+    // whatever umask the test process happens to run under - rather than reasoning about the
+    // code, matching StigmergicBuildGateTests.CreateWorkspaceDirectoryIsWorldReadableAndTraversable.
+    [Fact]
+    public void RunDirectoryIsWorldReadableAndTraversableRegardlessOfUmask()
+    {
+        if (OperatingSystem.IsWindows()) return; // UnixFileMode is a no-op there
+        var runId = Guid.NewGuid().ToString("N");
+        var path = ContainerCodeRunner.CreateRunDirectory(runId);
+        try
+        {
+            var mode = File.GetUnixFileMode(path);
+            Assert.True(mode.HasFlag(UnixFileMode.OtherRead) && mode.HasFlag(UnixFileMode.OtherExecute));
+            Assert.True(mode.HasFlag(UnixFileMode.GroupRead) && mode.HasFlag(UnixFileMode.GroupExecute));
+
+            // The shared parent ("codeact") must be traversable too, or uid 65532 cannot
+            // even reach the per-run directory beneath it.
+            var parentMode = File.GetUnixFileMode(Path.GetDirectoryName(path)!);
+            Assert.True(parentMode.HasFlag(UnixFileMode.OtherRead) && parentMode.HasFlag(UnixFileMode.OtherExecute));
+        }
+        finally { Directory.Delete(path, recursive: true); }
+    }
+
     // ---- output and cancellation lifecycle ----
 
     [Fact]
@@ -180,5 +211,32 @@ public class CodeActExecutionTests
         var runner = new UnsafeHostCodeRunner(Options);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             runner.RunAsync("Console.WriteLine();", new CancellationToken(canceled: true)));
+    }
+
+    // ---- cancellation plumbing: the agent-invocation token must reach the runner ----
+
+    // Same shape as Program.cs's ExecuteCSharp local function (a trailing CancellationToken
+    // parameter, not exposed to the model as a JSON-schema argument): proves
+    // AIFunctionFactory.Create injects the AIFunction invocation's token into that parameter
+    // for exactly this delegate shape, and that it is the SAME token RunAsync receives.
+    [Fact]
+    public async Task ExecuteCSharpToolForwardsTheInvocationTokenToTheRunner()
+    {
+        var runner = new RecordingCodeRunner();
+
+        async Task<string> ExecuteCSharp(string code, CancellationToken cancellationToken)
+        {
+            var execution = await runner.RunAsync(code, cancellationToken);
+            return execution.StandardOutput;
+        }
+
+        var tool = AIFunctionFactory.Create(ExecuteCSharp, "execute_csharp", "test tool");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await tool.InvokeAsync(new AIFunctionArguments { ["code"] = "Console.WriteLine();" }, cts.Token);
+
+        Assert.Equal(cts.Token, runner.ReceivedToken);
+        Assert.True(runner.ReceivedToken.IsCancellationRequested);
     }
 }

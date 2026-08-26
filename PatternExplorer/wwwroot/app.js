@@ -10,22 +10,52 @@ let flavor = null;
 let stream = null;
 let lines = [];
 let pendingRender = false;
+let runId = null;
+let runToken = null;
+
+const MAX_TERMINAL_LINES = 5000;
 
 // ---------- markdown ----------
+
+// Only these URL schemes are ever emitted as href/src - javascript:/data:/etc. in a link or
+// image target render as a plain '#'/empty target instead of an executable URI. CSP's
+// script-src blocks a javascript: click too, but that's a second layer, not a reason to skip
+// this one - see task-2.5b-report.md "Fix round 1".
+function isSafeUrl(href) {
+    try {
+        return ['http:', 'https:', 'mailto:'].includes(new URL(href, location.href).protocol);
+    } catch {
+        return false;
+    }
+}
 
 marked.use({
     renderer: {
         code(token) {
             if (token.lang === 'mermaid') return `<pre class="mermaid">${escapeHtml(token.text)}</pre>`;
             return `<pre class="code"><code>${escapeHtml(token.text)}</code></pre>`;
+        },
+        // Pattern docs are repo-controlled, but marked otherwise passes raw inline/block HTML
+        // straight through (verified: an unescaped <img onerror=...> renders live). Escaping it
+        // here is defence in depth, not a fix for a reachable hole.
+        html(token) { return escapeHtml(token.text); },
+        link(token) {
+            const safe = isSafeUrl(token.href) ? token : { ...token, href: '#' };
+            return marked.Renderer.prototype.link.call(this, safe);
+        },
+        image(token) {
+            const safe = isSafeUrl(token.href) ? token : { ...token, href: '' };
+            return marked.Renderer.prototype.image.call(this, safe);
         }
     }
 });
 
-mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' });
 
+// Covers attribute position too (") since p.id/p.flavor/file paths get interpolated into
+// href/data-* attributes below, not just text nodes.
 function escapeHtml(text) {
-    return text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    return text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 // ---------- catalog ----------
@@ -47,7 +77,7 @@ function renderList() {
     $('list').innerHTML = categories.map((category) => `
         <div class="category">${escapeHtml(category)}</div>
         ${matches.filter((p) => p.category === category).map((p) => `
-            <a href="#${p.id}" data-id="${p.id}">
+            <a href="#${escapeHtml(p.id)}" data-id="${escapeHtml(p.id)}">
                 ${escapeHtml(p.title)}
                 <span class="flavor-dots">${[...new Set(p.projects.map((x) => x.flavor.startsWith('SemanticKernel') ? 'SK' : 'AF'))].join(' ')}</span>
             </a>`).join('')}
@@ -91,7 +121,7 @@ async function select(id) {
 
 function renderFlavors() {
     $('flavors').innerHTML = current.projects.map((p) => `
-        <button data-flavor="${p.flavor}" class="${p.flavor === flavor ? 'active' : ''}">
+        <button data-flavor="${escapeHtml(p.flavor)}" class="${p.flavor === flavor ? 'active' : ''}">
             ${escapeHtml(flavorLabel(p.flavor))}
         </button>`).join('');
 
@@ -111,7 +141,7 @@ function renderSources() {
     const files = current.sources[flavor] ?? [];
     $('source-view').hidden = true;
     $('sources').innerHTML = files.map((f) =>
-        `<button data-path="${f}">${escapeHtml(f)}</button>`).join('');
+        `<button data-path="${escapeHtml(f)}">${escapeHtml(f)}</button>`).join('');
 }
 
 async function showSource(path, button) {
@@ -127,6 +157,8 @@ function run() {
     if (stream) stopStream();
 
     lines = [];
+    runId = null;
+    runToken = null;
     $('terminal').innerHTML = '';
     $('terminal-panel').hidden = false;
     $('terminal-title').textContent = `${current.title} · ${flavor}`;
@@ -135,6 +167,11 @@ function run() {
     $('run').disabled = true;
 
     stream = new EventSource(`/api/run?id=${encodeURIComponent(current.id)}&flavor=${encodeURIComponent(flavor)}`);
+    stream.addEventListener('session', (event) => {
+        const session = JSON.parse(event.data);
+        runId = session.id;
+        runToken = session.token;
+    });
     stream.onmessage = (event) => {
         const chunk = JSON.parse(event.data);
         append(chunk.s, chunk.t);
@@ -148,6 +185,8 @@ function finish(state, message) {
     stopStream();
     setStatus(state, message);
     $('run').disabled = false;
+    runId = null;
+    runToken = null;
 }
 
 function stopStream() {
@@ -157,7 +196,12 @@ function stopStream() {
 }
 
 function cancel() {
-    fetch('/api/run/cancel', { method: 'POST' });
+    if (runId && runToken) {
+        fetch(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
+            method: 'POST',
+            headers: { 'X-Run-Token': runToken }
+        }).catch(() => {});
+    }
     finish('done', 'stopped');
 }
 
@@ -175,6 +219,7 @@ function append(streamTag, text) {
         else lines.push({ stream: streamTag, text: part, open: true });
         if (i < parts.length - 1) lines[lines.length - 1].open = false;
     });
+    if (lines.length > MAX_TERMINAL_LINES) lines.splice(0, lines.length - MAX_TERMINAL_LINES);
 }
 
 function scheduleRender() {
@@ -233,7 +278,13 @@ $('close-terminal').addEventListener('click', () => {
 
 $('stdin-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    fetch('/api/run/input', { method: 'POST', body: $('stdin').value });
+    if (runId && runToken) {
+        fetch(`/api/runs/${encodeURIComponent(runId)}/input`, {
+            method: 'POST',
+            headers: { 'X-Run-Token': runToken },
+            body: $('stdin').value
+        }).catch(() => {});
+    }
     $('stdin').value = '';
 });
 

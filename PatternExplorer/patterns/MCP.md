@@ -1,12 +1,12 @@
 ---
 {
   "title": "Model Context Protocol",
-  "summary": "Discover tools from an external MCP server at runtime instead of compiling them in.",
+  "summary": "Discover tools from a pinned, sandboxed MCP server at runtime, but bind only an explicit allowlist.",
   "category": "Orchestration",
-  "risk": "Downloads and runs an external MCP server via npx (unpinned); its tools act with your local privileges.",
+  "risk": "Runs a third-party MCP server; discovery and authorization are kept separate so only an explicit allowlist is ever bound.",
   "projects": [
-    { "flavor": "AgentFramework", "path": "MCP.AgentFramework", "note": "Needs npx on PATH - the MCP server is fetched with npx on first run." },
-    { "flavor": "SemanticKernel", "path": "MCP.SemanticKernel", "note": "Needs npx on PATH - the MCP server is fetched with npx on first run." }
+    { "flavor": "AgentFramework", "path": "MCP.AgentFramework", "note": "Needs Docker (this sample hardcodes the docker CLI - only CodeAct takes the runtime from an option), and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." },
+    { "flavor": "SemanticKernel", "path": "MCP.SemanticKernel", "note": "Needs Docker (this sample hardcodes the docker CLI - only CodeAct takes the runtime from an option), and the sandbox image built first (docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox) - unlike CodeAct, this sample does not build it for you." }
   ]
 }
 ---
@@ -34,17 +34,28 @@ untrusted instruction source.
 
 ## How the demo works
 
-Both samples spawn the official reference server, `@modelcontextprotocol/server-everything`, over
-stdio via `npx -y` — no credentials needed, but **npx must be on PATH** and the first run
-downloads the package. They call `ListToolsAsync()`, register everything it returns with the
-agent, and send one prompt: *"Use the 'add' tool to compute 1234 + 5678, then use the 'echo' tool
-to repeat the result."* Two chained calls against tools that were unknown at compile time.
+Build the sandbox image once before running either flavor —
+`docker build -t agentic-patterns/mcp-server-everything:2025.8.18 MCP.AgentFramework/Sandbox`.
+Unlike **CodeAct**, this sample does **not** build its image automatically on first run; without
+it, `docker run` exits 125 and the stdio transport dies on a pipe nothing is writing to.
+
+Both samples run the official reference server, `@modelcontextprotocol/server-everything`, over
+stdio — but inside the same locked-down local container the **CodeAct** sample uses, not on the
+host. They call `ListToolsAsync()`, but unlike the pre-fix version they do **not** register
+everything the server returns: discovery and authorization are two separate steps, and only an
+explicit allowlist (`add`, `echo`) is bound to the agent. Then they send one prompt: *"Use the
+'add' tool to compute 1234 + 5678, then use the 'echo' tool to repeat the result."* Two chained
+calls against tools that were unknown at compile time — and unreachable if they weren't
+allowlisted.
 
 ```mermaid
 flowchart LR
-    P[Program starts] --> S[npx spawns MCP server<br/>server-everything over stdio]
-    S --> L[ListToolsAsync]
-    L --> A[Agent registered with<br/>discovered tools]
+    P[Program starts] --> D{Docker<br/>available?}
+    D -- no --> X[Fail closed - exit]
+    D -- yes --> S[docker run spawns MCP server<br/>server-everything over stdio]
+    S --> L[ListToolsAsync: many tools]
+    L --> AL[SelectAuthorized:<br/>allowlist add, echo only]
+    AL --> A[Agent registered with<br/>allowlisted tools only]
     A -->|add 1234 and 5678| S
     A -->|echo the result| S
     S --> R[Final answer 6912]
@@ -57,25 +68,75 @@ into the `ChatClientAgent` constructor. Semantic Kernel converts each one with
 `FunctionChoiceBehavior.Auto` with `RetainArgumentTypes = true` — without that, the numeric
 arguments reach the `add` tool as strings and the call fails schema validation.
 
+## Security: pin, sandbox, and allowlist the server
+
+An MCP server is a third-party tool provider: its binary runs on your machine (or one you
+control) and its tool descriptions land straight in your prompt. The pre-fix shape of this
+sample — `npx -y @modelcontextprotocol/server-everything` (an **unpinned**, latest-at-run-time
+package), executed directly **on the host with the application's own environment**, with
+**every discovered tool bound to the agent** — is exactly what this sample now exists to *not*
+do. The same rule this repo applies to every pattern that executes untrusted work:
+
+> **The model proposes. A constrained host validates and executes. Untrusted execution
+> never inherits the application's authority.**
+
+Concretely:
+
+- **Pin the server.** `MCP.AgentFramework/Sandbox/Dockerfile` bakes in an exact version
+  (`@modelcontextprotocol/server-everything@2025.8.18`) at build time — no "whatever is
+  latest today" resolved at run time.
+- **Run it in the same constrained container as CodeAct.** The pinned server is launched with
+  `Shared.Sandbox.SandboxRunner.BuildRunArguments`, the identical locked-down-container boundary
+  the **CodeAct** sample uses for model-generated code — see that pattern's security section for
+  the full flag-by-flag walkthrough. `McpToolBinding.Sandbox()` opts out of **no**
+  `SandboxOptions` default, so every row of that table applies here unchanged, `--user
+  65532:65532` included: the boundary enforces non-root rather than trusting the image's own
+  `USER` line to do it. That matters for the "point it at another server" note below — swap in an
+  image whose Dockerfile never drops root and it still runs as an unprivileged uid.
+- **Pass no host environment or credentials.** The container gets nothing from the host process;
+  the server never sees an API key, a token, or a host env var it wasn't explicitly handed.
+- **Deny network unless the chosen server needs it.** This demo server only needs stdio, so
+  `Network: false` — `--network none`. A server that legitimately calls out (a real GitHub or
+  database MCP server) would need that grant made explicit and justified, not defaulted on.
+- **Keep discovery and authorization separate.** `ListToolsAsync()` still returns everything the
+  server advertises — discovering a tool never grants it.
+- **Bind an explicit allowlist.** `McpToolBinding.SelectAuthorized` filters the discovered list
+  down to exactly `add` and `echo` before anything reaches the agent, and **fails closed** —
+  throwing `InvalidOperationException` — if an allowlisted tool goes missing, on the theory that
+  a missing expected tool means the server isn't the one that was pinned.
+- **Fail closed when the boundary is unavailable.** No Docker means no sandbox, which
+  means no MCP server — the sample exits with an explanatory message rather than falling back to
+  running the third-party server on the host. Same double opt-in as CodeAct
+  (`AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION` + `AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION`)
+  would be required to override that, and this sample does not wire that override up.
+
+The bundled Dockerfile/sandbox is a teaching boundary, not a production one — see CodeAct's
+"Included sandbox ≠ production-ready sandbox" for the caveats, which apply here unchanged.
+
 ## Key APIs
 
 | Agent Framework | Semantic Kernel |
 |---|---|
 | `McpClient.CreateAsync(new StdioClientTransport(...))` | `McpClient.CreateAsync(new StdioClientTransport(...))` |
 | `mcpClient.ListToolsAsync()` | `mcpClient.ListToolsAsync()` |
-| `tools.Cast<AITool>()` into `ChatClientAgent` | `kernel.Plugins.AddFromFunctions("McpTools", tools.Select(f => f.AsKernelFunction()))` |
+| `McpToolBinding.SelectAuthorized(discovered, allowed)` | `McpToolBinding.SelectAuthorized(discovered, allowed)` |
+| `tools.Where(authorized).Cast<AITool>()` into `ChatClientAgent` | `kernel.Plugins.AddFromFunctions("McpTools", tools.Where(authorized).Select(f => f.AsKernelFunction()))` |
 | — no conversion, `McpClientTool` is an `AIFunction` | `FunctionChoiceBehaviorOptions { RetainArgumentTypes = true }` |
 
-`StdioClientTransportOptions` is what launches the process: `Command = "npx"` with
-`Arguments = ["-y", "@modelcontextprotocol/server-everything"]`. Point it at any other executable
-and the rest of the code is unchanged.
+`StdioClientTransportOptions` is what launches the process: `Command = "docker"` with
+`Arguments = SandboxRunner.BuildRunArguments(sandbox, [])` — an empty command list, because the
+image's own `ENTRYPOINT` is the pinned server binary. Point `McpToolBinding.Sandbox()`'s image at
+any other sandboxed server and the rest of the code is unchanged — and because the non-root uid is
+imposed by the run arguments rather than inherited from the image, an image that never drops root
+does not quietly become a root container.
 
 ## What to watch in the output
 
-The Agent Framework sample prints `MCP tools: ` followed by the full discovered list — `echo`,
-`add`, `longRunningOperation`, `printEnv` and the rest — which is the whole point of the pattern
-made visible; nothing in the source names them. Then comes the agent's answer containing
-**6912**, a number only the remote `add` tool produced. The Semantic Kernel sample skips the
-listing and prints just the streamed answer. If the run hangs or dies at startup, npx is missing
-or still downloading. Compare with **ToolUse** for locally compiled tools, and **HostedTools**
-for tools the model provider runs on your behalf.
+Both samples print `Discovered: ` followed by the full list the container hands back — `echo`,
+`add`, `longRunningOperation`, `printEnv` and the rest — then `Bound to the agent: ` showing
+exactly `echo, add`, the visible proof that discovery and authorization are different steps. Then
+comes the agent's answer containing **6912**, a number only the remote `add` tool produced. If the
+run exits immediately with "Docker is not available", Docker isn't installed or the
+daemon isn't running. Compare with **ToolUse** for locally compiled tools, **HostedTools** for
+tools the model provider runs on your behalf, and **CodeAct** for the container sandbox this
+sample reuses.

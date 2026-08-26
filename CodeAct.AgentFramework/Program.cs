@@ -67,7 +67,7 @@ Report("CodeAct", codeActMeter, codeActResponse);
 
 return;
 
-async Task<string> ExecuteCSharp(string code)
+async Task<string> ExecuteCSharp(string code, CancellationToken cancellationToken)
 {
     // Models sometimes wrap code in markdown fences despite instructions.
     code = code.Trim();
@@ -84,7 +84,7 @@ async Task<string> ExecuteCSharp(string code)
 
     // The action API is appended below the model's code: local functions may follow the
     // top-level statements, and are callable from them regardless of declaration order.
-    var execution = await runner.RunAsync(code + "\n\n" + ActionApiSource, CancellationToken.None);
+    var execution = await runner.RunAsync(code + "\n\n" + ActionApiSource, cancellationToken);
 
     var result = execution switch
     {

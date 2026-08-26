@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Shared.Sandbox;
 
 namespace CodeAct.AgentFramework.Execution;
 
@@ -10,54 +11,51 @@ namespace CodeAct.AgentFramework.Execution;
 /// mount of the per-run script directory and a bounded tmpfs for build artifacts.
 /// This demonstrates the required isolation boundary; it is NOT a production-grade
 /// sandbox for adversarial or multi-tenant workloads (use a disposable VM/microVM
-/// isolation service for that).
+/// isolation service for that). The isolation boundary itself lives in
+/// <see cref="SandboxRunner"/> (Shared.Sandbox) so other samples can reuse it; this
+/// class owns only what is specific to CodeAct: the sandbox image, per-run script
+/// staging, and mapping <see cref="CodeExecutionOptions"/> onto <see cref="SandboxOptions"/>.
 /// </summary>
 public sealed class ContainerCodeRunner(CodeExecutionOptions options) : IGeneratedCodeRunner
 {
+    private static readonly IReadOnlyList<string> RunScriptCommand = ["dotnet", "run", "/workspace/script.cs"];
+
     /// <summary>True when the runtime CLI exists AND its daemon answers.</summary>
-    public static bool IsAvailable(string containerRuntime)
-    {
-        try
-        {
-            var (exitCode, _, _) = RunRuntimeCommandAsync(containerRuntime,
-                ["version", "--format", "{{.Server.Version}}"], TimeSpan.FromSeconds(10))
-                .GetAwaiter().GetResult();
-            return exitCode == 0;
-        }
-        catch (Exception e) when (e is System.ComponentModel.Win32Exception or PlatformNotSupportedException)
-        {
-            return false; // CLI not on PATH
-        }
-    }
+    public static bool IsAvailable(string containerRuntime) => SandboxRunner.IsAvailable(containerRuntime);
 
     /// <summary>
     /// The whole security posture, as one pure function so tests can pin every flag.
-    /// Deny everything; allow only what `dotnet run script.cs` needs.
+    /// Deny everything; allow only what `dotnet run script.cs` needs. Thin mapping onto
+    /// <see cref="SandboxRunner.BuildRunArguments"/> — the argument construction itself
+    /// lives there now.
     /// </summary>
     public static IReadOnlyList<string> BuildRunArguments(
         string containerName, string runDirectory, CodeExecutionOptions options) =>
-    [
-        "run", "--rm",
-        "--name", containerName,                        // unique name so a timeout can kill THIS container
-        "--network", "none",                            // no network, not even DNS
-        "--read-only",                                  // immutable container filesystem
-        "--cap-drop", "ALL",                            // no Linux capabilities
-        "--security-opt", "no-new-privileges=true",     // setuid binaries cannot escalate
-        "--pids-limit", "128",                          // fork bombs die early
-        "--memory", "1g",                               // enough for Roslyn to compile, nothing runaway
-        "--cpus", "1",
-        "--user", "65532:65532",                        // non-root, no matching user on the host
-        "--tmpfs", "/tmp:rw,exec,nosuid,nodev,size=512m", // the ONLY writable path: bounded, for build
-                                                        // artifacts; exec because the compiled script
-                                                        // binary lives (and must run) here
-        "--mount", $"type=bind,src={runDirectory},dst=/workspace,readonly", // per-run dir only, read-only
-        "--env", "HOME=/tmp",                           // no host env is forwarded; these four are the
-        "--env", "DOTNET_CLI_HOME=/tmp/dotnet",         // complete environment the SDK needs to run
-        "--env", "DOTNET_NOLOGO=1",                     // as an unknown non-root user offline
-        "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1",
-        options.ContainerImage,
-        "dotnet", "run", "/workspace/script.cs"
-    ];
+        SandboxRunner.BuildRunArguments(ToSandboxOptions(containerName, runDirectory, options), RunScriptCommand);
+
+    private static SandboxOptions ToSandboxOptions(
+        string containerName, string runDirectory, CodeExecutionOptions options) => new(
+        Image: options.ContainerImage,
+        ContainerRuntime: options.ContainerRuntime,
+        Network: false,
+        Memory: "1g",                                    // enough for Roslyn to compile, nothing runaway
+        Cpus: "1",
+        PidsLimit: 128,                                   // fork bombs die early
+        Timeout: options.ExecutionTimeout,
+        MaxOutputCharacters: options.MaxOutputCharacters,
+        Environment: new Dictionary<string, string>       // no host env is forwarded; these four are the
+        {                                                  // complete environment the SDK needs to run
+            ["HOME"] = "/tmp",                             // as an unknown non-root user offline
+            ["DOTNET_CLI_HOME"] = "/tmp/dotnet",
+            ["DOTNET_NOLOGO"] = "1",
+            ["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1",
+        },
+        Mounts: [(runDirectory, "/workspace", true)],      // per-run dir only, read-only
+        ContainerName: containerName,                      // unique name so a timeout can kill THIS container
+        User: "65532:65532",                                // non-root, no matching user on the host
+        Tmpfs: "/tmp:rw,exec,nosuid,nodev,size=512m");      // the ONLY writable path: bounded, for build
+                                                             // artifacts; exec because the compiled script
+                                                             // binary lives (and must run) here
 
     public async Task<ExecutionResult> RunAsync(string sourceCode, CancellationToken cancellationToken)
     {
@@ -82,67 +80,26 @@ public sealed class ContainerCodeRunner(CodeExecutionOptions options) : IGenerat
 
             await EnsureImageAsync(cancellationToken);
 
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(options.ExecutionTimeout);
-
-            using var process = StartRuntimeProcess(options.ContainerRuntime,
-                BuildRunArguments(containerName, runDirectory, options));
-            try
-            {
-                var stdoutTask = BoundedReader.ReadBoundedAsync(
-                    process.StandardOutput, options.MaxOutputCharacters, timeoutCts.Token);
-                var stderrTask = BoundedReader.ReadBoundedAsync(
-                    process.StandardError, options.MaxOutputCharacters, timeoutCts.Token);
-
-                await process.WaitForExitAsync(timeoutCts.Token);
-
-                return new ExecutionResult(process.ExitCode, await stdoutTask, await stderrTask, TimedOut: false);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                // Timeout, not caller cancellation. Kill by NAME: cancelling the client
-                // process does not guarantee the containerized process has stopped.
-                await KillContainerAsync(containerName);
-                if (!process.HasExited) process.Kill(entireProcessTree: true);
-                return new ExecutionResult(
-                    ExitCode: -1,
-                    StandardOutput: "",
-                    StandardError: "Execution exceeded the configured time limit.",
-                    TimedOut: true);
-            }
-            // Caller cancellation propagates as OperationCanceledException — it is never
-            // converted into an ordinary failure result. The finally still cleans up.
+            var sandboxOptions = ToSandboxOptions(containerName, runDirectory, options);
+            var result = await SandboxRunner.RunAsync(sandboxOptions, RunScriptCommand, stdin: null, cancellationToken);
+            return new ExecutionResult(result.ExitCode, result.StdOut, result.StdErr, result.TimedOut);
         }
         finally
         {
-            await RemoveContainerAsync(containerName);
             try { Directory.Delete(runDirectory, recursive: true); }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
         }
     }
 
-    private static async Task WriteWorldReadableAsync(string path, string content, CancellationToken cancellationToken)
-    {
-        await File.WriteAllTextAsync(path, content, cancellationToken);
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite |
-                                       UnixFileMode.GroupRead | UnixFileMode.OtherRead);
-    }
+    private static Task WriteWorldReadableAsync(string path, string content, CancellationToken cancellationToken) =>
+        HostWorkspace.WriteWorldReadableAsync(path, content, cancellationToken);
 
-    private static string CreateRunDirectory(string runId)
-    {
-        var path = Path.Combine(Path.GetTempPath(), "codeact", runId);
-        if (OperatingSystem.IsWindows())
-            return Directory.CreateDirectory(path).FullName;
-
-        // World-readable/traversable so container uid 65532 can read the bind mount.
-        const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
-                                  UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
-                                  UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
-        Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "codeact"), mode);
-        return Directory.CreateDirectory(path, mode).FullName;
-    }
+    /// <summary>The per-run staging directory, world-traversable so container uid 65532 can
+    /// read the bind mount regardless of the operator's umask - see <see cref="HostWorkspace"/>,
+    /// which owns that fix for both this sample and StigmergicCoordination's build gate.</summary>
+    internal static string CreateRunDirectory(string runId) =>
+        HostWorkspace.CreateWorldReadableDirectory(Path.Combine(Path.GetTempPath(), "codeact", runId));
 
     /// <summary>Builds the repo-controlled sandbox image from Sandbox/Dockerfile on first use.</summary>
     private async Task EnsureImageAsync(CancellationToken cancellationToken)
@@ -162,39 +119,24 @@ public sealed class ContainerCodeRunner(CodeExecutionOptions options) : IGenerat
                 $"  {options.ContainerRuntime} build -t {options.ContainerImage} CodeAct.AgentFramework/Sandbox\n{buildErr}");
     }
 
-    private async Task KillContainerAsync(string containerName) =>
-        await RunRuntimeCommandAsync(options.ContainerRuntime,
-            ["kill", containerName], TimeSpan.FromSeconds(30));
-
-    private async Task RemoveContainerAsync(string containerName)
-    {
-        // Belt and braces next to --rm; a missing container is the expected happy path.
-        try
-        {
-            await RunRuntimeCommandAsync(options.ContainerRuntime,
-                ["rm", "-f", containerName], TimeSpan.FromSeconds(30));
-        }
-        catch (System.ComponentModel.Win32Exception) { }
-    }
-
-    private static Process StartRuntimeProcess(string containerRuntime, IReadOnlyList<string> arguments)
-    {
-        var startInfo = new ProcessStartInfo(containerRuntime)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        };
-        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
-        return Process.Start(startInfo)!;
-    }
-
+    // ponytail: duplicates SandboxRunner's private process-exec helper. `docker image
+    // inspect`/`docker build` aren't sandboxed container runs, so SandboxRunner's public
+    // surface (fixed by the task interface) has no method for them; a ~20-line local
+    // helper is cheaper than adding a new public "run arbitrary runtime command" API
+    // that nothing else needs yet. Promote to a shared helper if a third caller appears.
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunRuntimeCommandAsync(
         string containerRuntime, IReadOnlyList<string> arguments, TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(timeout);
-        using var process = StartRuntimeProcess(containerRuntime, arguments);
+        var startInfo = new ProcessStartInfo(containerRuntime)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+        using var process = Process.Start(startInfo)!;
         var stdoutTask = process.StandardOutput.ReadToEndAsync(cts.Token);
         var stderrTask = process.StandardError.ReadToEndAsync(cts.Token);
         try

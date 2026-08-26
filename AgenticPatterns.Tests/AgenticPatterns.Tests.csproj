@@ -21,6 +21,11 @@
         <ProjectReference Include="..\EvaluationAndMonitoring.AgentFramework\EvaluationAndMonitoring.AgentFramework.csproj"/>
         <ProjectReference Include="..\ExceptionHandlingAndRecovery.AgentFramework\ExceptionHandlingAndRecovery.AgentFramework.csproj"/>
         <ProjectReference Include="..\IdempotentToolCalls.AgentFramework\IdempotentToolCalls.AgentFramework.csproj"/>
+        <ProjectReference Include="..\MCP.AgentFramework\MCP.AgentFramework.csproj"/>
+        <!-- NOT MCP.SemanticKernel: excluded conservatively, not because it conflicts - McpToolBinding
+             is mirrored into MCP.SemanticKernel's own namespace, so there is no name collision, and
+             Program.cs's top-level-statement type is internal and invisible across the assembly
+             boundary, so referencing it too would add nothing to test. -->
         <ProjectReference Include="..\MemoryManagement.AgentFramework\MemoryManagement.AgentFramework.csproj"/>
         <ProjectReference Include="..\OrchestratorWorkers.AgentFramework\OrchestratorWorkers.AgentFramework.csproj"/>
         <ProjectReference Include="..\PatternExplorer\PatternExplorer.csproj"/>
@@ -32,6 +37,7 @@
         <ProjectReference Include="..\SelfCorrectionLoop.AgentFramework\SelfCorrectionLoop.AgentFramework.csproj"/>
         <ProjectReference Include="..\SemanticCaching.AgentFramework\SemanticCaching.AgentFramework.csproj"/>
         <ProjectReference Include="..\SkillLearning.AgentFramework\SkillLearning.AgentFramework.csproj"/>
+        <ProjectReference Include="..\StigmergicCoordination.AgentFramework\StigmergicCoordination.AgentFramework.csproj"/>
         <ProjectReference Include="..\TreeOfThoughts\TreeOfThoughts.csproj"/>
         <ProjectReference Include="..\ToolAuthorization.AgentFramework\ToolAuthorization.AgentFramework.csproj"/>
         <!-- NOT Voting.SemanticKernel: excluded conservatively, not because it conflicts - its

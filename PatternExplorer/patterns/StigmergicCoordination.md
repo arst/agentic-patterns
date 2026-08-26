@@ -3,7 +3,14 @@
   "title": "Stigmergic Coordination",
   "summary": "Workers coordinate through a shared workspace and compiler-enforced contracts instead of exchanging messages.",
   "category": "Orchestration",
-  "projects": [ { "flavor": "AgentFramework", "path": "StigmergicCoordination.AgentFramework" } ]
+  "risk": "Compiles model-written C# in a locked-down local container (no network, read-only source mount, resource limits); compiling runs build tasks, source generators and MSBuild targets. Fails closed without Docker. A host build requires an explicit double opt-in.",
+  "projects": [
+    { "flavor": "AgentFramework", "path": "StigmergicCoordination.AgentFramework", "note": "Needs Docker - the build gate refuses to compile model-written source on the host.", "environmentAllowlist": [
+      "AzureOpenAi__ChatModelDeployment", "AzureOpenAi__EmbeddingModelDeployment",
+      "AzureOpenAi__Endpoint", "AzureOpenAi__ApiKey",
+      "AGENTIC_PATTERNS_ALLOW_UNSAFE_HOST_EXECUTION", "AGENTIC_PATTERNS_ACKNOWLEDGE_UNSAFE_CODE_EXECUTION"
+    ] }
+  ]
 }
 ---
 
@@ -50,7 +57,7 @@ electric vehicle — but shaped as a three-component system: `SloganModule`, `Pr
 `IntegrationGate.cs` — a never-executed class whose only job is to *compile*: it instantiates
 each worker's class where its interface is expected, so a wrong name or signature anywhere
 fails the build. Three workers run concurrently, each producing one C# file into a temp
-workspace. The gate is `dotnet build`.
+workspace. The gate is a sandboxed `dotnet build`.
 
 One trap is deliberate: the Pricing worker's brief quotes a **stale interface**
 (`IReadOnlyList<decimal> GetPrices()`) instead of the real contract
@@ -68,14 +75,26 @@ flowchart TD
     W1 -->|SloganModule.cs| WS
     W2 -->|PricingModule.cs| WS
     W3 -->|BriefAssembler.cs| WS
-    WS --> G{dotnet build<br/>mechanical gate}
+    WS --> G{sandboxed dotnet build<br/>mechanical gate}
     G -->|error CS0535| W2
     G -->|all contracts satisfied| DONE[0 messages exchanged]
 ```
 
 The model's code is compiled but **never executed** — the compiler is the integration test.
-That keeps the sample inside the repository's untrusted-execution rule; a production version
-would add behavioral contract tests running in a sandbox (see **CodeAct** for what that takes).
+But compiling is not risk-free either: build tasks, source generators, and MSBuild targets all
+run as part of a build, not just at execution time, so `dotnet build` still runs inside the
+same locked-down container boundary **CodeAct** uses for model-generated code — no network,
+read-only source mount, a bounded writable build directory, capped CPU/memory/pids, a
+wall-clock timeout, and bounded output. The image differs, though: this sample pulls the stock
+`mcr.microsoft.com/dotnet/sdk` image from the network on first use, rather than CodeAct's
+repo-controlled image with an offline package cache baked in — same isolation flags, different
+image provenance. The sample fails closed with no fallback to a host build unless the same
+double opt-in CodeAct offers is set (and even then the timeout and source-size cap still
+apply) — and it hardcodes the `docker` CLI, so unlike CodeAct there is no Podman option. A
+nonzero exit with no compiler diagnostic — a permission mismatch on the mount, a resource-limit
+kill, an image-pull failure — is reported as a gate error too, never as a silent pass. A
+production version would go further and add behavioral contract tests running in that same
+sandbox.
 
 ## Key APIs
 
@@ -85,8 +104,8 @@ no workflow. The coordination machinery is the environment itself.
 - `ChatClientAgent(client, instructions, name)` — one plain agent per worker, no tools.
 - `Task.WhenAll(...)` — workers run concurrently precisely because they share no channel.
 - `File.WriteAllText` into a shared workspace — the write *is* the coordination act.
-- `Process.Start("dotnet", "build ...")` — the mechanical gate; its `error CS*` lines are
-  parsed and routed to the worker owning the failing file.
+- `BuildGate.RunAsync` / `SandboxRunner.RunAsync` — the mechanical gate, run inside a
+  container; its `error CS*` lines are parsed and routed to the worker owning the failing file.
 
 ## What to watch in the output
 

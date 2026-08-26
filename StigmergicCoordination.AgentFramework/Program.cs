@@ -1,17 +1,43 @@
-using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Microsoft.Agents.AI;
 using Shared;
+using Shared.Sandbox;
+using StigmergicCoordination.AgentFramework;
 
 // Stigmergic coordination: N workers build components of one system WITHOUT exchanging
 // a single message. All coordination flows through the shared environment — a workspace
 // directory, compiler-enforced C# contracts, and a build gate. The orchestrator only
 // launches workers and runs the gate; it never relays information between agents.
 // Contrast MultiAgentCollaboration, where the same domain task is coordinated by dialogue.
+//
+// The gate compiles model-written files, which is untrusted code — build tasks, source
+// generators, and MSBuild targets all run during a build. It runs inside the same
+// constrained-execution boundary CodeAct uses (see BuildGate.cs) and FAILS CLOSED when no
+// container runtime is available, unless the same double opt-in CodeAct offers is set.
 
-var workspace = Directory.CreateDirectory(
-    Path.Combine(Path.GetTempPath(), "stigmergy", Guid.NewGuid().ToString("N"))).FullName;
+// Fail closed BEFORE creating a workspace or spending a single model call: no container
+// runtime and no explicit double opt-in means the sample refuses to compile anything.
+var useSandbox = SandboxRunner.IsAvailable("docker");
+if (!useSandbox && !BuildGate.IsUnsafeHostBuildRequested())
+{
+    Console.Error.WriteLine(BuildGate.FailClosedMessage);
+    return 1;
+}
+
+// C2: world-readable so the sandbox's non-root uid can read the bind mount, regardless of
+// the operator's umask - see BuildGate.CreateWorkspaceDirectory.
+var workspace = BuildGate.CreateWorkspaceDirectory(
+    Path.Combine(Path.GetTempPath(), "stigmergy", Guid.NewGuid().ToString("N")));
 Console.WriteLine($"Workspace: {workspace}\n");
+
+// Minor: a plain `return` inside the round loop below cannot outrun Ctrl-C, so the SIGINT
+// handler deletes the workspace directly rather than relying on the try/finally to run.
+using var sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, _ =>
+{
+    try { Directory.Delete(workspace, recursive: true); }
+    catch (IOException) { } catch (UnauthorizedAccessException) { }
+});
 
 // ---- The environment: contracts + integration gate, written by the HOST ----
 
@@ -54,9 +80,9 @@ const string Gate =
     }
     """;
 
-File.WriteAllText(Path.Combine(workspace, "Contracts.cs"), Contracts);
-File.WriteAllText(Path.Combine(workspace, "IntegrationGate.cs"), Gate);
-File.WriteAllText(Path.Combine(workspace, "Campaign.csproj"),
+await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, "Contracts.cs"), Contracts, CancellationToken.None);
+await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, "IntegrationGate.cs"), Gate, CancellationToken.None);
+await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, "Campaign.csproj"),
     """
     <Project Sdk="Microsoft.NET.Sdk">
         <PropertyGroup>
@@ -64,7 +90,7 @@ File.WriteAllText(Path.Combine(workspace, "Campaign.csproj"),
             <Nullable>enable</Nullable>
         </PropertyGroup>
     </Project>
-    """);
+    """, CancellationToken.None);
 
 // ---- The workers: one file each, briefed from the environment, never from each other ----
 
@@ -97,53 +123,50 @@ async Task ProduceAsync((string File, string Role, string Brief) worker, string 
     var agent = new ChatClientAgent(Settings.ChatClient, worker.Brief, worker.Role);
     var code = (await agent.RunAsync($"{TaskBrief}\n{extraContext}")).Text.Trim();
     code = Regex.Replace(code, @"^```\w*\n|\n?```$", ""); // strip fences if the model adds them anyway
-    File.WriteAllText(Path.Combine(workspace, worker.File), code);
+    await BuildGate.WriteWorldReadableAsync(Path.Combine(workspace, worker.File), code, CancellationToken.None);
     Console.WriteLine($"[worker] {worker.Role} -> {worker.File} ({code.Split('\n').Length} lines, no messages to other workers)");
 }
 
-// ---- The mechanical gate: dotnet build over the shared workspace ----
+// ---- The mechanical gate: BuildGate.RunAsync, sandboxed unless the opt-in fallback fired ----
 
-async Task<List<string>> BuildAsync()
+try
 {
-    var process = Process.Start(new ProcessStartInfo("dotnet", "build -nologo --verbosity quiet")
-    {
-        WorkingDirectory = workspace,
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
-    })!;
-    var output = await process.StandardOutput.ReadToEndAsync() + await process.StandardError.ReadToEndAsync();
-    await process.WaitForExitAsync();
-    return [.. output.Split('\n').Where(l => l.Contains(": error ")).Select(l => l.Trim()).Distinct()];
-}
+    await Task.WhenAll(workers.Select(w => ProduceAsync(w, "")));
 
-await Task.WhenAll(workers.Select(w => ProduceAsync(w, "")));
-
-for (var round = 1; round <= 3; round++)
-{
-    Console.WriteLine($"\n=== Build gate: round {round} ===");
-    var errors = await BuildAsync();
-    if (errors.Count == 0)
+    for (var round = 1; round <= 3; round++)
     {
-        Console.WriteLine("PASSED — every component satisfies the shared contracts.");
-        Console.WriteLine("\n---- Files in the shared environment ----");
-        foreach (var f in Directory.GetFiles(workspace, "*.cs").Order())
-            Console.WriteLine($"\n>>> {Path.GetFileName(f)}\n{File.ReadAllText(f).Trim()}");
-        Console.WriteLine("\nMessages exchanged between workers: 0. The workspace did all the talking.");
-        return;
+        Console.WriteLine($"\n=== Build gate: round {round} ===");
+        var errors = await BuildGate.RunAsync(workspace, useSandbox, CancellationToken.None);
+        if (errors.Count == 0)
+        {
+            Console.WriteLine("PASSED — every component satisfies the shared contracts.");
+            Console.WriteLine("\n---- Files in the shared environment ----");
+            foreach (var f in Directory.GetFiles(workspace, "*.cs").Order())
+                Console.WriteLine($"\n>>> {Path.GetFileName(f)}\n{File.ReadAllText(f).Trim()}");
+            Console.WriteLine("\nMessages exchanged between workers: 0. The workspace did all the talking.");
+            return 0;
+        }
+
+        foreach (var error in errors) Console.WriteLine($"  {error}");
+
+        // Errors route by file name to the worker that owns the file — the trace in the
+        // environment is the only feedback channel, and it carries the REAL contract with it.
+        foreach (var group in errors.GroupBy(e => workers.FirstOrDefault(w => e.Contains(w.File)).File).Where(g => g.Key is not null))
+        {
+            var worker = workers.First(w => w.File == group.Key);
+            Console.WriteLine($"  -> gate feedback for {worker.Role}: rework {worker.File} against the real contract");
+            await ProduceAsync(worker,
+                $"Your previous {worker.File} failed the build gate:\n{string.Join("\n", group)}\n\n" +
+                $"The authoritative shared contract file Contracts.cs is:\n{Contracts}\nRewrite the complete file so it compiles against it.");
+        }
     }
 
-    foreach (var error in errors) Console.WriteLine($"  {error}");
-
-    // Errors route by file name to the worker that owns the file — the trace in the
-    // environment is the only feedback channel, and it carries the REAL contract with it.
-    foreach (var group in errors.GroupBy(e => workers.FirstOrDefault(w => e.Contains(w.File)).File).Where(g => g.Key is not null))
-    {
-        var worker = workers.First(w => w.File == group.Key);
-        Console.WriteLine($"  -> gate feedback for {worker.Role}: rework {worker.File} against the real contract");
-        await ProduceAsync(worker,
-            $"Your previous {worker.File} failed the build gate:\n{string.Join("\n", group)}\n\n" +
-            $"The authoritative shared contract file Contracts.cs is:\n{Contracts}\nRewrite the complete file so it compiles against it.");
-    }
+    Console.WriteLine("\nFAILED — components still do not satisfy the contracts after 3 rounds.");
+    return 1;
 }
-
-Console.WriteLine("\nFAILED — components still do not satisfy the contracts after 3 rounds.");
+finally
+{
+    // Guaranteed cleanup: the workspace must not survive a crash or the success return above.
+    try { Directory.Delete(workspace, recursive: true); }
+    catch (IOException) { } catch (UnauthorizedAccessException) { }
+}

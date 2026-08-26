@@ -1,8 +1,8 @@
 using System.Text;
 
-namespace CodeAct.AgentFramework.Execution;
+namespace Shared.Sandbox;
 
-internal static class BoundedReader
+public static class BoundedReader
 {
     /// <summary>
     /// Reads a stream keeping at most <paramref name="maxCharacters"/> characters, but keeps
