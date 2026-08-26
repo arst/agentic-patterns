@@ -322,3 +322,80 @@ public class OrchestratorWorkerTests
         Assert.DoesNotContain("simulated failure", synthesis);
     }
 }
+
+public class GuardRailsTests
+{
+    [Fact]
+    public void RedactionPreservesFunctionCallsAndUsage()
+    {
+        var response = GuardRails.Redact(new ChatResponse(
+            [new ChatMessage(ChatRole.Assistant,
+                [new TextContent("Call me at 555-867-5309."), new FunctionCallContent("c1", "lookup", null)])])
+            { FinishReason = ChatFinishReason.Stop, Usage = new UsageDetails { OutputTokenCount = 12 } });
+
+        // SafetyChecks.RedactPii tags matches by field ("[Phone_REDACTED]"), not a generic
+        // "[redacted]" placeholder, so assert on the field-agnostic part of the tag.
+        Assert.Contains("REDACTED", response.Text);
+        Assert.Single(response.Messages[0].Contents.OfType<FunctionCallContent>());
+        Assert.Equal(ChatFinishReason.Stop, response.FinishReason);
+        Assert.Equal(12, response.Usage?.OutputTokenCount);
+    }
+
+    [Fact]
+    public void RedactionLeavesCleanTextAndNonTextContentAlone()
+    {
+        var functionResult = new FunctionResultContent("c1", "no PII here");
+        var response = GuardRails.Redact(new ChatResponse(
+            [new ChatMessage(ChatRole.Assistant, [new TextContent("Nothing sensitive."), functionResult])]));
+
+        Assert.Equal("Nothing sensitive.", response.Text);
+        Assert.Same(functionResult, response.Messages[0].Contents[1]);
+    }
+
+    [Fact]
+    public void RedactionCopiesResponseMetadata()
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        var original = new ChatResponse([new ChatMessage(ChatRole.Assistant, "clean text")])
+        {
+            ModelId = "gpt-test",
+            ResponseId = "resp-1",
+            CreatedAt = createdAt,
+            AdditionalProperties = new AdditionalPropertiesDictionary { ["k"] = "v" }
+        };
+
+        var redacted = GuardRails.Redact(original);
+
+        Assert.Equal("gpt-test", redacted.ModelId);
+        Assert.Equal("resp-1", redacted.ResponseId);
+        Assert.Equal(createdAt, redacted.CreatedAt);
+        Assert.Equal("v", redacted.AdditionalProperties?["k"]);
+    }
+
+    [Fact]
+    public void TruncateTrimsOnlyTheLastTextContent()
+    {
+        var functionCall = new FunctionCallContent("c1", "lookup", null);
+        var response = new ChatResponse([
+            new ChatMessage(ChatRole.Assistant, [new TextContent("first ten.")]),
+            new ChatMessage(ChatRole.Assistant, [functionCall, new TextContent("second block of text")])
+        ]);
+
+        // 10 ("first ten.") + budget 5 left for the last TextContent out of a 15-character cap.
+        var truncated = GuardRails.Truncate(response, maxCharacters: 15);
+
+        Assert.Equal("first ten.", ((TextContent)truncated.Messages[0].Contents[0]).Text);
+        Assert.Same(functionCall, truncated.Messages[1].Contents[0]);
+        var lastText = ((TextContent)truncated.Messages[1].Contents[1]).Text;
+        Assert.StartsWith("secon", lastText);
+        Assert.Contains("[Response truncated for safety.]", lastText);
+    }
+
+    [Fact]
+    public void TruncateIsANoOpUnderTheLimit()
+    {
+        var response = new ChatResponse([new ChatMessage(ChatRole.Assistant, "short")]);
+        var truncated = GuardRails.Truncate(response, maxCharacters: 2000);
+        Assert.Same(response.Messages, truncated.Messages);
+    }
+}
