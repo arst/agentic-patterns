@@ -30,6 +30,7 @@ looks better).
 Crucially, a judge that is simply *wrong* — it prefers the vague answer in both slots — also swings
 0. Wrongness and position-dependence are different defects, and a statistic that cannot tell them
 apart is not measuring position.
+
 A judge is also not a reliable narrator of its own output format: `JudgeParsing.Parse` treats any
 verdict it cannot parse as its own contract — `{"winner": "A"}` or `{"winner": "B"}`, matched
 exactly — as `Indeterminate` rather than silently counting it as a win for either side.

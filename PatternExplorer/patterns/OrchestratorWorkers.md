@@ -52,7 +52,7 @@ flowchart LR
     A -->|partial: some tasks FAILED| S
     A -->|all failed| X[Abstain: no synthesis]
     S -->|partial| P[Answer flagged incomplete]
-    S -->|complete| R[Answer]
+    S -->|complete| Ans[Answer]
     V -->|invalid| D[Reject before execution]
 ```
 
