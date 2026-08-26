@@ -2,6 +2,7 @@ using CodeAct.AgentFramework.Execution;
 using Microsoft.Extensions.AI;
 using Shared.Sandbox;
 using Xunit;
+using static AgenticPatterns.Tests.TestEnvironment;
 
 #pragma warning disable CS0618 // testing the deliberately-[Obsolete] unsafe runner is the point
 
@@ -13,16 +14,6 @@ namespace AgenticPatterns.Tests;
 public class CodeActExecutionTests
 {
     private static readonly CodeExecutionOptions Options = new();
-
-    // xunit runs tests in one class sequentially, so mutating the process environment
-    // here cannot race another test in this class.
-    private static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
-    {
-        var original = Environment.GetEnvironmentVariable(name);
-        Environment.SetEnvironmentVariable(name, value);
-        try { return body(); }
-        finally { Environment.SetEnvironmentVariable(name, original); }
-    }
 
     private static T WithAcknowledgement<T>(string? value, Func<T> body) =>
         WithEnvironmentVariable(CodeRunnerFactory.UnsafeAcknowledgementVariable, value, body);

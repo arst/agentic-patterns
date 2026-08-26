@@ -1,6 +1,7 @@
 using Shared.Sandbox;
 using StigmergicCoordination.AgentFramework;
 using Xunit;
+using static AgenticPatterns.Tests.TestEnvironment;
 
 namespace AgenticPatterns.Tests;
 
@@ -10,14 +11,6 @@ namespace AgenticPatterns.Tests;
 // fallback needs the same double opt-in as CodeAct.
 public class StigmergicBuildGateTests
 {
-    private static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
-    {
-        var original = Environment.GetEnvironmentVariable(name);
-        Environment.SetEnvironmentVariable(name, value);
-        try { return body(); }
-        finally { Environment.SetEnvironmentVariable(name, original); }
-    }
-
     // ---- size cap ----
 
     [Fact]

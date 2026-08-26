@@ -6,6 +6,7 @@ using Microsoft.Extensions.AI;
 using SelfCorrectionLoop.AgentFramework;
 using SkillLearning.AgentFramework;
 using Xunit;
+using static AgenticPatterns.Tests.TestEnvironment;
 
 namespace AgenticPatterns.Tests;
 
@@ -42,16 +43,6 @@ public class TraceReplayTests
     public void TracesAreRedactedUnlessFullContentIsRequestedExplicitly() =>
         Assert.Equal(TracePrivacyMode.RedactedContent, new RunTrace("v1").PrivacyMode);
 
-    // xunit runs tests in one class sequentially, so mutating the process environment
-    // here cannot race another test in this class.
-    private static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
-    {
-        var original = Environment.GetEnvironmentVariable(name);
-        Environment.SetEnvironmentVariable(name, value);
-        try { return body(); }
-        finally { Environment.SetEnvironmentVariable(name, original); }
-    }
-
     [Fact]
     public void FullTraceCaptureFailsClosedWithoutAcknowledgement()
     {
@@ -62,9 +53,19 @@ public class TraceReplayTests
     }
 
     [Fact]
-    public void WrongAcknowledgementValueIsInsufficientForFullTraceCapture() =>
+    public void WrongAcknowledgementValueIsInsufficientForFullTraceCapture()
+    {
         WithEnvironmentVariable(FullTraceCaptureGate.AcknowledgementVariable, "yes", () =>
             Assert.Throws<InvalidOperationException>(FullTraceCaptureGate.EnsureAcknowledgedOrThrow));
+        // Near-misses on the exact ordinal comparison must also be rejected, so a later
+        // ".Trim()" or "OrdinalIgnoreCase" cannot silently loosen the gate.
+        WithEnvironmentVariable(FullTraceCaptureGate.AcknowledgementVariable,
+            FullTraceCaptureGate.AcknowledgementValue.ToLowerInvariant(), () =>
+                Assert.Throws<InvalidOperationException>(FullTraceCaptureGate.EnsureAcknowledgedOrThrow));
+        WithEnvironmentVariable(FullTraceCaptureGate.AcknowledgementVariable,
+            FullTraceCaptureGate.AcknowledgementValue + " ", () =>
+                Assert.Throws<InvalidOperationException>(FullTraceCaptureGate.EnsureAcknowledgedOrThrow));
+    }
 
     [Fact]
     public void CorrectAcknowledgementValueUnblocksFullTraceCapture() =>

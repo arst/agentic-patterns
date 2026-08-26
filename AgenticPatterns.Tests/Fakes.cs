@@ -56,3 +56,18 @@ internal sealed class FixedEmbeddingGenerator(Dictionary<string, float[]> vector
 
     public void Dispose() { }
 }
+
+/// <summary>Shared by every test that flips a process environment variable for a double-opt-in
+/// gate (CodeAct, StigmergicCoordination, EvaluationAndMonitoring). xunit runs tests in one
+/// class sequentially, so mutating the process environment here cannot race another test in
+/// the same class.</summary>
+internal static class TestEnvironment
+{
+    public static T WithEnvironmentVariable<T>(string name, string? value, Func<T> body)
+    {
+        var original = Environment.GetEnvironmentVariable(name);
+        Environment.SetEnvironmentVariable(name, value);
+        try { return body(); }
+        finally { Environment.SetEnvironmentVariable(name, original); }
+    }
+}
