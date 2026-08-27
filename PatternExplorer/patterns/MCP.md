@@ -82,9 +82,13 @@ do. The same rule this repo applies to every pattern that executes untrusted wor
 
 Concretely:
 
-- **Pin the server.** `MCP.AgentFramework/Sandbox/Dockerfile` bakes in an exact version
-  (`@modelcontextprotocol/server-everything@2025.8.18`) at build time — no "whatever is
-  latest today" resolved at run time.
+- **Pin the server — and what it is built on.** `MCP.AgentFramework/Sandbox/Dockerfile` bakes in
+  an exact version (`@modelcontextprotocol/server-everything@2025.8.18`) at build time — no
+  "whatever is latest today" resolved at run time. The `FROM` line is pinned by **digest** as well
+  as tag, because `node:22-alpine` is mutable: pinning only the package would leave two people
+  building the same image tag on different days on different base images, which is the same
+  "latest at build time" hole one layer down. Re-resolve it deliberately when bumping
+  (`docker buildx imagetools inspect node:22-alpine`) rather than letting it drift.
 - **Run it in the same constrained container as CodeAct.** The pinned server is launched with
   `Shared.Sandbox.SandboxRunner.BuildRunArguments`, the identical locked-down-container boundary
   the **CodeAct** sample uses for model-generated code — see that pattern's security section for

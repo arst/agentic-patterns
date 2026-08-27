@@ -68,7 +68,36 @@ public class RetryTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            Retry.RunAsync(_ => Task.FromCanceled<AgentResponse>(cts.Token), maxRetries: 3, NoBackoff));
+            Retry.RunAsync(_ => Task.FromCanceled<AgentResponse>(cts.Token), maxRetries: 3, NoBackoff,
+                cts.Token));
+    }
+
+    /// Cancellation expresses caller intent; a dependency's own blown deadline does not, even
+    /// though .NET spells both with OperationCanceledException. With the caller's token NOT
+    /// signalled, an OCE from inside the attempt is a transient failure and must still be retried
+    /// — the previous version rethrew it and skipped every remaining attempt.
+    [Fact]
+    public async Task ADependencysOwnCancellationIsRetried_NotMistakenForCallerIntent()
+    {
+        using var cts = new CancellationTokenSource();   // never cancelled: the caller wants the work
+        var attempts = 0;
+
+        var (response, error) = await Retry.RunAsync(
+            _ =>
+            {
+                if (++attempts == 1)
+                {
+                    using var internalDeadline = new CancellationTokenSource();
+                    internalDeadline.Cancel();
+                    return Task.FromCanceled<AgentResponse>(internalDeadline.Token);
+                }
+                return Task.FromResult(ResponseWithToolResult("ok"));
+            },
+            maxRetries: 3, NoBackoff, cts.Token);
+
+        Assert.NotNull(response);
+        Assert.Null(error);
+        Assert.Equal(2, attempts);
     }
 
     [Fact]

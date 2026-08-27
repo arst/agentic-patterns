@@ -159,7 +159,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | LLMAsJudge | Judge-model rubric scoring plus a position-bias probe that compares verdicts across balanced candidate orderings |
-| RedTeaming | Deterministic leak checks first, judge second, against the real GuardRails filter |
+| RedTeaming | Deterministic leak checks first, judge second, against a GuardRails-style output filter |
 | RegressionEvals | Golden-dataset suite of reviewed cases with tiered assertions, cached as a CI gate |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 
@@ -223,7 +223,8 @@ Concretely, for the `CodeAct` sample:
 
 The same rule applies to the `MCP` sample: a third-party MCP server is untrusted code too.
 `@modelcontextprotocol/server-everything` is pinned at an exact version and baked into an
-image at build time, run in the same locked-down container as `CodeAct` — every flag from the
+image at build time (with the `node:22-alpine` base pinned by digest too — a mutable base tag
+would reopen the same hole one layer down), run in the same locked-down container as `CodeAct` — every flag from the
 same `Shared/Sandbox` defaults, opting out of none of them (no network, no host environment or
 credentials, read-only filesystem, dropped capabilities, non-root `--user 65532:65532`, bounded
 pids/memory/cpu) — and only an explicit allowlist (`add`, `echo`) of its discovered tools is ever

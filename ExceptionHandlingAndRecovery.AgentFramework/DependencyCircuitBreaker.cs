@@ -27,7 +27,9 @@ public sealed class DependencyCircuitBreaker
         _failureThreshold = failureThreshold;
         _breakDuration = breakDuration;
         _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
-        _isTransient = isTransient ?? (ex => ex is HttpRequestException);
+        // A dependency timeout is a transient dependency failure, same as a 503 — provided the
+        // dependency reported it as a TimeoutException rather than an ambiguous OCE.
+        _isTransient = isTransient ?? (ex => ex is HttpRequestException or TimeoutException);
     }
 
     public CircuitState State { get; private set; }

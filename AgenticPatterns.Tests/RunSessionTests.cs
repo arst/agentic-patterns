@@ -119,6 +119,22 @@ public class RunSessionEnvironmentTests
         }));
     }
 
+    /// `DOTNET_` is a namespace, not a safety class: DOTNET_STARTUP_HOOKS loads an arbitrary
+    /// assembly into the child. The old prefix match forwarded it, which is ambient authority
+    /// smuggled through the very allowlist that exists to remove it.
+    [Fact]
+    public void A_DOTNET_prefixed_variable_outside_the_named_set_is_not_forwarded()
+    {
+        WithVariable("DOTNET_STARTUP_HOOKS", "/tmp/evil.dll", () =>
+        {
+            var info = new System.Diagnostics.ProcessStartInfo("dotnet");
+
+            RunSession.ApplyChildEnvironment(info.Environment, new PatternProject("AgentFramework", "Some.Sample"));
+
+            Assert.False(info.Environment.ContainsKey("DOTNET_STARTUP_HOOKS"));
+        });
+    }
+
     [Fact]
     public void A_variable_outside_the_projects_own_allowlist_is_not_forwarded()
     {

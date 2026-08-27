@@ -71,12 +71,17 @@ Console.WriteLine(
 Console.WriteLine(report.PositionSwing is { } swing
     ? $"Position swing (good answer's win rate in slot A vs slot B): {swing:P0}"
     : "Position swing: not measurable — one slot produced no determinate verdict.");
+// Five trials measure nothing at a useful confidence: one differing verdict is as likely to be
+// ordinary sampling noise as real positional preference. This probe shows HOW to measure position
+// dependence, so it reports what it observed and stops short of claiming an effect.
 Console.WriteLine(report.PositionSwing switch
 {
-    > 0 => "► Position bias DETECTED: the same pair got a different verdict depending on which slot "
-           + "the better answer sat in.",
-    0 => "► No position bias: the verdict did not change when the candidates swapped slots.",
-    _ => "► Position bias not measured this run."
+    > 0 => "► Position-dependent verdicts OBSERVED in this probe: the same pair got a different "
+           + "verdict depending on which slot the better answer sat in. Five trials cannot separate "
+           + "that from sampling noise — rerun at a real trial count before calling it bias.",
+    0 => "► No position dependence observed in this small probe: the verdict did not change when "
+         + "the candidates swapped slots. Absence at n=5 is not evidence of absence.",
+    _ => "► Position dependence not measurable this run."
 });
 
 IEnumerable<(string, IEvaluator, EvaluationContext?)> Evaluators() =>

@@ -123,8 +123,12 @@ The first block prints each answer with four scored lines (`Relevance`, `Coheren
 `Groundedness`, `RubricScore`) and the judge's reason per metric; a line reading `INDETERMINATE`
 means that judge's reply could not be read, not that the answer scored badly. The second block runs five balanced
 orderings and prints the win/loss/indeterminate counts, the position swing between the two slots
-(computed from determinate verdicts only), and a `► Position bias` verdict. A well-behaved judge on
-a clear-cut pair picks the precise answer regardless of slot and swings 0 — if the swing is above
-0, you have just measured your instrument, not your agent. A judge that picks the vague answer in
-both slots also swings 0: that shows up in the win counts, which is where wrongness belongs. **RegressionEvals** builds a gate on top of these evaluators, and
+(computed from determinate verdicts only), and a `► Position-dependent verdicts` line. A
+well-behaved judge on a clear-cut pair picks the precise answer regardless of slot and swings 0 —
+if the swing is above 0, you have just measured your instrument, not your agent. A judge that picks
+the vague answer in both slots also swings 0: that shows up in the win counts, which is where
+wrongness belongs. Five trials are a demonstration of the *method*, not a measurement: at n=5 a
+single differing verdict is as easily sampling noise as real positional preference, which is why
+the output reports what it observed rather than declaring bias. Raise the trial count before
+treating a swing as a property of the judge. **RegressionEvals** builds a gate on top of these evaluators, and
 **EvaluationAndMonitoring** tracks the token cost of running a judge on every answer.

@@ -17,7 +17,7 @@ public record PatternProject(
     string? Note = null)
 {
     /// Environment variable names copied from Explorer's own environment into the child process,
-    /// in addition to PATH/HOME/DOTNET_* which `dotnet run` always needs. Defaults to the four
+    /// in addition to RunSession.DotnetRunEssentials, which `dotnet run` always needs. Defaults to the four
     /// Azure OpenAI settings (see Shared/AzureOpenAISettings.cs) most samples need to run at all.
     public IReadOnlyList<string> EnvironmentAllowlist { get; init; } =
     [

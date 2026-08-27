@@ -392,6 +392,23 @@ public class DependencyCircuitBreakerTests
         Assert.Equal("probe-ok", await probe);
     }
 
+    /// A dependency that blew its own deadline is a transient dependency failure, not a permanent
+    /// one and not caller intent — but only because it reported a TimeoutException instead of
+    /// letting an ambiguous OperationCanceledException escape (see LocationTools).
+    [Fact]
+    public async Task ADependencyTimeoutIsTransientAndTripsTheCircuit()
+    {
+        var breaker = new DependencyCircuitBreaker(2, TimeSpan.FromMinutes(1));
+
+        await Assert.ThrowsAsync<TimeoutException>(() =>
+            breaker.ExecuteAsync<string>(_ => throw new TimeoutException("geocoder deadline")));
+        Assert.Equal(CircuitState.Closed, breaker.State);
+
+        await Assert.ThrowsAsync<TimeoutException>(() =>
+            breaker.ExecuteAsync<string>(_ => throw new TimeoutException("geocoder deadline")));
+        Assert.Equal(CircuitState.Open, breaker.State);
+    }
+
     [Fact]
     public async Task PermanentErrorsAndCallerCancellationDoNotTripCircuit()
     {
