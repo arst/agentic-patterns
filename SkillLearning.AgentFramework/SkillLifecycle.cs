@@ -116,15 +116,37 @@ public sealed class SkillLifecycle(string skillsDirectory)
     private static string Digest(string path) =>
         Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
 
-    // Every transition and every read re-verifies. A version directory is immutable by policy
-    // once the candidate is created (nothing here enforces that on disk); the only legal way to
-    // change a skill is a new version.
+    /// <summary>
+    /// Re-verifies the content against the digest recorded at candidate creation. Called on every
+    /// transition and every read, so an approved skill cannot be swapped out underneath an
+    /// already-granted approval. A version directory is immutable by policy once the candidate is
+    /// created (nothing here enforces that on disk); the only legal way to change a skill is a new
+    /// version.
+    ///
+    /// Know exactly what this buys, because the two are routinely confused:
+    /// <list type="bullet">
+    /// <item>A SHA-256 in the manifest <b>detects unexpected content mutation</b> — a partial
+    /// write, a stray editor save, a sync tool, a bug elsewhere in this process, anything that
+    /// changed SKILL.md without going through a new version.</item>
+    /// <item>It <b>does not authenticate the content against an attacker</b>. manifest.json sits
+    /// in the same directory as the file it vouches for, so whoever can write one can write the
+    /// other and recompute the digest to match. The digest is a checksum, not a signature: it has
+    /// no secret and no external root of trust, so it cannot survive an adversary who already has
+    /// the write access it is checking.</item>
+    /// </list>
+    /// Closing that second gap is a different mechanism, not a stronger hash: sign the approved
+    /// manifest with a key the agent cannot reach, or keep the manifest store outside the agent's
+    /// write scope entirely (a registry it can read and a reviewer can write). The filesystem is
+    /// the trust boundary this sample stops at, deliberately — see PatternExplorer/patterns/
+    /// SkillLearning.md.
+    /// </summary>
     private string ReadVerified(SkillManifest manifest)
     {
         var path = SkillPath(manifest);
         if (Digest(path) != manifest.ContentSha256)
             throw new InvalidDataException(
-                $"Skill '{manifest.Name}' v{manifest.Version} was modified after approval; refusing to load it.");
+                $"Skill '{manifest.Name}' v{manifest.Version} no longer matches the digest recorded " +
+                "at candidate creation; refusing to load it.");
         return File.ReadAllText(path);
     }
 

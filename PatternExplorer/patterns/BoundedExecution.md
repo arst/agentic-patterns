@@ -60,8 +60,13 @@ provider facts embedded in the budget component.
 | Tool calls (total and per tool) | Hard - checked before invocation |
 | Elapsed time | Hard - linked cancellation over the remaining duration |
 | Output tokens | Hard - the provider's own `MaxOutputTokens` is capped to the remaining budget and the full cap is reserved |
-| Input tokens | Conservative - the request is estimated at ~4 chars/token before dispatch; a mis-estimate is caught on reconcile, after the call |
-| Estimated cost | Follows the two token limits: hard on output, conservative on input |
+| Input tokens (`InputTokenBudget`) | Conservative - the request is estimated at ~4 chars/token before dispatch; a mis-estimate is caught on reconcile, after the call |
+| Estimated cost (`EstimatedCostBudget`) | Follows the two token limits: hard on output, conservative on input |
+
+The two rows that are not hard are also the two fields `ExecutionBudget` does not name `Max…`.
+A ceiling the host enforces before dispatch and a budget it reconciles against afterwards are
+different promises, so they get different names — `MaxModelCalls` cannot be exceeded, whereas
+`EstimatedCostBudget` can be overshot by one call and detected a moment later.
 
 Usage a provider does not report is charged at the reservation, never at zero.
 

@@ -10,6 +10,11 @@ var orderOwners = new Dictionary<string, RunPrincipal>(StringComparer.OrdinalIgn
 };
 var policy = new ToolAuthorizationPolicy(orderOwners);
 
+// The fake half of the approval boundary, behind the interface a real host implements. Declared
+// as IApprover so the swap is a one-line change and the demo answer is impossible to mistake for
+// a policy decision.
+IApprover approver = new DemoApprover(alwaysApprove: true);
+
 ToolCapability Grant(string tool, decimal? maximumAmount = null, bool oneTime = false) => new(
     principal.SubjectId, principal.TenantId, tool, new Dictionary<string, string>(), maximumAmount,
     DateTimeOffset.UtcNow.AddMinutes(5), Guid.NewGuid().ToString("N"), oneTime);
@@ -50,11 +55,7 @@ async Task Escalate(PendingApproval pending)
     Console.WriteLine("  → sent to the approver's channel, not returned to the model:");
     Console.WriteLine($"    {pending.ToolName}({string.Join(", ", pending.Arguments.Select(a => $"{a.Key}={a.Value}"))})");
 
-    // ponytail: the approver's answer is a constant so the sample runs with no TTY and no
-    // credentials. Upgrade path: await a durable approval record (see DurableHumanInTheLoop) and
-    // resume from it — never Console.ReadLine, which would hang an unattended run.
-    var approverApproved = true;
-    if (!approverApproved)
+    if (!await approver.ApproveAsync(pending))
     {
         Console.WriteLine("  approver declined — the tool is never invoked.");
         return;

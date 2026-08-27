@@ -8,10 +8,10 @@ var budget = new ExecutionBudget(
     MaxIterations: 5,
     MaxModelCalls: 5,
     MaxToolCalls: 10,
-    MaxInputTokens: 20_000,
+    InputTokenBudget: 20_000,
     MaxOutputTokens: 5_000,
     MaxElapsedTime: TimeSpan.FromSeconds(30),
-    MaxEstimatedCost: 0.20m);
+    EstimatedCostBudget: 0.20m);
 var state = new ExecutionBudgetState(budget);
 var prices = TokenPrices.FromEnvironment();
 var client = new BudgetedChatClient(Settings.ChatClient, state, prices);
@@ -84,7 +84,7 @@ Console.WriteLine($"Model calls: {result.Budget.ModelCalls} / {budget.MaxModelCa
 Console.WriteLine($"Tool calls: {result.Budget.ToolCalls} / {budget.MaxToolCalls}");
 Console.WriteLine($"Tokens in/out: {result.Budget.InputTokens}/{result.Budget.OutputTokens}");
 Console.WriteLine($"Elapsed: {result.Budget.Elapsed.TotalSeconds:F1}s / {budget.MaxElapsedTime.TotalSeconds:F0}s");
-Console.WriteLine($"Estimated cost: {result.Budget.EstimatedCost:C} / {budget.MaxEstimatedCost:C}");
+Console.WriteLine($"Estimated cost: {result.Budget.EstimatedCost:C} / {budget.EstimatedCostBudget:C}");
 Console.WriteLine($"Soft threshold reached: {result.Budget.SoftThresholdReached}");
 Console.WriteLine($"Answer: {result.Answer}");
 

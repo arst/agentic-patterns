@@ -14,8 +14,8 @@ public sealed class ExecutionBudgetState
     public ExecutionBudgetState(ExecutionBudget budget)
     {
         if (budget.MaxIterations <= 0 || budget.MaxModelCalls <= 0 || budget.MaxToolCalls <= 0 ||
-            budget.MaxInputTokens <= 0 || budget.MaxOutputTokens <= 0 || budget.MaxElapsedTime <= TimeSpan.Zero ||
-            budget.MaxEstimatedCost <= 0 || budget.SoftThreshold is <= 0 or >= 1)
+            budget.InputTokenBudget <= 0 || budget.MaxOutputTokens <= 0 || budget.MaxElapsedTime <= TimeSpan.Zero ||
+            budget.EstimatedCostBudget <= 0 || budget.SoftThreshold is <= 0 or >= 1)
             throw new ArgumentOutOfRangeException(nameof(budget), "Budget limits must be positive and the soft threshold must be between 0 and 1.");
         Budget = budget;
     }
@@ -49,11 +49,11 @@ public sealed class ExecutionBudgetState
         {
             ThrowIfElapsed();
             ThrowIf(ModelCalls + 1 > Budget.MaxModelCalls, StopReason.ModelCallLimitReached);
-            ThrowIf(InputTokens + _reservedInputTokens + maximumInputTokens > Budget.MaxInputTokens,
+            ThrowIf(InputTokens + _reservedInputTokens + maximumInputTokens > Budget.InputTokenBudget,
                 StopReason.InputTokenLimitReached);
             ThrowIf(OutputTokens + _reservedOutputTokens + maximumOutputTokens > Budget.MaxOutputTokens,
                 StopReason.OutputTokenLimitReached);
-            ThrowIf(EstimatedCost + _reservedCost + maximumCost > Budget.MaxEstimatedCost,
+            ThrowIf(EstimatedCost + _reservedCost + maximumCost > Budget.EstimatedCostBudget,
                 StopReason.EstimatedCostLimitReached);
 
             ModelCalls++;
@@ -77,9 +77,9 @@ public sealed class ExecutionBudgetState
             InputTokens += input;
             OutputTokens += output;
             EstimatedCost += price(input, output);
-            ThrowIf(InputTokens > Budget.MaxInputTokens, StopReason.InputTokenLimitReached);
+            ThrowIf(InputTokens > Budget.InputTokenBudget, StopReason.InputTokenLimitReached);
             ThrowIf(OutputTokens > Budget.MaxOutputTokens, StopReason.OutputTokenLimitReached);
-            ThrowIf(EstimatedCost > Budget.MaxEstimatedCost, StopReason.EstimatedCostLimitReached);
+            ThrowIf(EstimatedCost > Budget.EstimatedCostBudget, StopReason.EstimatedCostLimitReached);
         }
     }
 
@@ -128,9 +128,9 @@ public sealed class ExecutionBudgetState
             var soft = Iterations >= Budget.MaxIterations * Budget.SoftThreshold ||
                        ModelCalls >= Budget.MaxModelCalls * Budget.SoftThreshold ||
                        ToolCalls >= Budget.MaxToolCalls * Budget.SoftThreshold ||
-                       InputTokens + _reservedInputTokens >= Budget.MaxInputTokens * Budget.SoftThreshold ||
+                       InputTokens + _reservedInputTokens >= Budget.InputTokenBudget * Budget.SoftThreshold ||
                        OutputTokens + _reservedOutputTokens >= Budget.MaxOutputTokens * Budget.SoftThreshold ||
-                       EstimatedCost + _reservedCost >= Budget.MaxEstimatedCost * Budget.SoftThreshold ||
+                       EstimatedCost + _reservedCost >= Budget.EstimatedCostBudget * Budget.SoftThreshold ||
                        _clock.Elapsed >= Budget.MaxElapsedTime * (double)Budget.SoftThreshold;
             return new BudgetSnapshot(Iterations, ModelCalls, ToolCalls, InputTokens, OutputTokens,
                 _clock.Elapsed, EstimatedCost, soft);
