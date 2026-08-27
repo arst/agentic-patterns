@@ -22,15 +22,20 @@ internal static class Retry
     /// read-only or idempotent; a turn that issues a refund must retry at the tool boundary with an
     /// idempotency key instead (see IdempotentToolCalls).
     ///
-    /// <see cref="OperationCanceledException"/> is always rethrown, never retried. RunAsync takes no
-    /// <see cref="CancellationToken"/> of its own, so it has nothing to test the exception against
-    /// (the caller's token lives inside <paramref name="attempt"/>) — there is no way to tell "the
-    /// caller cancelled" apart from "the tool timed out internally" here. One consequence: a tool that
-    /// raises <see cref="OperationCanceledException"/> for its own internal timeout will no longer be
-    /// retried by this helper either.
+    /// <b>Cancellation expresses caller intent; a timeout expresses dependency failure.</b> .NET
+    /// spells both with the same exception family, so this helper takes the caller's
+    /// <paramref name="cancellationToken"/> and asks it directly instead of inferring intent from
+    /// the exception type: an <see cref="OperationCanceledException"/> raised while that token is
+    /// signalled is the caller asking to stop, and is rethrown — retrying is not recovery. One
+    /// raised while the token is NOT signalled came from somewhere inside the attempt (a
+    /// dependency's own deadline) and is a transient failure like any other, so it is retried.
+    /// A dependency that owns a deadline should still surface it as its own exception type — see
+    /// <c>LocationTools.GetPreciseLocation</c>, which converts its blown deadline into a
+    /// <see cref="TimeoutException"/> rather than letting an ambiguous OCE escape.
     /// </remarks>
     public static async Task<(AgentResponse? Response, Exception? LastError)> RunAsync(
-        Func<int, Task<AgentResponse>> attempt, int maxRetries, Func<int, Task> backoff)
+        Func<int, Task<AgentResponse>> attempt, int maxRetries, Func<int, Task> backoff,
+        CancellationToken cancellationToken = default)
     {
         Exception? lastError = null;
 
@@ -46,7 +51,7 @@ internal static class Retry
                 if (attemptNumber < maxRetries)
                     await backoff(attemptNumber);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 throw; // the caller asked to stop; retrying is not recovery
             }

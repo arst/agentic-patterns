@@ -216,7 +216,14 @@ public static class SandboxRunner
     private static async Task KillContainerAsync(string containerRuntime, string containerName) =>
         await RunRuntimeCommandAsync(containerRuntime, ["kill", containerName], TimeSpan.FromSeconds(30));
 
-    private static async Task RemoveContainerAsync(string containerRuntime, string containerName)
+    /// <summary>
+    /// Removes a container by NAME. Public because kill-by-name is part of the sandbox
+    /// guarantee, not an implementation detail of <see cref="RunAsync"/>: a caller that owns
+    /// the `docker run` process itself (the MCP stdio transport does) still has to be able to
+    /// tear the daemon-side container down, since SIGKILLing the CLI does not stop it.
+    /// Never throws — a missing container is the expected happy path.
+    /// </summary>
+    public static async Task RemoveContainerAsync(string containerRuntime, string containerName)
     {
         // Belt and braces next to --rm; a missing container is the expected happy path.
         try

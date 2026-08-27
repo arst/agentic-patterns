@@ -21,7 +21,13 @@ catch (HttpRequestException ex)
 }
 Console.WriteLine($"Refunds committed remotely: {service.Refunds.Count} (the caller does not know this)");
 
-Console.WriteLine("\n=== Attempt 2: a FRESH caller process, no local state, same key ===");
+// A fresh caller INSTANCE, not a fresh process: this program never restarts, and the same
+// SimulatedRefundService object is still in memory. That is enough to make the point, because
+// the caller holds no deduplication state to begin with — the key and the record both live with
+// the side-effect owner. Making it literally cross-process (two `dotnet run` invocations sharing
+// the same key, the service persisting its records to disk) would only move the same boundary
+// behind a file; see DurableExecution for that shape.
+Console.WriteLine("\n=== Attempt 2: a fresh caller instance with no caller-side state, same key ===");
 var retry = await Refund(new IdempotentTool(service), loseResponse: false).InvokeAsync(arguments);
 Console.WriteLine($"Result: {retry}");
 Console.WriteLine($"Refund side effects: {service.Refunds.Count} (expected: 1)");

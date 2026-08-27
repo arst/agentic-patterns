@@ -108,6 +108,7 @@ that owns the side effect, so the commit is atomic with the effect and the quest
   channel.
 - `ToolAuthorizationException` — how a refusal leaves the tool-result channel.
 - `RunPrincipal` — authenticated identity supplied by the application, never by the prompt.
+- `IApprover` / `DemoApprover` — the approval channel, and the deliberately obvious fake behind it.
 
 ## What to watch in the output
 
@@ -118,6 +119,10 @@ is never widened, and the model plays no part in producing the new grant. A one-
 capability then succeeds once and is refused on replay, and a tool absent from the grant is
 refused. Each decision is printed before the underlying function can run.
 
-The approver's answer in the sample is a constant, marked `// ponytail:` — the sample must run
-unattended, so it cannot block on `Console.ReadLine`. `DurableHumanInTheLoop` is where the real
-version of that wait lives.
+The approver's answer in the sample is a constant — it must run unattended, so it cannot block on
+`Console.ReadLine`. That constant lives behind `IApprover` in a class called `DemoApprover`, which
+announces `[DEMO APPROVER: automatically approving …]` on every call, rather than as a bare
+`var approverApproved = true;`. The distinction is the point of the naming: a boolean copied into a
+real host is a silent auto-approver no reviewer notices, whereas a `DemoApprover` in production is
+obvious on sight and the interface says exactly what has to replace it.
+`DurableHumanInTheLoop` is where the real version of that wait lives.

@@ -27,7 +27,10 @@ async Task<AgentResponse> RetryAndFallbackMiddleware(
             var delay = (int)(Math.Pow(2, attempt) * 500 + Random.Shared.Next(0, 200));
             Console.WriteLine($"  [Retry] Backing off {delay}ms...");
             return Task.Delay(delay, cancellationToken);
-        });
+        },
+        // Retry needs the caller's token to tell "the caller cancelled" (rethrow) apart from
+        // "a dependency blew its own deadline" (retry). Without it both look identical.
+        cancellationToken);
 
     if (response is not null)
     {

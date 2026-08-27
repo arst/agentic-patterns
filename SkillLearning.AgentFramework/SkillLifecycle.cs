@@ -116,15 +116,37 @@ public sealed class SkillLifecycle(string skillsDirectory)
     private static string Digest(string path) =>
         Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
 
-    // Every transition and every read re-verifies. A version directory is immutable by policy
-    // once the candidate is created (nothing here enforces that on disk); the only legal way to
-    // change a skill is a new version.
+    /// <summary>
+    /// Re-verifies the content against the digest recorded at candidate creation. Called on every
+    /// transition and every read, so an approved skill cannot be swapped out underneath an
+    /// already-granted approval. A version directory is immutable by policy once the candidate is
+    /// created (nothing here enforces that on disk); the only legal way to change a skill is a new
+    /// version.
+    ///
+    /// Know exactly what this buys, because the two are routinely confused:
+    /// <list type="bullet">
+    /// <item>A SHA-256 in the manifest <b>detects unexpected content mutation</b> — a partial
+    /// write, a stray editor save, a sync tool, a bug elsewhere in this process, anything that
+    /// changed SKILL.md without going through a new version.</item>
+    /// <item>It <b>does not authenticate the content against an attacker</b>. manifest.json sits
+    /// in the same directory as the file it vouches for, so whoever can write one can write the
+    /// other and recompute the digest to match. The digest is a checksum, not a signature: it has
+    /// no secret and no external root of trust, so it cannot survive an adversary who already has
+    /// the write access it is checking.</item>
+    /// </list>
+    /// Closing that second gap is a different mechanism, not a stronger hash: sign the approved
+    /// manifest with a key the agent cannot reach, or keep the manifest store outside the agent's
+    /// write scope entirely (a registry it can read and a reviewer can write). The filesystem is
+    /// the trust boundary this sample stops at, deliberately — see PatternExplorer/patterns/
+    /// SkillLearning.md.
+    /// </summary>
     private string ReadVerified(SkillManifest manifest)
     {
         var path = SkillPath(manifest);
         if (Digest(path) != manifest.ContentSha256)
             throw new InvalidDataException(
-                $"Skill '{manifest.Name}' v{manifest.Version} was modified after approval; refusing to load it.");
+                $"Skill '{manifest.Name}' v{manifest.Version} no longer matches the digest recorded " +
+                "at candidate creation; refusing to load it.");
         return File.ReadAllText(path);
     }
 
@@ -139,14 +161,45 @@ public sealed class SkillLifecycle(string skillsDirectory)
             : throw new ArgumentException("Skill name must be one safe path segment.");
 }
 
+/// <summary>
+/// The contract test a candidate must pass before a reviewer is asked to look at it. It checks
+/// two things: that the procedure records the four calls in the order the system enforces, and
+/// that it carries the conventions episode 1 could only have learned from error messages.
+///
+/// It deliberately does NOT assert the username format. That rule exists in
+/// <c>ProvisioningSystem.CreateAccount</c>, but an agent asked to provision "Maria Fernandez"
+/// guesses <c>maria.fernandez</c> on its first try and the regex accepts it — so the rule never
+/// produces an error, never enters the trajectory, and cannot appear in a distilled skill.
+/// Asserting a fact the episode never teaches makes the gate reject every correct skill, which is
+/// exactly what it used to do. A contract test may only assert what the run can actually produce.
+///
+/// ponytail: a substring-order check over model prose. It confirms the four calls and the two
+/// learned constants are written down in the right order, NOT that the skill works. The real
+/// version runs the distilled procedure against a fresh ProvisioningSystem and asserts the
+/// employee ends up provisioned; that needs a model call per promotion, so it is out of scope for
+/// a sample. See PatternExplorer/patterns/SkillLearning.md.
+/// </summary>
 public static class ProvisionEmployeeSkillTests
 {
+    // Tool names, not prose: these appear verbatim in the trajectory, so the reflection echoes
+    // them reliably, whereas a template like "first.last" only survives if an error quoted it.
+    private static readonly string[] Procedure =
+        ["CreateAccount", "AssignLicense", "AddToTeam", "ScheduleOnboarding"];
+
     public static bool Pass(string markdown)
     {
-        var account = markdown.IndexOf("first.last", StringComparison.OrdinalIgnoreCase);
-        var license = markdown.IndexOf("E5", StringComparison.Ordinal);
-        var team = markdown.IndexOf("team-", StringComparison.OrdinalIgnoreCase);
-        var onboarding = markdown.IndexOf("onboarding", StringComparison.OrdinalIgnoreCase);
-        return account >= 0 && account < license && license < team && onboarding >= 0;
+        // Strictly increasing first occurrences: a missing step is IndexOf -1 and fails here too.
+        var previous = -1;
+        foreach (var step in Procedure)
+        {
+            var position = markdown.IndexOf(step, StringComparison.OrdinalIgnoreCase);
+            if (position <= previous) return false;
+            previous = position;
+        }
+
+        // The two facts the tool descriptions never state. A candidate that merely restates the
+        // tool list has learned nothing from episode 1 and must not reach a reviewer.
+        return markdown.Contains("E5", StringComparison.Ordinal) &&
+               markdown.Contains("team-", StringComparison.OrdinalIgnoreCase);
     }
 }

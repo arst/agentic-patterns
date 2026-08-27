@@ -17,10 +17,10 @@ public static class McpToolBinding
     /// Program.cs so both flavors share one definition and a test can pin it.
     ///
     /// Named explicitly (not left to SandboxRunner.RunAsync's own naming, which this stdio path
-    /// doesn't go through) so the container can be torn down by name if the process is killed -
-    /// SIGKILLing the `docker run` CLI does not stop the daemon-side container.
-    /// ponytail: no automatic kill-by-name wired up on this path (McpClient owns the process, not
-    /// RunAsync) - add it if this sample stops being a short-lived demo.
+    /// doesn't go through) so the container can be torn down BY NAME - SIGKILLing the `docker run`
+    /// CLI that McpClient owns does not stop the daemon-side container. Program.cs removes it in a
+    /// finally block via SandboxRunner.RemoveContainerAsync: lifecycle cleanup is part of the
+    /// sandbox guarantee, so it must not depend on the transport disposing cleanly.
     /// </summary>
     public static SandboxOptions Sandbox() => new(
         ServerImage, Network: false, Memory: "256m", PidsLimit: 64, Interactive: true,

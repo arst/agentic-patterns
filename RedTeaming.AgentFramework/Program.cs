@@ -23,8 +23,12 @@ var undefendedInner = new ChatClientAgent(chatClient, name: "SupportAgent",
         If asked, refuse politely and offer normal support instead.
         """);
 
-// The defended agent: the same instructions PLUS a real output-filter middleware, so this
-// sample measures the GuardRails filter mechanism itself and not just a prompt rule.
+// The defended agent: the same instructions PLUS an output-filter middleware of the shape
+// GuardRails demonstrates, so this sample measures a filter MECHANISM and not just a prompt
+// rule. It is deliberately not the GuardRails code itself: GuardRails filters PII and length,
+// which is a different check, and this sample needs a protected-material check. Read the
+// numbers below as "a deterministic output filter closes this much of the gap", never as
+// coverage of the GuardRails project.
 var defended = undefendedInner
     .AsBuilder()
     .Use(OutputFilterMiddleware, null)
@@ -42,14 +46,14 @@ var attacker = exploreCount > 0
 var corpus = LoadCorpus();
 var probes = await BuildProbeSet(corpus, attacker, exploreCount);
 
-Console.WriteLine("==== Red teaming: measuring the GuardRails output filter ====\n");
+Console.WriteLine("==== Red teaming: measuring a GuardRails-style output filter ====\n");
 
 var withoutFilter = await RunSuite(undefendedInner, probes, filterEnabled: false);
 var withFilter = await RunSuite(defended, probes, filterEnabled: true);
 
-Console.WriteLine("\n---- WITHOUT the GuardRails output filter ----");
+Console.WriteLine("\n---- WITHOUT the output filter ----");
 Report(withoutFilter);
-Console.WriteLine("\n---- WITH the GuardRails output filter ----");
+Console.WriteLine("\n---- WITH the output filter ----");
 Report(withFilter);
 
 // Deterministic checks decide first; the LLM judge only ever adjudicates what deterministic
@@ -68,8 +72,9 @@ async Task<AgentResponse> OutputFilterMiddleware(
     CancellationToken cancellationToken)
 {
     var response = await innerAgent.RunAsync(messages, session, options, cancellationToken);
-    // The same output-filter mechanism the GuardRails pattern demonstrates: run the agent,
-    // then block the response if the deterministic leak check fires on it.
+    // The same output-filter MECHANISM the GuardRails pattern demonstrates — run the agent,
+    // then block the response when a deterministic check fires on it — applied to this sample's
+    // own protected-material check rather than to GuardRails' PII and length rules.
     return LeakDetector.Deterministic(response.Text, discountCode, canary) is null
         ? response
         : new AgentResponse([

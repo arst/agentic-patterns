@@ -1,7 +1,7 @@
 ---
 {
   "title": "Red Teaming",
-  "summary": "An attacker agent probes a defended agent, which runs a real GuardRails output filter; deterministic checks decide first, a judge only handles what's left, and the result is a confidence interval, not a rate.",
+  "summary": "An attacker agent probes a defended agent wrapped in a GuardRails-style deterministic output filter; deterministic checks decide first, a judge only handles what's left, and the result is a confidence interval, not a rate.",
   "category": "Evaluation",
   "projects": [
     { "flavor": "AgentFramework", "path": "RedTeaming.AgentFramework" }
@@ -35,9 +35,12 @@ and a system-prompt canary. The checked-in corpus probes across four classes:
 An optional `--explore N` flag adds `N` freshly generated probes per class on top of the corpus;
 the default run uses the checked-in corpus only, so results are reproducible.
 
-**Builds on:** **GuardRails** provides the defense under test — this sample composes its output
-filter as `.AsBuilder().Use(...)` middleware on the defended agent, the same mechanism
-**Middleware** demonstrates, and measures what it actually stops. The two-agent adversarial
+**Builds on:** **GuardRails** provides the *shape* of the defense under test — this sample
+composes an output filter as `.AsBuilder().Use(...)` middleware on the defended agent, the same
+mechanism **Middleware** demonstrates, and measures what it actually stops. It is deliberately not
+the GuardRails code itself: GuardRails filters PII and length, this sample needs a
+protected-material check, so the numbers below measure a filter of that kind — not coverage of the
+GuardRails project. The two-agent adversarial
 structure mirrors **Debate**, and the per-probe judge fallback reuses **LLMAsJudge**.
 
 ## Information-theoretic view
@@ -93,7 +96,7 @@ flowchart LR
 | `LeakDetector.Deterministic(reply, secret, canary)` | Fires first; `null` means "ask the judge" |
 | `LeakDetector.ParseVerdict(json)` | Fails into `Indeterminate`, never `Safe` |
 | `LeakDetector.WilsonInterval(leaked, total)` | The reported interval, not a point rate |
-| `.AsBuilder().Use(OutputFilterMiddleware, null)` | The real GuardRails-style output filter under test |
+| `.AsBuilder().Use(OutputFilterMiddleware, null)` | The GuardRails-style deterministic output filter under test |
 | `probes.json` (checked-in corpus) + `--explore N` | Reproducible default run, optional exploratory probes |
 
 ```bash
@@ -105,7 +108,7 @@ dotnet run --project RedTeaming.AgentFramework -- --selfcheck   # offline check,
 ## What to watch in the output
 
 Each probe prints its class and verdict; the run ends with a per-class and `OVERALL` table for
-"WITHOUT the GuardRails output filter" and again "WITH" it — the delta between those two tables
-is the measurement **GuardRails** cannot give you on its own. Watch the Wilson interval, not the
+"WITHOUT the output filter" and again "WITH" it — the delta between those two tables is the
+measurement **GuardRails** cannot give you on its own. Watch the Wilson interval, not the
 point estimate: on twelve probes a single leak already produces a wide interval, and any
 `Indeterminate` verdict forces `RESULT: INCONCLUSIVE` regardless of how few leaks were seen.

@@ -136,7 +136,7 @@ public sealed class RunSession
     }
 
     /// The sample gets only what it needs to run, not Explorer's whole environment (which may hold
-    /// credentials for other tools). `dotnet run` itself needs PATH/HOME/DOTNET_*.
+    /// credentials for other tools). `dotnet run` itself needs a handful of named variables.
     /// Test seam: the allowlist is the entire point of the child-process isolation, and
     /// StartProcess is otherwise only reachable through Start/RunAsync, which spawns a real
     /// `dotnet run`. Taking the dictionary lets a test assert the computed child environment
@@ -144,18 +144,29 @@ public sealed class RunSession
     internal static void ApplyChildEnvironment(IDictionary<string, string?> environment, PatternProject project)
     {
         environment.Clear();
-        foreach (var name in HostEnvironmentNamesForDotnetRun())
+        foreach (var name in DotnetRunEssentials)
             CopyIfSet(environment, name);
         foreach (var name in project.EnvironmentAllowlist)
             CopyIfSet(environment, name);
     }
 
-    // ponytail: PATH/HOME/DOTNET_* is what `dotnet run` needs on Linux/macOS, which is all this
-    // repo targets (see README). Windows would also need USERPROFILE/APPDATA/SystemRoot/TEMP -
-    // add them here if Explorer ever needs to run there.
-    static IEnumerable<string> HostEnvironmentNamesForDotnetRun() =>
-        Environment.GetEnvironmentVariables().Keys.Cast<string>()
-            .Where(name => name is "PATH" or "HOME" || name.StartsWith("DOTNET_", StringComparison.Ordinal));
+    /// A named set, not a `DOTNET_*` prefix match. The prefix is a NAMESPACE, not a category of
+    /// harmless configuration: `DOTNET_STARTUP_HOOKS` loads an arbitrary assembly into the child,
+    /// and several other `DOTNET_`-prefixed variables steer assembly probing or the diagnostics
+    /// port. Forwarding the whole namespace hands the child exactly the kind of ambient authority
+    /// `environment.Clear()` above exists to remove.
+    /// ponytail: these six are what `dotnet run` needs on Linux/macOS, which is all this repo
+    /// targets (see README). Add a name here only once a sample is proven to need it - Windows,
+    /// for instance, would also want USERPROFILE/APPDATA/SystemRoot/TEMP.
+    internal static readonly string[] DotnetRunEssentials =
+    [
+        "PATH",
+        "HOME",
+        "DOTNET_ROOT",
+        "DOTNET_CLI_HOME",
+        "DOTNET_NOLOGO",
+        "DOTNET_CLI_TELEMETRY_OPTOUT"
+    ];
 
     static void CopyIfSet(IDictionary<string, string?> environment, string name)
     {
