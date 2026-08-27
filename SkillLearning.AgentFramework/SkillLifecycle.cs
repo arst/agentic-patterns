@@ -161,14 +161,45 @@ public sealed class SkillLifecycle(string skillsDirectory)
             : throw new ArgumentException("Skill name must be one safe path segment.");
 }
 
+/// <summary>
+/// The contract test a candidate must pass before a reviewer is asked to look at it. It checks
+/// two things: that the procedure records the four calls in the order the system enforces, and
+/// that it carries the conventions episode 1 could only have learned from error messages.
+///
+/// It deliberately does NOT assert the username format. That rule exists in
+/// <c>ProvisioningSystem.CreateAccount</c>, but an agent asked to provision "Maria Fernandez"
+/// guesses <c>maria.fernandez</c> on its first try and the regex accepts it — so the rule never
+/// produces an error, never enters the trajectory, and cannot appear in a distilled skill.
+/// Asserting a fact the episode never teaches makes the gate reject every correct skill, which is
+/// exactly what it used to do. A contract test may only assert what the run can actually produce.
+///
+/// ponytail: a substring-order check over model prose. It confirms the four calls and the two
+/// learned constants are written down in the right order, NOT that the skill works. The real
+/// version runs the distilled procedure against a fresh ProvisioningSystem and asserts the
+/// employee ends up provisioned; that needs a model call per promotion, so it is out of scope for
+/// a sample. See PatternExplorer/patterns/SkillLearning.md.
+/// </summary>
 public static class ProvisionEmployeeSkillTests
 {
+    // Tool names, not prose: these appear verbatim in the trajectory, so the reflection echoes
+    // them reliably, whereas a template like "first.last" only survives if an error quoted it.
+    private static readonly string[] Procedure =
+        ["CreateAccount", "AssignLicense", "AddToTeam", "ScheduleOnboarding"];
+
     public static bool Pass(string markdown)
     {
-        var account = markdown.IndexOf("first.last", StringComparison.OrdinalIgnoreCase);
-        var license = markdown.IndexOf("E5", StringComparison.Ordinal);
-        var team = markdown.IndexOf("team-", StringComparison.OrdinalIgnoreCase);
-        var onboarding = markdown.IndexOf("onboarding", StringComparison.OrdinalIgnoreCase);
-        return account >= 0 && account < license && license < team && onboarding >= 0;
+        // Strictly increasing first occurrences: a missing step is IndexOf -1 and fails here too.
+        var previous = -1;
+        foreach (var step in Procedure)
+        {
+            var position = markdown.IndexOf(step, StringComparison.OrdinalIgnoreCase);
+            if (position <= previous) return false;
+            previous = position;
+        }
+
+        // The two facts the tool descriptions never state. A candidate that merely restates the
+        // tool list has learned nothing from episode 1 and must not reach a reviewer.
+        return markdown.Contains("E5", StringComparison.Ordinal) &&
+               markdown.Contains("team-", StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -76,15 +76,30 @@ flowchart LR
   from the fake provisioning system.
 - `SkillLifecycle` persists a versioned manifest and enforces legal promotion transitions. Every
   read and transition re-hashes the on-disk `SKILL.md` against the SHA-256 recorded at candidate
-  creation and refuses to load it on mismatch, so an approved file edited in place is **detected**,
-  not prevented — whoever can write `SKILL.md` can also write `manifest.json` and update the digest
-  to match. Closing that gap means signing the approved manifest or keeping the manifest store
-  outside the agent's write scope.
-- `ProvisionEmployeeSkillTests.Pass(...)` verifies the learned formats before review. It is a
-  substring-order check on the markdown — it confirms the four facts appear in the right order,
-  not that the skill actually works. A real behavioural test would run the procedure against the
-  fake provisioning system (or a sandboxed copy) and assert the resulting account has the right
+  creation and refuses to load it on mismatch. Read the guarantee precisely, because the two halves
+  are routinely conflated: a SHA-256 in the manifest **detects unexpected content mutation** (a
+  partial write, a stray editor save, a sync tool, a bug elsewhere in the process), while a **signed
+  manifest or an external trusted registry** is what **authenticates approved content against an
+  attacker**. This sample does the first only. `manifest.json` sits beside the file it vouches for,
+  so whoever can write `SKILL.md` can write the digest to match — a checksum with no secret and no
+  external root of trust cannot survive an adversary who already holds the write access it is
+  checking. Closing that gap is a different mechanism, not a stronger hash: sign the approved
+  manifest with a key the agent cannot reach, or move the manifest store outside the agent's write
+  scope entirely. The filesystem is where this sample's trust boundary deliberately stops.
+- `ProvisionEmployeeSkillTests.Pass(...)` verifies the learned formats before review: the four
+  tool calls in the order the system enforces, plus the two conventions episode 1 could only have
+  learned from error messages (`E5`, `team-<department>-eu`). It deliberately does **not** assert
+  the `first.last` username rule — that rule exists in the backend, but an agent asked to provision
+  "Maria Fernandez" guesses `maria.fernandez` first try and the regex accepts it, so the rule never
+  becomes an error, never enters the trajectory, and cannot appear in a distilled skill. **A
+  contract test may only assert what the run can actually produce**; asserting that one made the
+  gate reject every correct skill the sample generated. It is still a substring-order check on
+  model prose — it confirms the calls and constants are written down in the right order, not that
+  the skill works. A real behavioural test would run the distilled procedure against the fake
+  provisioning system (or a sandboxed copy) and assert the resulting account has the right
   username, license, and team, the way an integration test would.
+- A refused candidate prints `[gate] Skill contract tests failed…` and stops. That is the stage
+  machine working, not the sample breaking — nothing unreviewed reaches episode 2.
 
 ## What to watch in the output
 

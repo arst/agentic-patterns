@@ -56,8 +56,20 @@ var skillMarkdown = (await Settings.ChatClient.GetResponseAsync(
 
 var lifecycle = new SkillLifecycle(skillsDir);
 PrintStage(lifecycle.CreateCandidate("provision-employee", skillMarkdown));
-PrintStage(lifecycle.Validate("provision-employee"));
-PrintStage(lifecycle.MarkTested("provision-employee", ProvisionEmployeeSkillTests.Pass));
+try
+{
+    PrintStage(lifecycle.Validate("provision-employee"));
+    PrintStage(lifecycle.MarkTested("provision-employee", ProvisionEmployeeSkillTests.Pass));
+}
+catch (InvalidDataException ex)
+{
+    // A refused candidate is the gate WORKING, not the sample breaking — the whole point is that
+    // nothing unreviewed reaches episode 2. Report it as an outcome; a stack trace here reads as
+    // a broken sample and teaches the opposite of what the stage machine exists to show.
+    Console.WriteLine($"  [gate] {ex.Message}");
+    Console.WriteLine("  The candidate stays a candidate and episode 2 gets no skill to load.");
+    return;
+}
 PrintStage(lifecycle.Approve("provision-employee", "demo-human-reviewer"));
 PrintStage(lifecycle.Activate("provision-employee"));
 Console.WriteLine($"\n---- Active skill ----\n{lifecycle.ReadActive("provision-employee")}\n");

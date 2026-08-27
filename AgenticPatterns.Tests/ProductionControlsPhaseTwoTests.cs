@@ -213,15 +213,19 @@ public class TraceReplayTests
 
 public class SkillLifecycleTests
 {
+    /// Shaped like real reflection output — it names the four tools, in order, and carries the two
+    /// conventions only episode 1's errors reveal. The earlier fixture was a hand-written ideal
+    /// that named no tool at all, which is precisely why this suite stayed green while the sample
+    /// itself could not promote a single candidate: see ProvisionEmployeeSkillContractTests.
     private const string ValidSkill = """
         ---
         name: provision-employee
         description: Provision an employee safely.
         ---
-        1. Create the first.last account.
-        2. Assign E5.
-        3. Add the account to team-<department>-eu.
-        4. Schedule onboarding.
+        1. Call `CreateAccount` with the username.
+        2. Call `AssignLicense` with licenseTier set to E5 — the only tier this tenant provisions.
+        3. Call `AddToTeam` with an internal id of the form team-<department>-eu.
+        4. Call `ScheduleOnboarding` once the user is in a team.
         """;
 
     [Fact]
@@ -239,7 +243,7 @@ public class SkillLifecycleTests
             Assert.Throws<InvalidOperationException>(() => lifecycle.Activate("provision-employee"));
             lifecycle.Approve("provision-employee", "reviewer-1");
             Assert.Equal(SkillStage.Active, lifecycle.Activate("provision-employee").Stage);
-            Assert.Contains("first.last", lifecycle.ReadActive("provision-employee"));
+            Assert.Contains("CreateAccount", lifecycle.ReadActive("provision-employee"));
             lifecycle.Retire("provision-employee");
             Assert.Null(lifecycle.ReadActive("provision-employee"));
             Assert.Equal(2, lifecycle.CreateCandidate("provision-employee", ValidSkill).Version);
