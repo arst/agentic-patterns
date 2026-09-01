@@ -9,8 +9,10 @@ using Shared;
 // the difference between an agent with a long history and an agent that has learned anything: raw
 // episodes are retrieved by recency+importance+relevance and are individually cheap, but a
 // thousand of them is a store you cannot afford to search or to read. Consolidation collapses a
-// topic's episodes into one semantic memory - a real information loss, taken deliberately,
-// because "the customer's exports are slow every month-end" is worth more than twelve timestamps.
+// topic's episodes into one semantic memory - a real information loss for the ACTIVE set, taken
+// deliberately, because "the customer's exports are slow every month-end" is worth more than
+// twelve timestamps. The sources are archived rather than deleted, so the fact keeps a derivation
+// and a wrong summary stays correctable.
 
 var client = Settings.ChatClient;
 var now = new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.Zero);
@@ -19,16 +21,16 @@ var now = new DateTimeOffset(2026, 9, 1, 9, 0, 0, TimeSpan.Zero);
 // host, in a real system usually by a cheap model call.
 var episodes = new List<Episode>
 {
-    new("Customer reported CSV export timing out at month-end.", now.AddDays(-28), 0.6, "exports"),
-    new("Customer reported CSV export timing out again, 40k rows.", now.AddDays(-21), 0.6, "exports"),
-    new("Advised customer to filter the export by date range.", now.AddDays(-21), 0.3, "exports"),
-    new("Customer reported CSV export timeout, month-end again.", now.AddDays(-1), 0.7, "exports"),
-    new("Customer asked whether an API export exists.", now.AddHours(-3), 0.5, "exports"),
+    new("ep-01", "Customer reported CSV export timing out at month-end.", now.AddDays(-28), 0.6, "exports"),
+    new("ep-02", "Customer reported CSV export timing out again, 40k rows.", now.AddDays(-21), 0.6, "exports"),
+    new("ep-03", "Advised customer to filter the export by date range.", now.AddDays(-21), 0.3, "exports"),
+    new("ep-04", "Customer reported CSV export timeout, month-end again.", now.AddDays(-1), 0.7, "exports"),
+    new("ep-05", "Customer asked whether an API export exists.", now.AddHours(-3), 0.5, "exports"),
 
-    new("Customer's payment failed; card expired.", now.AddDays(-45), 0.8, "billing"),
-    new("Customer updated card; payment retried successfully.", now.AddDays(-45), 0.4, "billing"),
+    new("ep-06", "Customer's payment failed; card expired.", now.AddDays(-45), 0.8, "billing"),
+    new("ep-07", "Customer updated card; payment retried successfully.", now.AddDays(-45), 0.4, "billing"),
 
-    new("Customer mentioned they are evaluating a competitor.", now.AddDays(-9), 0.9, "renewal")
+    new("ep-08", "Customer mentioned they are evaluating a competitor.", now.AddDays(-9), 0.9, "renewal")
 };
 
 // ── Retrieval: what the agent would pull for a specific question ─────────────
@@ -65,17 +67,26 @@ foreach (var group in ripe)
     var fact = (await consolidator.RunAsync($"Topic: {group.Key}\n{dated}",
         options: new ChatClientAgentRunOptions(new ChatOptions { Temperature = 0.2f }))).Text.Trim();
 
-    semantic.Add(new SemanticMemory(fact, group.Key, group.Count(), now));
-    Console.WriteLine($"\n  [{group.Key}] {group.Count()} episodes -> 1 semantic memory");
+    var sourceIds = group.Select(e => e.Id).Order().ToArray();
+    semantic.Add(new SemanticMemory(fact, group.Key, sourceIds, now));
+    Console.WriteLine($"\n  [{group.Key}] {sourceIds.Length} episodes -> 1 semantic memory");
     Console.WriteLine($"    {fact}");
+    Console.WriteLine($"    derived from: {string.Join(", ", sourceIds)}");
 
-    // The episodes are retired. This is the lossy step, and the reason consolidation runs on a
-    // threshold rather than on every write.
-    episodes.RemoveAll(e => e.Topic.Equals(group.Key, StringComparison.OrdinalIgnoreCase));
+    // ARCHIVED, not deleted. Consolidation removes episodes from the hot retrieval set - that is
+    // the lossy step, and the reason it runs on a threshold. It must not remove them from durable
+    // history: the semantic memory is model-written prose, and if it is subtly wrong, deleting its
+    // sources makes the error canonical and unfalsifiable forever.
+    for (var i = 0; i < episodes.Count; i++)
+        if (episodes[i].Topic.Equals(group.Key, StringComparison.OrdinalIgnoreCase))
+            episodes[i] = episodes[i] with { Status = EpisodeStatus.Archived };
 }
 
-Console.WriteLine($"\nStore after consolidation: {episodes.Count} episodes + {semantic.Count} semantic memories " +
-                  $"(was {episodes.Count + ripe.Sum(g => g.Count())} episodes).");
+var active = episodes.Where(e => e.Status == EpisodeStatus.Active).ToList();
+var archived = episodes.Count - active.Count;
+Console.WriteLine($"\nActive retrieval set: {active.Count} episodes + {semantic.Count} semantic memories.");
+Console.WriteLine($"Archived, still on disk and still auditable: {archived} episodes. " +
+                  "Nothing was deleted - a consolidated fact can be checked against its sources.");
 
 // ── The agent answers from the consolidated store ────────────────────────────
 var agent = new ChatClientAgent(client, name: "Support",
@@ -86,7 +97,7 @@ var agent = new ChatClientAgent(client, name: "Support",
                    {string.Join("\n", semantic.Select(m => $"  - {m.Text}"))}
 
                    Recent episodes:
-                   {string.Join("\n", episodes.OrderByDescending(e => e.At).Select(e => $"  - {e.At:yyyy-MM-dd}: {e.Text}"))}
+                   {string.Join("\n", active.OrderByDescending(e => e.At).Select(e => $"  - {e.At:yyyy-MM-dd}: {e.Text}"))}
 
                    Answer from that. Be specific about what you already know.
                    """);

@@ -97,12 +97,14 @@ public class EventBusTests
     }
 
     [Fact]
-    public void AnEventNobodySubscribesToIsDeadLetteredNotDropped()
+    public void AnEventNobodySubscribesToIsRecordedNotDropped()
     {
         var bus = new EventBus(maxEvents: 10, maxGeneration: 5);
 
+        // Not queued, but not lost either. Which list it lands in is asserted by
+        // EventBusTaxonomyTests - a terminal event is a workflow output, not a delivery failure.
         Assert.False(bus.Publish(Event("nobody-listens")));
-        Assert.Single(bus.DeadLetters);
+        Assert.Single(bus.TerminalEvents);
     }
 
     [Fact]

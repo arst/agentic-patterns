@@ -91,40 +91,36 @@ public class OversightPolicyTests
 
 public class MemoryGateTests
 {
+    static readonly Source Billing = new("system:billing", Trust.Authoritative);
+    static readonly Source Operator = new("operator:alice", Trust.Operator);
+    static readonly Source Web = new("web:vendor.example/sla", Trust.WebContent);
+    static readonly Source Evil = new("web:collections-desk.example", Trust.WebContent);
+
     static readonly MemoryItem[] Authoritative =
-        [new("refund_limit_eur", "250", Provenance.Authoritative, Tier.Active)];
+        [new("refund_limit_eur", "250", Billing, Tier.Active)];
 
     [Fact]
     public void AnAuthoritativeFactCannotBeOverwrittenByScrapedContent() =>
         Assert.Equal(Tier.Rejected,
-            MemoryGate.Admit(new("refund_limit_eur", "50000", Provenance.WebContent), Authoritative).Item.Tier);
+            MemoryGate.Admit(new MemoryItem("refund_limit_eur", "50000", Evil), Authoritative).Item.Tier);
 
     [Fact]
     public void ATrustedSourceIsAdmittedDirectly() =>
         Assert.Equal(Tier.Active,
-            MemoryGate.Admit(new("sla_hours", "4", Provenance.Operator), []).Item.Tier);
+            MemoryGate.Admit(new MemoryItem("sla_hours", "4", Operator), []).Item.Tier);
 
     [Fact]
     public void AnUntrustedSourceLandsInQuarantine() =>
         Assert.Equal(Tier.Quarantined,
-            MemoryGate.Admit(new("sla_hours", "4", Provenance.WebContent), []).Item.Tier);
+            MemoryGate.Admit(new MemoryItem("sla_hours", "4", Web), []).Item.Tier);
 
     [Fact]
-    public void TheSameUntrustedSourceRepeatingItselfIsNotCorroboration()
+    public void TheSameSourceRepeatingItselfIsNotCorroboration()
     {
-        var store = new List<MemoryItem> { new("sla_hours", "4", Provenance.WebContent) };
+        List<MemoryItem> store = [new("sla_hours", "4", Web)];
 
         Assert.Equal(Tier.Quarantined,
-            MemoryGate.Admit(new("sla_hours", "4", Provenance.WebContent), store).Item.Tier);
-    }
-
-    [Fact]
-    public void AnIndependentSourceAgreeingPromotesTheMemory()
-    {
-        var store = new List<MemoryItem> { new("sla_hours", "4", Provenance.WebContent) };
-
-        Assert.Equal(Tier.Active,
-            MemoryGate.Admit(new("sla_hours", "4", Provenance.ToolOutput), store).Item.Tier);
+            MemoryGate.Admit(new MemoryItem("sla_hours", "4", Web), store).Item.Tier);
     }
 
     [Fact]
@@ -132,9 +128,9 @@ public class MemoryGateTests
     {
         MemoryItem[] store =
         [
-            new("a", "1", Provenance.Authoritative, Tier.Active),
-            new("b", "2", Provenance.WebContent, Tier.Quarantined),
-            new("c", "3", Provenance.WebContent, Tier.Rejected)
+            new("a", "1", Billing, Tier.Active),
+            new("b", "2", Web, Tier.Quarantined),
+            new("c", "3", Evil, Tier.Rejected)
         ];
 
         Assert.Equal(["a"], MemoryGate.Retrievable(store).Select(m => m.Key));

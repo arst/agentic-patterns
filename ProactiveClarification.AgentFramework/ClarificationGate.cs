@@ -10,15 +10,55 @@ public sealed record ScreenedQuestion(string Question, string? RejectedBecause)
     public bool Allowed => RejectedBecause is null;
 }
 
+public sealed record MergedAnswer(string Slot, string Value, string? IgnoredBecause)
+{
+    public bool Merged => IgnoredBecause is null;
+}
+
 public static class ClarificationGate
 {
-    /// Screens the model's proposed clarifying questions against what the request already said.
+    /// Merges the parsed clarification answers back into slot state.
     ///
-    /// Two failure modes this exists to stop:
-    ///   - asking about something the user already told you (the fastest way to look like a form);
-    ///   - asking about nothing in particular ("could you tell me more?"), which spends a
-    ///     round-trip and returns no slot.
-    /// Anything that survives is capped, because a wall of questions is itself a failure.
+    /// Asking the question is only half a round trip. The half that is easy to leave out - and
+    /// that makes the whole pattern hollow if you do - is writing the answer back, because until
+    /// the host records it the slot is still missing and the run will "assume" something the user
+    /// just told it.
+    ///
+    /// The answers are model-parsed out of free text, so they are untrusted the way any structured
+    /// extraction is. But the guard here is narrower than it first looks. A user who answers MORE
+    /// than was asked - volunteering a budget when the budget question was cut by the cap - is
+    /// giving you information, and discarding it to then invent a default is the same failure the
+    /// pattern exists to avoid, one step later. What actually needs guarding is a reply silently
+    /// REWRITING a slot the request had already settled, which no clarification round asked about
+    /// and no user should be surprised by.
+    public static IReadOnlyList<MergedAnswer> Merge(
+        IDictionary<string, string> filled,
+        IReadOnlySet<string> knownSlots,
+        IReadOnlySet<string> askedSlots,
+        IEnumerable<(string Slot, string Value)> answers)
+    {
+        // Slots that were already settled before the round: only a question about one of them
+        // licenses a change.
+        var settled = filled.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var results = new List<MergedAnswer>();
+
+        foreach (var (slot, value) in answers)
+        {
+            var reason = !knownSlots.Contains(slot)
+                ? "not a slot this host knows about"
+                : string.IsNullOrWhiteSpace(value)
+                    ? "the answer was empty"
+                    : settled.Contains(slot) && !askedSlots.Contains(slot)
+                        ? "would overwrite a slot the request already settled, and nothing asked about it"
+                        : null;
+
+            if (reason is null) filled[slot] = value.Trim();
+            results.Add(new MergedAnswer(slot, value, reason));
+        }
+
+        return results;
+    }
+
     public static IReadOnlyList<ScreenedQuestion> Screen(
         IReadOnlyCollection<Slot> slots,
         IReadOnlySet<string> filledSlots,

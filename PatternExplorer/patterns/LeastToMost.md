@@ -60,8 +60,24 @@ ending on "how many months at the higher price?" — correct, and not what was a
 prompt harder, the host guarantees the chain ends where it must.
 
 Solving is a plain loop. Each iteration builds a prompt containing the original problem, every
-`Qn`/`An` pair so far, and the current subproblem, then runs a **sessionless** call. Nothing
-carries forward except the answers the host chose to carry.
+`Qn`/`An` pair so far, and the current subproblem, then runs a **sessionless** call. Nothing carries
+forward except the answers the host chose to carry.
+
+**And that carry is a risk, not a safety property.** "Treat these as established facts" is a rigid
+error-propagation channel: a wrong figure in step 2 is not questioned by step 5, it is *cited* by
+it, and the chain arrives at a confidently wrong total with a clean-looking audit trail. Making the
+intermediate state inspectable does not make it correct.
+
+The actual benefit is one step further along: externalised state can be **checked**, if something
+checks it. So the host attaches a deterministic verifier where one exists — here `StepChecks`
+recomputes the billing schedule from the problem's own rules and compares it against the final
+answer's stated total. A failure gets one retry with the discrepancy named; a second failure is
+reported as contested rather than quietly accepted.
+
+Most steps have no verifier, and the run says so with `[no verifier for this step]` rather than
+implying coverage it does not have. That is the honest situation in most chains, and it is why the
+lesson is *"externalising state makes validation possible"* rather than *"externalised state is
+safer"*.
 
 ```mermaid
 flowchart TB
@@ -81,6 +97,11 @@ flowchart TB
   question, plus dedup and the cap.
 - `solver.RunAsync(prompt, options:)` with no session — each subproblem is an independent call;
   the only state is the `Q`/`A` list the host assembles into the prompt.
+- `StepChecks.BillingTotal(start, upgradeEffective, cancelled, before, after)` — the billing rules
+  in code, evaluated deterministically. Not a hardcoded expected answer: the same rules the prompt
+  states, which is the only kind of check worth having.
+- `StepChecks.AgainstTotal(answer, expected)` — extracts the answer's concluding figure and
+  compares. Returns a reason, so a failure can be handed back to the model.
 
 ## What to watch in the output
 
@@ -91,9 +112,14 @@ already the question, `Normalize` dropped its duplicate rather than asking it tw
 
 Then each `[n]` block with its `→` answer. Because every step is its own call, a wrong total is
 traceable to the exact subproblem that went wrong, which is the practical payoff over chain of
-thought. Watch particularly for a step re-deriving something an earlier step already established
-— that means the "treat these as established facts" instruction did not take, and the chain is
-paying for work twice.
+thought. Watch particularly for a step re-deriving something an earlier step already established —
+that means the "treat these as established facts" instruction did not take, and the chain is paying
+for work twice.
+
+Most steps end `[no verifier for this step]`. The final one ends `[check] EUR 144.00 matches the
+schedule computed by the host` — the only claim in the whole run that anything actually tested. If
+it ever prints a mismatch, watch the retry: the model is handed the discrepancy and recomputes, and
+if it still disagrees the run says **CONTESTED** rather than shipping the number.
 
 **ChainofThoughts** is the single-call version; **Planning** turns the decomposition into a
 validated tool plan rather than a question chain; **SelfNote** is the same "prepare, then answer"

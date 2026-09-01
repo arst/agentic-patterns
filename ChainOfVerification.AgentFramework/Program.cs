@@ -3,11 +3,18 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Shared;
 
-// Chain of Verification: draft → plan checks → answer each check in isolation → revise.
+// Chain of Verification: draft → plan checks → answer each check blind → revise.
 //
-// The whole point is the isolation in step 3. Asking the same context "are you sure?" gets you
-// the same answer with more confidence; asking a fresh model a narrow factual question, with the
-// draft nowhere in sight, is a genuinely independent measurement.
+// The whole point is the isolation in step 3. Asking the same context "are you sure?" gets you the
+// same answer with more confidence; asking a fresh run a narrow factual question, with the draft
+// nowhere in sight, removes the anchor.
+//
+// Be precise about what that buys, because it is easy to oversell. This is INDEPENDENT CONTEXT,
+// not independent evidence. The checker is the same deployment with the same weights and the same
+// training data, so a misconception the draft has, the check can have too - and on questions like
+// Roman founding dates that is not a remote possibility. What you get is a blind cross-check:
+// strong evidence when it disagrees, weak evidence when it agrees. Real independence needs a
+// different source - retrieval, a tool, a second model - which is what **AgenticRAG** brings.
 
 var client = Settings.ChatClient;
 var lowTemp = new ChatClientAgentRunOptions(new ChatOptions { Temperature = 0.2f });
@@ -56,16 +63,17 @@ foreach (var item in plan.Claims)
     checks.Add((claim, item.Question));
 }
 
-Console.WriteLine($"\n=== {checks.Count} verification questions passed the gate ===");
+Console.WriteLine($"\n=== {checks.Count} of {plan.Claims.Length} verification questions passed the gate ===");
 foreach (var (claim, question) in checks)
     Console.WriteLine($"  [{claim.Id}] {question}   (draft says: {claim.Value})");
 
-// ── 3. Answer each check in isolation ────────────────────────────────────────
+// ── 3. Answer each check blind ───────────────────────────────────────────────
 // A fresh stateless agent, one question per run, no session, no draft in context.
 // This is the structural difference from a self-critique loop.
 var verifier = new ChatClientAgent(client, name: "Verifier",
-    instructions: "Answer the single factual question as precisely as you can. If you are not " +
-                  "confident, say so explicitly. Do not speculate about why you are being asked.");
+    instructions: "Answer the single factual question as precisely as you can. Begin your reply " +
+                  "with CONFIDENT: or UNCERTAIN: — uncertainty is a useful answer and a guess " +
+                  "dressed as a fact is not. Do not speculate about why you are being asked.");
 
 var answers = await Task.WhenAll(checks.Select(async check =>
 {
@@ -73,7 +81,7 @@ var answers = await Task.WhenAll(checks.Select(async check =>
     return (check.Claim, check.Question, Answer: answer);
 }));
 
-Console.WriteLine("\n=== Independent answers ===");
+Console.WriteLine("\n=== Blind cross-checks ===");
 foreach (var (claim, question, answer) in answers)
     Console.WriteLine($"  [{claim.Id}] {question}\n        → {answer.ReplaceLineEndings(" ")}\n");
 
@@ -82,21 +90,58 @@ foreach (var (claim, question, answer) in answers)
 // wins when they disagree. Without that instruction the model tends to defend its own draft.
 var reviser = new ChatClientAgent(client, name: "Reviser",
     instructions: """
-                  You are given a draft answer and a set of independently verified facts.
+                  You are given a draft answer and a set of blind cross-checks: the same model
+                  answering each factual question with the draft out of sight.
 
-                  Where the verification disagrees with the draft, the verification wins: correct
-                  the draft. Where verification was uncertain, drop the claim or mark it as
-                  uncertain rather than keeping the confident version. Do not add new claims.
+                  A cross-check is not an authority. Resolve each disagreement into one of three
+                  outcomes, and never silently keep the draft:
 
-                  Output the corrected answer, then a short "Changes:" list.
+                    - check CONFIDENT and disagrees  -> correct the draft to the check.
+                    - check UNCERTAIN and disagrees  -> mark the claim contested: state both
+                      values and that they could not be settled. Do not pick one.
+                    - check agrees                   -> leave the claim as it is. Agreement between
+                      a model and itself is weak evidence, so do not upgrade the wording.
+
+                  Do not add new claims.
+
+                  Output the corrected answer, then "Changes:" listing corrections and contested
+                  claims separately.
                   """);
 
 var evidence = string.Join("\n", answers.Select(a => $"Q: {a.Question}\nA: {a.Answer}"));
 var final = await reviser.RunAsync(
-    $"Original question:\n{Question}\n\nDraft:\n{draft}\n\nVerified facts:\n{evidence}",
+    $"Original question:\n{Question}\n\nDraft:\n{draft}\n\nBlind cross-checks:\n{evidence}",
     options: lowTemp);
 
-Console.WriteLine($"=== Verified answer ===\n{final}");
+Console.WriteLine($"=== Cross-checked answer ===\n{final}");
+
+// Coverage, stated rather than implied. The planner is capped at 8 claims and the gate drops
+// leading questions, so some of the draft's specifics may never have been checked at all -
+// calling the result "verified" without saying which claims that covers is the quiet overclaim
+// this pattern invites.
+const int PlannerCap = 8;
+var dropped = plan.Claims.Length - checks.Count;
+
+Console.WriteLine($"""
+
+                   === Coverage ===
+                     claims extracted:  {plan.Claims.Length}
+                     cross-checked:     {checks.Count}
+                     never checked:     {dropped}  (questions the gate refused as leading)
+                   """);
+
+// Name exactly which of the two gaps applies. "Partially checked" when nothing was skipped is as
+// misleading as "verified" when something was.
+Console.WriteLine(
+    dropped > 0
+        ? $"\n{dropped} claim(s) were never checked, and carry the draft's confidence and nothing more."
+        : plan.Claims.Length >= PlannerCap
+            ? $"\nEvery extracted claim was cross-checked — but the planner stops at {PlannerCap} and "
+              + "returned exactly that many, so a longer draft may hold specifics it never enumerated."
+            : "\nEvery claim in the draft was extracted and cross-checked.");
+
+Console.WriteLine("Cross-checked is not verified: the checker shares the drafter's weights, so "
+                  + "agreement rules out anchoring on the draft, not a shared misconception.");
 
 // Structured-output shape for the planning call.
 internal sealed record PlannedClaim(int Id, string Text, string Value, string Question);

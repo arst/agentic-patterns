@@ -8,8 +8,14 @@ using Shared;
 //
 // The difference from chain of thought is where the intermediate results live. CoT keeps them
 // inside one generation, where a wrong early step quietly poisons everything after it. Here each
-// subproblem is its own call whose input is the previous answers as facts - so a step can be
-// inspected, and the sequence is the host's, not the model's.
+// subproblem is its own call whose input is the previous answers as facts - so the sequence is
+// the host's, not the model's.
+//
+// But note what "established facts" costs: it is a rigid error-propagation channel. A wrong
+// figure in step 2 is not questioned by step 5, it is cited by it. Externalising the intermediate
+// state does not make the chain safer by itself - it makes it CHECKABLE, which is only a benefit
+// if something checks. So the host attaches a deterministic verifier where one exists, and says
+// plainly where one does not.
 
 var client = Settings.ChatClient;
 var precise = new ChatClientAgentRunOptions(new ChatOptions { Temperature = 0.1f });
@@ -45,6 +51,12 @@ var solver = new ChatClientAgent(client, name: "Solver",
                   and do not redo them. Answer in one or two sentences, ending with the value.
                   """);
 
+// A deterministic verifier for the one step that has one. The upgrade takes effect at the next
+// billing date on or after 1 July, which is 3 July.
+var expectedTotal = StepChecks.BillingTotal(
+    start: new DateOnly(2025, 3, 3), upgradeEffective: new DateOnly(2025, 7, 3),
+    cancelled: new DateOnly(2025, 10, 15), beforeUpgrade: 14m, afterUpgrade: 22m);
+
 var solved = new List<(SubProblem Step, string Answer)>();
 foreach (var step in steps)
 {
@@ -65,9 +77,37 @@ foreach (var step in steps)
     // A fresh, sessionless run per subproblem: the only thing carried forward is the answer
     // text the host chose to carry, never the previous call's reasoning.
     var answer = (await solver.RunAsync(prompt, options: precise)).Text.Trim();
-    solved.Add((step, answer));
 
-    Console.WriteLine($"\n[{step.Order}] {step.Question}\n    → {answer.ReplaceLineEndings(" ")}");
+    // ── The checkpoint ───────────────────────────────────────────────────────
+    // Only the final step has a verifier here, and that is the honest situation: most
+    // subproblems in most chains do not. Where one exists, a failed check is caught before the
+    // answer becomes an "established fact" that every later step cites.
+    var isFinal = step.Order == steps.Count;
+    if (isFinal)
+    {
+        var check = StepChecks.AgainstTotal(answer, expectedTotal);
+        Console.WriteLine($"\n[{step.Order}] {step.Question}\n    → {answer.ReplaceLineEndings(" ")}");
+        Console.WriteLine($"    [check] {check.Detail}");
+
+        if (!check.Passed)
+        {
+            // One retry, with the discrepancy named. Not a loop: an unbounded "try again" on a
+            // criterion the model cannot see is how a sample becomes a hang.
+            answer = (await solver.RunAsync(
+                $"{prompt}\n\nA deterministic check of your answer failed: {check.Detail}. " +
+                "Recompute carefully, listing each billing date and its charge.", options: precise)).Text.Trim();
+
+            var recheck = StepChecks.AgainstTotal(answer, expectedTotal);
+            Console.WriteLine($"    → retry: {answer.ReplaceLineEndings(" ")}");
+            Console.WriteLine($"    [check] {(recheck.Passed ? recheck.Detail : recheck.Detail + " — CONTESTED, not settled")}");
+        }
+
+        solved.Add((step, answer));
+        continue;
+    }
+
+    solved.Add((step, answer));
+    Console.WriteLine($"\n[{step.Order}] {step.Question}\n    → {answer.ReplaceLineEndings(" ")}   [no verifier for this step]");
 }
 
 Console.WriteLine($"\n=== Final answer ===\n{solved[^1].Answer}");

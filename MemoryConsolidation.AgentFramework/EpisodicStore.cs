@@ -1,8 +1,21 @@
 namespace MemoryConsolidation.AgentFramework;
 
-public sealed record Episode(string Text, DateTimeOffset At, double Importance, string Topic);
+public enum EpisodeStatus { Active, Archived }
 
-public sealed record SemanticMemory(string Text, string Topic, int ConsolidatedFrom, DateTimeOffset At);
+public sealed record Episode(string Id, string Text, DateTimeOffset At, double Importance, string Topic,
+    EpisodeStatus Status = EpisodeStatus.Active);
+
+/// A consolidated fact, with the episodes it was derived from still named.
+///
+/// `SourceEpisodeIds` is what separates a memory architecture from a lossy compressor. The
+/// semantic memory is model-written prose about a dozen episodes; if it is slightly wrong and the
+/// episodes are gone, the error is now canonical, unfalsifiable, and retrieved into every future
+/// prompt. Keeping the derivation means a suspect fact can be re-derived, audited, or corrected
+/// against what actually happened.
+public sealed record SemanticMemory(string Text, string Topic, string[] SourceEpisodeIds, DateTimeOffset At)
+{
+    public int ConsolidatedFrom => SourceEpisodeIds.Length;
+}
 
 public sealed record Scored(Episode Episode, double Recency, double Relevance, double Total);
 
@@ -18,11 +31,14 @@ public static class EpisodicRetrieval
     /// Half-life in hours: a memory a day old counts about a fifth of a fresh one.
     const double DecayPerHour = 0.995;
 
+    /// Scores the ACTIVE episodes only. Archived ones are still on disk and still auditable; they
+    /// are simply out of the hot retrieval set, which is what consolidation is for.
     public static IReadOnlyList<Scored> Score(IEnumerable<Episode> episodes, string query, DateTimeOffset now)
     {
         var queryWords = Words(query);
 
         return [.. episodes
+            .Where(e => e.Status == EpisodeStatus.Active)
             .Select(e =>
             {
                 var recency = Math.Pow(DecayPerHour, Math.Max(0, (now - e.At).TotalHours));
@@ -51,11 +67,12 @@ public static class Consolidation
     /// Which episodes are ripe for consolidation: a topic with enough accumulated episodes that
     /// the generalisation is worth making and the individual events are no longer worth keeping.
     ///
-    /// Consolidation is lossy on purpose, which is exactly why it needs a threshold rather than a
-    /// schedule. Two episodes summarised into "the customer sometimes reports slow exports" have
+    /// Consolidation is lossy for the ACTIVE set on purpose - which is exactly why it needs a
+    /// threshold rather than a schedule, and why it archives rather than deletes. Two episodes summarised into "the customer sometimes reports slow exports" have
     /// lost both dates and gained nothing; twelve of them have become a fact about the customer.
     public static IReadOnlyList<IGrouping<string, Episode>> Ripe(IEnumerable<Episode> episodes, int minimum) =>
         [.. episodes
+            .Where(e => e.Status == EpisodeStatus.Active)
             .GroupBy(e => e.Topic, StringComparer.OrdinalIgnoreCase)
             .Where(g => g.Count() >= minimum)
             .OrderBy(g => g.Key, StringComparer.Ordinal)];

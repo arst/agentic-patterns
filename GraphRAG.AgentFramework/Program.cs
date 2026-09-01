@@ -67,8 +67,13 @@ foreach (var relation in graph.Relations)
 
 // ── 2. Communities, summarised once ──────────────────────────────────────────
 var summariser = new ChatClientAgent(client, name: "Summariser",
-    instructions: "Summarise a cluster of related infrastructure facts in two sentences: what " +
-                  "this cluster is about and what recurs in it.");
+    instructions: """
+                  Summarise a cluster of related infrastructure facts in two sentences: what this
+                  cluster is about and what recurs in it.
+
+                  Also return sourceDocumentIds: every incident id that appears in the facts you
+                  actually used. Ids only, exactly as written.
+                  """);
 
 var communities = graph.Communities();
 var summaries = new List<string>();
@@ -77,16 +82,34 @@ Console.WriteLine($"\n=== {communities.Count} communities ===");
 foreach (var (community, index) in communities.Select((c, i) => (c, i)))
 {
     var edges = string.Join("\n", community.Select(r => $"{r.From} {r.Type} {r.To} [{r.SourceDoc}]"));
-    var summary = (await summariser.RunAsync(edges, options: precise)).Text.Trim();
-    summaries.Add($"Community {index + 1}: {summary}");
+    var summarised = (await summariser.RunAsync<CommunitySummary>(edges, options: precise)).Result;
+
+    // The model is asked for its sources, and the host checks them against the graph rather than
+    // believing them. Without this the provenance chain breaks exactly here: documents carry ids,
+    // relations carry ids, and then a free-text summary carries whatever the model happened to
+    // retain - after which the final answerer is asked to "cite the incident ids" and can only
+    // repeat, or invent, what reached it. An id the summariser names that is not in the community
+    // is a fabrication, and it is cheap to catch because the truth is a set the host already has.
+    var actual = community.Select(r => r.SourceDoc).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToArray();
+    var claimed = summarised.SourceDocumentIds ?? [];
+    var fabricated = claimed.Except(actual, StringComparer.OrdinalIgnoreCase).ToArray();
+
+    // Cite what the community actually contains - the host's set, not the model's recollection.
+    summaries.Add($"Community {index + 1} [sources: {string.Join(", ", actual)}]: {summarised.Summary}");
 
     Console.WriteLine($"\n  Community {index + 1} ({community.Count} relations, " +
                       $"{community.SelectMany(r => new[] { r.From, r.To }).Distinct(StringComparer.OrdinalIgnoreCase).Count()} entities)");
-    Console.WriteLine($"    {summary}");
+    Console.WriteLine($"    {summarised.Summary}");
+    Console.WriteLine($"    sources (from the graph): {string.Join(", ", actual)}");
+    if (fabricated.Length > 0)
+        Console.WriteLine($"    [provenance] summariser also claimed {string.Join(", ", fabricated)} — " +
+                          "not in this community, dropped");
 }
 
 var answerer = new ChatClientAgent(client, name: "Answerer",
-    instructions: "Answer from the supplied graph evidence only. Cite the incident ids you used.");
+    instructions: "Answer from the supplied graph evidence only. Cite incident ids, and cite ONLY " +
+                  "ids that appear in the evidence you were given — the sources are listed with " +
+                  "each summary for exactly that purpose.");
 
 // ── 3a. Global question: answered from community summaries ───────────────────
 Console.WriteLine("\n=== Global question ===");
@@ -103,5 +126,6 @@ Console.WriteLine(await answerer.RunAsync(
     $"Evidence:\n{string.Join("\n", neighbourhood.Select(r => $"{r.From} {r.Type} {r.To} [{r.SourceDoc}]"))}\n\n" +
     "Q: What is Team Atlas involved in, directly and indirectly?", options: precise));
 
+internal sealed record CommunitySummary(string Summary, string[] SourceDocumentIds);
 internal sealed record ExtractedRelation(string From, string Type, string To);
 internal sealed record Extraction(ExtractedRelation[] Relations);

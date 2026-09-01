@@ -65,8 +65,16 @@ is explicit that this is components, not Leiden: deterministic, parameter-free, 
 this corpus. On any corpus large enough to matter, one giant component forms and a real community
 algorithm is required — that is the upgrade path, not a bigger prompt.
 
-**4. Summarise** each community once. This is the pre-computation that makes global questions
-cheap at query time.
+**4. Summarise** each community once — and carry provenance through it. This is the step where a
+GraphRAG pipeline most easily stops being GraphRAG: documents carry ids, relations carry ids, and
+then a free-text summary carries whatever the model happened to retain. The final answerer is asked
+to "cite the incident ids", and can only repeat what reached it, or invent.
+
+So the summariser returns a structured `CommunitySummary(Summary, SourceDocumentIds)`, **and the
+host checks those ids against the graph rather than believing them.** Ids the model names that are
+not in the community are reported and dropped; what gets attached to the summary is the set the
+host already knows. Verifying is cheap here precisely because the truth is a set the host holds —
+which is the difference between GraphRAG and summarising some graph-shaped text.
 
 **5. Answer, two ways.**
 - *Global:* "what is the recurring systemic problem" — answered from community summaries alone.
@@ -93,6 +101,8 @@ flowchart TB
 - `KnowledgeGraph.Communities()` — union-find over the relations, groups ordered largest first.
 - `KnowledgeGraph.Neighbourhood(entity, hops)` — breadth-limited traversal for local questions.
 - `Relation.SourceDoc` — every edge remembers its document, so answers can cite incident ids.
+- `agent.RunAsync<CommunitySummary>(...)` — summary plus claimed source ids, checked against the
+  community's actual ids before either is used.
 
 ## What to watch in the output
 
@@ -108,11 +118,17 @@ everything else to join into one component through the shared Postgres cluster a
 chain. If you see four or five tiny communities instead, extraction drifted on entity names; that
 is the failure this pipeline has, and the relation list above is where you diagnose it.
 
+Each community also prints `sources (from the graph): INC-…` — the provenance the answerer will
+cite, taken from the host's set rather than the summariser's memory. A
+`[provenance] summariser also claimed …` line means the model named an id the community does not
+contain; it is dropped, and seeing it occasionally is the check earning its place.
+
 Then the two answers. The global one should name weak change management around shared
 infrastructure, citing manual rollbacks and the shared Postgres cluster — a claim no single report
 makes, assembled from community summaries rather than retrieved from any passage. The local one
-should reach `payments gateway` from `Team Atlas` via `checkout`, an indirect connection that
-exists only in the traversal. Both should cite incident ids.
+should reach `payments gateway` from `Team Atlas` via `checkout`, an indirect connection that exists
+only in the traversal. Both should cite incident ids, and every id they cite should be traceable
+back through a community's source list to a real relation.
 
 **RAG** for passage-level retrieval, **AgenticRAG** when retrieval itself needs an agent,
 **MemoryConsolidation** for the same "many episodes become one durable fact" move applied to

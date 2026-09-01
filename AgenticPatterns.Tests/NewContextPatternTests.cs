@@ -177,8 +177,8 @@ public class EpisodicMemoryTests
     {
         var scored = EpisodicRetrieval.Score(
         [
-            new("Customer reported export timeouts today.", Now.AddHours(-1), 0.3, "exports"),
-            new("Customer payment failed months ago.", Now.AddDays(-60), 0.9, "billing")
+            new("ep-1", "Customer reported export timeouts today.", Now.AddHours(-1), 0.3, "exports"),
+            new("ep-2", "Customer payment failed months ago.", Now.AddDays(-60), 0.9, "billing")
         ], "export timeouts", Now);
 
         Assert.Contains("export", scored[0].Episode.Text);
@@ -189,8 +189,8 @@ public class EpisodicMemoryTests
     {
         var scored = EpisodicRetrieval.Score(
         [
-            new("same text here", Now.AddHours(-1), 0.5, "t"),
-            new("same text here", Now.AddDays(-30), 0.5, "t")
+            new("ep-1", "same text here", Now.AddHours(-1), 0.5, "t"),
+            new("ep-2", "same text here", Now.AddDays(-30), 0.5, "t")
         ], "unrelated", Now);
 
         Assert.True(scored[0].Recency > scored[1].Recency);
@@ -201,8 +201,9 @@ public class EpisodicMemoryTests
     {
         Episode[] episodes =
         [
-            new("a", Now, 0.5, "exports"), new("b", Now, 0.5, "exports"), new("c", Now, 0.5, "exports"),
-            new("d", Now, 0.5, "billing"), new("e", Now, 0.5, "billing")
+            new("a", "a", Now, 0.5, "exports"), new("b", "b", Now, 0.5, "exports"),
+            new("c", "c", Now, 0.5, "exports"),
+            new("d", "d", Now, 0.5, "billing"), new("e", "e", Now, 0.5, "billing")
         ];
 
         Assert.Equal(["exports"], Consolidation.Ripe(episodes, minimum: 3).Select(g => g.Key));
@@ -210,5 +211,5 @@ public class EpisodicMemoryTests
 
     [Fact]
     public void NothingConsolidatesBelowTheThreshold() =>
-        Assert.Empty(Consolidation.Ripe([new("a", Now, 0.5, "exports")], minimum: 3));
+        Assert.Empty(Consolidation.Ripe([new("a", "a", Now, 0.5, "exports")], minimum: 3));
 }

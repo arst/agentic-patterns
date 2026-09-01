@@ -92,6 +92,14 @@ sign-and-verify without a PKI, and it has a real limit — anyone who can verify
 production registry signs per-agent with asymmetric keys and publishes a JWKS, so a compromised
 consumer cannot forge cards. That is a different mechanism, not a bigger key.
 
+**And a second limit, which is about what verification proves rather than how strong it is.** A
+verified card establishes that *the registry vouched for this name, capabilities and endpoint*. It
+does not establish that whoever answers at that endpoint is the agent the card describes. Nothing
+here binds the card to the connection: without TLS server-identity checking bound to the card's
+endpoint — or a challenge the peer must sign with the key the card names — a network-level attacker
+who can answer at that address inherits the trust the signature conferred. Discovery-time identity
+and connection-time identity are separate problems, and this sample solves only the first.
+
 ## What to watch in the output
 
 The discovery block is the whole pattern in five lines: two `ok` rows, one `rejected …

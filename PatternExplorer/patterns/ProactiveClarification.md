@@ -58,11 +58,22 @@ returns nothing), duplicates an earlier question, or exceeds the three-question 
 vocabulary lives host-side because that is what makes the rule checkable: the model proposes,
 the host decides which questions are worth a human's attention.
 
-Whatever survives is asked once, in a single prompt. The answer — or `Enter`, or EOF when the
-sample runs non-interactively — closes the round. Slots still unknown after that are handed to
-the booking agent as *"still unknown"*, with instructions to choose a default and list it under
-`Assumptions:` in the form `slot = value (assumed)`. It is told, in as many words, that the
-clarification round is over.
+Whatever survives is asked once, in a single prompt. Then comes the step that makes the round trip
+worth making, and the one easiest to leave out: **the answer is written back into slot state.** One
+free-text reply covers several questions — *"Berlin, next Tuesday, 3 nights, max EUR 150"* — so a
+parser splits it per slot and `ClarificationGate.Merge` records each value. Without this the host
+asks, is told, and then "assumes" the thing it was just told.
+
+The merge guard is narrower than it first looks, deliberately. A reply that answers **more** than
+was asked is kept: the user volunteering a budget after the budget question was cut by the
+three-question cap is giving you information, and discarding it only to invent a default is the
+same failure the pattern exists to avoid, one step later. What the gate refuses is a reply silently
+**rewriting** a slot the request had already settled, which nothing asked about and no user should
+be surprised by.
+
+Slots still unknown *after the merge* go to the booking agent as *"still unknown"*, with
+instructions to choose a default and list it under `Assumptions:` in the form
+`slot = value (assumed)`. It is told, in as many words, that the clarification round is over.
 
 ```mermaid
 flowchart TB
@@ -88,6 +99,11 @@ flowchart TB
 - `ClarificationGate.Screen(slots, filled, questions, maxQuestions)` — returns every question
   with a rejection reason or `null`, so the run can print what it chose not to ask. Deciding by
   *slot* rather than by question text is what makes "one question per slot" enforceable.
+- `parser.RunAsync<ClarificationReply>(...)` — splits one free-text reply into per-slot answers.
+  Model-parsed, therefore untrusted, therefore gated.
+- `ClarificationGate.Merge(filled, knownSlots, askedSlots, answers)` — writes answers into slot
+  state and returns each with a rejection reason or `null`. Volunteered slots merge; overwrites of
+  settled slots do not.
 - `Console.ReadLine()` — a single blocking read for the single round. `null` at EOF means the
   sample degrades to assumptions rather than hanging, which is why it runs unattended in Pattern
   Explorer.
@@ -101,9 +117,14 @@ the screen: `ask:` lines are what reaches the human, `dropped:` lines carry the 
 `dropped: ... (asks about no required slot)` is the model reaching for a conversational filler
 question; `('destination' was already given)` is it asking about something it just marked filled.
 
-If you answer the prompt, watch how the answer flows into the proposal. If you press Enter, watch
-the `Assumptions:` block instead — every unknown slot appears there with `(assumed)`. That block
-is the pattern's real output: the agent proceeded, and said exactly what it made up.
+If you answer the prompt, the `=== Merging the reply into slot state ===` block shows each value
+landing — including, when the budget question was cut but you answered it anyway, the volunteered
+`budget` merging alongside the three that were asked. Then check `Assumptions:`: it should contain
+only what you did *not* answer. A slot appearing there that you just supplied means the merge
+failed, which is the whole bug this step exists to prevent.
+
+If you press Enter instead, every unknown slot appears under `Assumptions:` with `(assumed)`. That
+block is the pattern's real output: the agent proceeded, and said exactly what it made up.
 
 **HumanInTheLoop** approves an action about to happen; this fills in the parameters before one is
 planned. **BoundedExecution** is the same instinct applied to the run as a whole — a limit the

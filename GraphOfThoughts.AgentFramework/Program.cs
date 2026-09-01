@@ -12,6 +12,8 @@ using Shared;
 
 var client = Settings.ChatClient;
 var creative = new ChatClientAgentRunOptions(new ChatOptions { Temperature = 0.9f });
+
+const int MaxSentences = 6;
 var precise = new ChatClientAgentRunOptions(new ChatOptions { Temperature = 0.2f });
 
 const string Brief =
@@ -27,10 +29,8 @@ var scorer = new ChatClientAgent(client, name: "Scorer",
                   Score a candidate paragraph from 0.0 to 1.0 on: concrete risk (not platitudes),
                   relevance to a 40-person company, and whether a decision-maker could act on it.
 
-                  Length is part of the score, not a separate note: the brief allows six sentences.
-                  Cap a seven-sentence candidate at 0.6 and a ten-sentence one at 0.3, however good
-                  the content is. Use the full range - if everything scores above 0.9 the score is
-                  not selecting anything.
+                  Judge content only - the host applies the length limit itself. Use the full
+                  range: if everything scores above 0.9 the score is not selecting anything.
 
                   Return the score and one sentence of justification.
                   """);
@@ -54,11 +54,18 @@ string[] angles =
     "commercial risk: feature freeze, opportunity cost, customer-visible regressions"
 ];
 
+async Task<(double Score, string Why)> ScoreAsync(string text)
+{
+    var judged = (await scorer.RunAsync<Score>(text, options: precise)).Result;
+    var (score, penalty) = LengthPolicy.Apply(judged.Value, text, MaxSentences);
+    return (score, penalty is null ? judged.Why : $"{judged.Why} [host: {penalty}]");
+}
+
 var drafts = await Task.WhenAll(angles.Select(async angle =>
 {
     var text = (await generator.RunAsync($"{Brief}\n\nAngle: {angle}", options: creative)).Text;
-    var score = (await scorer.RunAsync<Score>(text, options: precise)).Result;
-    return (Angle: angle, Text: text, score.Value, score.Why);
+    var (score, why) = await ScoreAsync(text);
+    return (Angle: angle, Text: text, Value: score, Why: why);
 }));
 
 Console.WriteLine("=== Generated thoughts ===");
@@ -75,19 +82,19 @@ var best2 = ids.OrderByDescending(id => graph[id].Score).Take(2).ToList();
 var merged = (await aggregator.RunAsync(
     $"{Brief}\n\nCandidate A:\n{graph[best2[0]].Text}\n\nCandidate B:\n{graph[best2[1]].Text}",
     options: precise)).Text;
-var mergedScore = (await scorer.RunAsync<Score>(merged, options: precise)).Result;
-var mergedId = graph.Add("aggregate", merged, best2, mergedScore.Value);
+var mergedScore = await ScoreAsync(merged);
+var mergedId = graph.Add("aggregate", merged, best2, mergedScore.Score);
 
 Console.WriteLine($"\n=== Aggregated T{best2[0]} + T{best2[1]} → T{mergedId} ===");
-Console.WriteLine($"score {mergedScore.Value:F2} — {mergedScore.Why}\n{merged}");
+Console.WriteLine($"score {mergedScore.Score:F2} — {mergedScore.Why}\n{merged}");
 
 // ── Refine: one parent, improve in place ─────────────────────────────────────
 var refined = (await refiner.RunAsync(merged, options: precise)).Text;
-var refinedScore = (await scorer.RunAsync<Score>(refined, options: precise)).Result;
-var refinedId = graph.Add("refine", refined, [mergedId], refinedScore.Value);
+var refinedScore = await ScoreAsync(refined);
+var refinedId = graph.Add("refine", refined, [mergedId], refinedScore.Score);
 
 Console.WriteLine($"\n=== Refined T{mergedId} → T{refinedId} ===");
-Console.WriteLine($"score {refinedScore.Value:F2} — {refinedScore.Why}\n{refined}");
+Console.WriteLine($"score {refinedScore.Score:F2} — {refinedScore.Why}\n{refined}");
 
 // ── The host picks the winner; refinement is not assumed to be an improvement ──
 var winner = graph.Best();

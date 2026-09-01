@@ -2,6 +2,31 @@ namespace GraphOfThoughts.AgentFramework;
 
 public sealed record Thought(int Id, string Kind, string Text, IReadOnlyList<int> Parents, double Score);
 
+/// The brief's length limit, applied by the host.
+///
+/// Asking the scorer to weigh length works most of the time, which is the problem: "most of the
+/// time" is not a limit, it is a suggestion with good odds. A hard constraint the host can
+/// evaluate belongs in code, where it applies every run - leaving the model to judge the things
+/// only a model can judge.
+public static class LengthPolicy
+{
+    static readonly char[] Enders = ['.', '!', '?'];
+
+    public static int Sentences(string text) =>
+        text.Split(Enders, StringSplitOptions.RemoveEmptyEntries)
+            .Count(part => part.Trim().Length > 1);
+
+    /// Caps the model's score when the candidate runs over. Deterministic, and it explains itself.
+    public static (double Score, string? Penalty) Apply(double modelScore, string text, int maxSentences)
+    {
+        var sentences = Sentences(text);
+        if (sentences <= maxSentences) return (modelScore, null);
+
+        var capped = Math.Min(modelScore, sentences > maxSentences + 3 ? 0.3 : 0.6);
+        return (capped, $"{sentences} sentences over a {maxSentences}-sentence brief; score capped to {capped:F2}");
+    }
+}
+
 /// The host owns the reasoning structure; the model only fills nodes in.
 ///
 /// Tree of Thoughts can only branch: every thought has exactly one parent, so two promising

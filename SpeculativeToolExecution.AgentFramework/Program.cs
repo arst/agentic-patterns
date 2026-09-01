@@ -87,5 +87,10 @@ foreach (var outcome in speculator.Outcomes)
 
 Console.WriteLine($"\n{hits}/{speculator.Outcomes.Count} tool calls served from speculation; " +
                   $"{wasted} speculation(s) discarded unused.");
-Console.WriteLine("A miss costs a wasted call, a hit saves a round trip. Below roughly a 50% hit " +
-                  "rate on a slow tool, don't.");
+Console.WriteLine("""
+                  A hit saves a round trip; a miss costs a call that was billed and discarded.
+                  There is no universal break-even hit rate - it depends on what the latency is
+                  worth, what the call costs, whether the tool is rate-limited, and how much
+                  concurrency you have to spare. Measure this ratio against those, not against a
+                  rule of thumb.
+                  """);

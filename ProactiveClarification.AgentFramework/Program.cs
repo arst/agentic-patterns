@@ -70,7 +70,43 @@ if (allowed.Count > 0)
     reply = Console.ReadLine() ?? ""; // EOF -> no answer -> the run proceeds on assumptions
 }
 
-// Whatever is still missing after the single round is assumed, out loud, and the run continues.
+// ── Write the answer back into slot state ────────────────────────────────────
+// The step that makes the round trip worth making. One free-text reply covers several questions
+// ("Berlin, next Tuesday, 3 nights, max EUR 150"), so a parser splits it per slot and the gate
+// merges it. A reply that answers MORE than was asked is kept - the user volunteering a budget
+// after the budget question was cut is information, not an attack. What the gate refuses is a
+// reply rewriting a slot the request had already settled. Without any of this the host asks, is
+// told, and then "assumes" the thing it was just told.
+var askedSlots = screened
+    .Where(q => q.Allowed)
+    .Select(q => slots.First(s =>
+        s.Keywords.Any(k => q.Question.Contains(k, StringComparison.OrdinalIgnoreCase))).Name)
+    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+if (!string.IsNullOrWhiteSpace(reply))
+{
+    var parser = new ChatClientAgent(client, name: "ReplyParser",
+        instructions: """
+                      Split a free-text answer into the slots it answers. Slot names are exactly:
+                      destination, checkIn, nights, budget.
+
+                      Return only slots the reply genuinely answers - never guess, and never carry
+                      a value over from the question wording. Values as the user gave them.
+                      """);
+
+    var parsed = (await parser.RunAsync<ClarificationReply>(
+        $"Questions asked:\n{string.Join("\n", allowed)}\n\nUser reply:\n{reply}", options: lowTemp)).Result;
+
+    Console.WriteLine("\n=== Merging the reply into slot state ===");
+    foreach (var merged in ClarificationGate.Merge(filled,
+                 slots.Select(s => s.Name).ToHashSet(StringComparer.OrdinalIgnoreCase), askedSlots,
+                 parsed.Answers.Select(a => (a.Slot, a.Value))))
+        Console.WriteLine(merged.Merged
+            ? $"  {merged.Slot} = {merged.Value}"
+            : $"  ignored {merged.Slot} = {merged.Value}  ({merged.IgnoredBecause})");
+}
+
+// Whatever is STILL missing after the answer has been merged is assumed, out loud.
 var stillMissing = slots.Select(s => s.Name)
     .Where(name => !filled.ContainsKey(name))
     .ToList();
@@ -78,9 +114,10 @@ var stillMissing = slots.Select(s => s.Name)
 var booker = new ChatClientAgent(client, name: "Booker",
     instructions: """
                   You produce a booking proposal. You will be given the original request, the
-                  slots that were pinned down, the user's answer to the clarifying questions (it
-                  may be empty), and the slots that are still unknown.
+                  slots the host has established - from the request and from the clarification
+                  round, already merged - and the slots that are still unknown.
 
+                  Treat the established slots as settled, not as suggestions.
                   For every still-unknown slot, pick a sensible default and list it under
                   "Assumptions:" in the form "slot = value (assumed)". Never ask a question:
                   the clarification round is over. Finish with a one-paragraph proposal.
@@ -88,13 +125,14 @@ var booker = new ChatClientAgent(client, name: "Booker",
 
 var brief = $"""
              Request: {Request}
-             Pinned down: {(filled.Count == 0 ? "(nothing)" : string.Join(", ", filled.Select(f => $"{f.Key}={f.Value}")))}
-             Clarifying questions asked: {(allowed.Count == 0 ? "(none)" : string.Join(" | ", allowed))}
-             User's answer: {(string.IsNullOrWhiteSpace(reply) ? "(none given)" : reply)}
-             Still unknown before your assumptions: {(stillMissing.Count == 0 ? "(none)" : string.Join(", ", stillMissing))}
+             Established slots:
+             {(filled.Count == 0 ? "  (nothing)" : string.Join("\n", filled.Select(f => $"  {f.Key} = {f.Value}")))}
+             Still unknown, assume these: {(stillMissing.Count == 0 ? "(none)" : string.Join(", ", stillMissing))}
              """;
 
 Console.WriteLine($"\n=== Proposal ===\n{await booker.RunAsync(brief, options: lowTemp)}");
 
+internal sealed record ParsedAnswer(string Slot, string Value);
+internal sealed record ClarificationReply(ParsedAnswer[] Answers);
 internal sealed record FilledSlot(string Slot, string Value);
 internal sealed record Triage(FilledSlot[] Filled, string[] Questions);

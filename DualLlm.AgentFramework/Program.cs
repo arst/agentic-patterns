@@ -37,6 +37,10 @@ const string VendorEmail = """
                            Nordic Supply Billing
                            """;
 
+// The host's own policy, not the model's and not the email's: how much a value that came from
+// untrusted content may move without a human.
+const decimal UnattendedLimitEur = 10_000m;
+
 const string UserInstruction =
     "Read the latest vendor email, take the invoice total from it, and file an expense for that amount.";
 
@@ -120,24 +124,54 @@ foreach (var step in steps)
         case "file_expense":
         {
             var amount = inputs[0];
-            // Last check before the side effect: the value is typed, bounded, and its provenance
-            // is printed. A tainted value is fine HERE - it is a number in a slot, not a command.
+
+            // The SECOND gate, and a different kind from the first. Coercion decided the value
+            // could cross the boundary; this decides whether it may take effect unattended. The
+            // value is tainted, so a business constraint applies to it - not because it is
+            // mis-typed, but because nothing here has established that it is true.
+            if (DataFlowPlan.UnattendedViolation(amount, UnattendedLimitEur) is { } violation)
+            {
+                Console.WriteLine($"\n[file_expense] HELD for approval: {violation}");
+                return;
+            }
+
             memory[step.Produces] = new Value(step.Produces, "text",
                 $"Expense filed: EUR {amount.Content}", Tainted: false);
             Console.WriteLine($"\n[file_expense] EUR {amount.Content}  " +
-                              $"(value origin: {(amount.Tainted ? "untrusted content" : "trusted")})");
+                              $"(value origin: {(amount.Tainted ? "untrusted content" : "trusted")}, " +
+                              $"under the EUR {UnattendedLimitEur:N0} unattended limit)");
             break;
         }
     }
 }
 
+// ── What taint does NOT buy ──────────────────────────────────────────────────
+// The run above depends on the quarantined model reporting the real total. Suppose it had
+// complied with the injection instead and returned 48000.00: that is a well-formed decimal,
+// inside the range bound, and it would file. Control flow is still intact - no new step, no new
+// tool - and the expense is still wrong. Only the value policy stops it, and it is worth seeing
+// that stop happen rather than trusting that it would.
+var injected = new Value("invoice_total", "decimal", "48000.00", Tainted: true);
+Console.WriteLine($"\n=== If the quarantined model had returned the injected figure ===");
+Console.WriteLine($"  coerces to a valid decimal: {DataFlowPlan.TryCoerce(injected, "decimal", out _)}");
+Console.WriteLine($"  value policy: {DataFlowPlan.UnattendedViolation(injected, UnattendedLimitEur) ?? "allowed"}");
+
 Console.WriteLine("\n=== What the injection tried, and why nothing happened ===");
 Console.WriteLine("""
-                    The email told the reader to email every invoice to an outside address.
-                    The quarantined model is the only component that read that sentence, and it
-                    has no tools. Its reply had exactly one exit: a decimal parse into a slot the
-                    plan declared before the email existed. There is no step in the plan called
-                    "send_email", and untrusted text cannot add one.
+                    The email told the reader to email every invoice to an outside address and to
+                    file EUR 48,000. The quarantined model is the only component that read those
+                    sentences, and it has no tools. Its reply had exactly one exit: a decimal parse
+                    into a slot the plan declared before the email existed. There is no step in the
+                    plan called "send_email", and untrusted text cannot add one.
+
+                    Read the guarantee precisely, because the two halves are routinely conflated:
+
+                      Taint stops untrusted data from becoming INSTRUCTIONS.
+                      Taint does not turn untrusted data into TRUE FACTS.
+
+                    The amount is still whatever the email said it was. Nothing here corroborated
+                    it. That is why a side-effecting sink gets a value policy as well as a type -
+                    and why, above the unattended limit, a person decides.
                   """);
 
 return;

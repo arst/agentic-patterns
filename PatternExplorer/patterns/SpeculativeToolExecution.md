@@ -30,8 +30,10 @@ result must be indistinguishable from never running it" is the actual test.
 - Slow tools plus predictable calls: a scheduling assistant that will almost certainly want the
   calendar, a support agent that will almost certainly want the account.
 - Latency-sensitive interactive surfaces where a round trip is visible to a human.
-- When you can measure the hit rate. Below roughly 50% on a slow tool, this is a cost increase
-  wearing a performance improvement's clothes.
+- When you can measure the hit rate *and* price it. There is no universal break-even: it depends
+  on what the latency is worth, what a call costs, whether the tool is rate-limited, and how much
+  concurrency you have spare. A 30% hit rate can be an easy win on a slow free read and a clear
+  loss on a metered one.
 
 Skip it for cheap tools — the saving is invisible and the waste is not. Skip it entirely for
 anything with side effects; a speculative side effect is a real side effect nobody asked for.
@@ -90,10 +92,10 @@ next to each. Then the answer, with total elapsed time.
 
 The `=== Speculation ===` section is the one that decides whether you would ship this. `hit` lines
 carry how long the call had already been in flight when the model asked for it — that is the
-latency saved. `miss` lines are calls that ran on demand. The closing ratio (`N/M tool calls
-served from speculation; K speculation(s) discarded unused`) is the number to reason about: two
-hits and three discarded calls is a 40% hit rate, which on a 600ms tool is a good trade and on a
-20ms tool is not.
+latency saved. `miss` lines are calls that ran on demand. The closing ratio (`N/M tool calls served from speculation; K speculation(s) discarded unused`) is
+the number to reason about — against your own cost model, not a rule of thumb. Two hits and three
+discarded calls is a 40% hit rate: an easy win on a slow free read, a clear loss on a metered one,
+and irrelevant on a tool that returns in 20ms.
 
 Change the question so the model asks about a different city and re-run: the weather speculation
 misses, the wasted count rises, and the trade-off stops being theoretical.

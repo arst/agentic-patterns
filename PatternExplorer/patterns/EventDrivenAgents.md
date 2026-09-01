@@ -55,11 +55,23 @@ reports it. An unroutable event that is *dropped* looks exactly like a handler t
 which is the debugging experience event-driven systems are notorious for; keeping it makes the
 terminal event visible instead of missing.
 
-`EventBus` is a `Channel<AgentEvent>` plus a subscription dictionary and three refusal
-conditions, all in `Publish`: over the total event budget, past the maximum generation, or no
-subscriber. `RunToCompletionAsync` drains the channel, and republishes each handler's output at
-`generation + 1` — so depth is tracked by the bus, not by the handlers, and no handler can opt
-out of the bound.
+`EventBus` is a `Channel<AgentEvent>` plus a subscription dictionary, with every limit checked in
+`Publish`. `RunToCompletionAsync` drains the channel and republishes each handler's output at
+`generation + 1` — so depth is tracked by the bus, not by the handlers, and no handler can opt out
+of the bound.
+
+**The bound is in the host counters, not in the channel.** The queue itself is unbounded, and
+deliberately: a bounded channel bounds how many events may be *in flight*, which is backpressure,
+and its overflow modes either block a producer or silently drop. The quantity needing a bound here
+is different — how many events the run may *accept*, and how deep a chain may go — and both are
+counted before anything is queued.
+
+**Terminal events are not dead letters.** An event nobody subscribes to has finished the workflow;
+an event refused by the generation cap or the run budget has failed. Filing both in one list makes
+the dead-letter queue useless as an alarm, which matters the moment this bus is composed with
+**AgentCommunicationFaultTolerance**, where a dead letter means *requeue or escalate*. So the bus
+keeps `TerminalEvents` and `DeadLetters` separately, and every dead letter carries a `Refusal`
+reason: `NoSubscriber`, `GenerationLimit`, or `RunBudgetExceeded`.
 
 ```mermaid
 flowchart TB
@@ -80,23 +92,25 @@ flowchart TB
 - `EventBus.Subscribe(topic, handler)` where the handler returns the events it produces, rather
   than publishing them itself. Returning them lets the bus stamp the generation and apply the
   budget; publishing directly would let a handler bypass both.
-- `EventBus.Publish` returning `bool` — refusal is a normal outcome with a visible record, not an
-  exception.
-- `bus.DeadLetters` — everything refused, for the report at the end.
+- `EventBus.Publish` returning `bool` — not queued is a normal outcome with a visible record, not
+  an exception.
+- `bus.TerminalEvents` — workflow outputs nobody subscribes to.
+- `bus.DeadLetters` — `DeadLetter(Event, Refusal)`, so the report says *why*, not just *that*.
 
 ## What to watch in the output
 
 Each dispatch prints `── Topic (gen N, from Source) ──` followed by the payload. Watch the
 generation counter climb: it is the depth of the reaction chain, and it is what the cap acts on.
 
-At the end, `=== Done: N events dispatched ===` and the dead-letter list. `DecisionMade` appearing
-there is the expected terminal event, not an error — and the line spells out the three reasons an
-event can land there, because from the bus's side they are indistinguishable.
+At the end, `=== Done: N events dispatched ===` followed by two separate lists. `DecisionMade`
+appears as `terminal: … nothing subscribes, the workflow ends here` — an output, not a failure —
+and on a clean run the dead-letter list is explicitly empty. That separation is the point: if a
+dead letter ever appears, something was genuinely refused, and the `Refusal` says which limit.
 
 To see the mechanism that matters, add a subscription from `DecisionMade` back to
-`PurchaseRequested` and re-run. Without the generation cap that is an infinite billed loop; with
-it the run stops at generation 4 and the surplus events appear as dead letters. That experiment is
-the reason the budget is in the bus.
+`PurchaseRequested` and re-run. Without the generation cap that is an infinite billed loop; with it
+the run stops at the cap and the surplus events appear as dead letters reading `GenerationLimit`.
+That experiment is the reason the budget is in the bus.
 
 **StigmergicCoordination** coordinates through a shared workspace instead of messages;
 **AgentCommunicationFaultTolerance** is what this bus needs once it spans a network;
