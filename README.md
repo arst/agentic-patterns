@@ -1,12 +1,11 @@
 # agentic-patterns
 
-A collection of agentic patterns, each implemented twice for comparison:
+A collection of agentic patterns as runnable .NET samples, built on two SDKs:
 
 - **`*.SemanticKernel`** — [Semantic Kernel](https://github.com/microsoft/semantic-kernel) (the established SDK; its agent/orchestration surface is now superseded by Agent Framework for new work)
 - **`*.AgentFramework`** — [Microsoft Agent Framework](https://github.com/microsoft/agent-framework) (`Microsoft.Agents.AI`, the current recommended stack on top of `Microsoft.Extensions.AI`)
 
-A few patterns exist in only one flavor (e.g. the reasoning techniques `ChainofThoughts`, `ReasoningAndActing`, `Reflexion`, and the Agent-Framework-only patterns `Magentic`, `Handoff`, `DurableExecution`, `DurableHumanInTheLoop`, `ContextCompaction`, `Middleware`, `AgenticRAG`, `Debate`, `CodeAct`, `ProgressiveToolDisclosure`, `ContextOffloading`, `RalphLoop`, `CacheAwareContext`, `SkillLearning`, `StigmergicCoordination`,
-and the `Evaluation` patterns `LLMAsJudge`, `RegressionEvals`, `TrajectoryEvaluation`, `RedTeaming`).
+Most patterns exist in only one flavor, and everything added since the Agent Framework became the recommended stack is Agent-Framework-only — the second flavor earns its place where the two SDKs express the pattern differently, not as a matter of course. The pairs that remain (`RAG`, `Routing`, `Voting`, `MemoryManagement`, `ToolUse` and others) are the ones where the comparison is the point. Each write-up's front matter lists the flavors that pattern ships.
 
 ## Pattern Explorer
 
@@ -89,13 +88,18 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | ChainofThoughts | Step-by-step reasoning in a single prompt |
+| ChainOfVerification | Draft, then answer each check with the draft out of sight, then revise |
 | Debate | Opposing agents argue over rounds, a judge rules |
 | ExplorationAndDiscovery | Generate → critique → evolve idea loops |
+| GraphOfThoughts | Thoughts as a host-owned DAG, so two lines can merge instead of one being pruned |
+| LeastToMost | Ordered subproblems solved in sequence, earlier answers carried forward as facts |
+| ProactiveClarification | Screened clarifying questions, one round, then stated assumptions |
 | ReasoningAndActing | ReAct-style reason/act tool loops |
 | Reflexion | Episodic retry: attempt → verify → self-reflect → retry with reflections |
 | SelfConsistency | Sampled reasoning paths with majority voting |
 | SelfCorrectionLoop | Evaluator-Optimizer loop with typed feedback and host-enforced criteria |
 | SelfNote | Margin-note taking to aid long-context answers |
+| StepBack | Name the governing principle first — with the question's numbers withheld — then apply it |
 | TreeOfThoughts | Branching thought exploration with pruning |
 | Voting | Multi-agent voting with confidence weighting |
 
@@ -103,13 +107,17 @@ the catalog together; each result states its scope limits and cites a primary so
 
 | Pattern | What it demonstrates |
 |---|---|
+| AgentRegistry | Discovery by capability with signed agent cards verified before dispatch |
 | CodeAct | One code-execution tool instead of many bound tools; results stay in the script |
+| ControlPlaneAsTool | One execute_capability tool; a trusted control plane picks the backend |
+| EventDrivenAgents | Topic subscriptions instead of an orchestrator, with a generation-capped bus |
 | GoalSetting(s)AndMonitoring | Goal decomposition with progress monitoring |
 | Handoff | Agents transferring the conversation to each other |
 | HostedTools | Server-side code interpreter and web search tools |
 | InterAgentCommunication.A2A | Agent-to-agent communication over the A2A protocol |
-| MCP | Consuming Model Context Protocol tool servers, sandboxed and allowlisted |
 | Magentic | Manager-driven open-ended multi-agent orchestration |
+| MCP | Consuming Model Context Protocol tool servers, sandboxed and allowlisted |
+| MixtureOfAgents | Layered proposers: layer 2 answers again having read all of layer 1 |
 | MultiAgentCollaboration | Group-chat orchestration |
 | OrchestratorWorkers | Dynamic decomposition into validated tasks for a fixed worker registry |
 | Parallelization | Concurrent fan-out / fan-in over agents |
@@ -118,6 +126,8 @@ the catalog together; each result states its scope limits and cites a primary so
 | PromptChaining | Multi-step prompt pipelines (workflow-based in AF) |
 | RalphLoop | Fresh-context agent loop until the plan file is satisfied; state lives in files |
 | Routing | Intent routing to specialist agents (incl. a workflow variant) |
+| SpeculativeToolExecution | Read-only, free-to-discard tools started before the model asks |
+| StateMachineAgent | Host-owned transition table; the model decides only within a state |
 | StigmergicCoordination | Message-free multi-agent build coordinated via shared contracts and a compile gate |
 | ToolUse | Function calling basics |
 
@@ -127,11 +137,15 @@ the catalog together; each result states its scope limits and cites a primary so
 |---|---|
 | AgenticRAG | Retrieval as an agent tool: query rewriting, result grading, re-retrieval |
 | CacheAwareContext | Stable-prefix message layout so provider prompt caching pays for the input |
+| ContextAssembly | Pinned-first, deduplicated, budgeted context built across sources with drop reasons |
 | ContextCompaction | Compaction strategies for long-running agent context |
 | ContextOffloading | Bulky tool results offloaded to files, recoverable via a read-back tool |
 | ExpeL | Learning insights from experience across episodes |
+| GraphRAG | Entity graph plus community summaries for questions no single chunk answers |
 | LearningAndAdaptation | Rule learning across sessions |
+| MemoryConsolidation | Recency/importance/relevance retrieval; ripe topics collapse into semantic facts |
 | MemoryManagement | Isolated invocation, session, long-term, and authoritative business state |
+| MultiSourceContextFusion | Conflicting sources resolved by trust then recency, contested fields surfaced |
 | ProgressiveToolDisclosure | Search-then-bind tool loading instead of carrying the whole catalog |
 | RAG | Retrieval-augmented generation over a vector store |
 | SemanticCaching | Exact and similarity-based response caching |
@@ -141,15 +155,20 @@ the catalog together; each result states its scope limits and cites a primary so
 
 | Pattern | What it demonstrates |
 |---|---|
+| AgentCommunicationFaultTolerance | Retry, receiver-side dedup, dead letters, and a reconciliation pass |
 | BoundedExecution | Hard per-run limits on calls, tools, and elapsed time; tokens estimated conservatively |
 | ConfidenceReporting | Uncertainty signals over one canonical candidate — an uncalibrated heuristic, not a calibrated score |
+| ContrastiveExplanation | Why A rather than B, with the flip condition re-run against the rule |
+| DualLlm | Privileged planner never sees content; untrusted content supplies values, never control flow |
 | DurableExecution | Workflow checkpointing and resume across restarts |
 | DurableHumanInTheLoop | Approval gate that survives a process restart via checkpointing |
 | EvaluationAndMonitoring | Telemetry plus privacy-aware model/tool record and replay |
 | ExceptionHandlingAndRecovery | Retry, fallback, graceful degradation, and dependency circuit breaking |
 | GuardRails | Input/output filtering, PII redaction, injection defense |
 | HumanInTheLoop | Tool-call approval gates |
+| HumanOnTheLoop | Autonomous by default, interruptible; silence is not consent for irreversible actions |
 | IdempotentToolCalls | Retry-safe side effects: the dedup record lives with the side effect, not the caller |
+| MemoryPoisoningPrevention | A write gate: untrusted sources propose, corroboration or a human publishes |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | ResourceAwareOptimization | Model routing under a soft, post-call cost budget |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution; one-time grants are reserved, then committed after the effect |
