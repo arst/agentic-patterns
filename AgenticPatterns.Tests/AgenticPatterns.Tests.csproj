@@ -11,6 +11,26 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\AgentCommunicationFaultTolerance.AgentFramework\AgentCommunicationFaultTolerance.AgentFramework.csproj"/>
+        <ProjectReference Include="..\AgentRegistry.AgentFramework\AgentRegistry.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ChainOfVerification.AgentFramework\ChainOfVerification.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ContextAssembly.AgentFramework\ContextAssembly.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ContrastiveExplanation.AgentFramework\ContrastiveExplanation.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ControlPlaneAsTool.AgentFramework\ControlPlaneAsTool.AgentFramework.csproj"/>
+        <ProjectReference Include="..\DualLlm.AgentFramework\DualLlm.AgentFramework.csproj"/>
+        <ProjectReference Include="..\EventDrivenAgents.AgentFramework\EventDrivenAgents.AgentFramework.csproj"/>
+        <ProjectReference Include="..\GraphOfThoughts.AgentFramework\GraphOfThoughts.AgentFramework.csproj"/>
+        <ProjectReference Include="..\GraphRAG.AgentFramework\GraphRAG.AgentFramework.csproj"/>
+        <ProjectReference Include="..\HumanOnTheLoop.AgentFramework\HumanOnTheLoop.AgentFramework.csproj"/>
+        <ProjectReference Include="..\LeastToMost.AgentFramework\LeastToMost.AgentFramework.csproj"/>
+        <ProjectReference Include="..\MemoryConsolidation.AgentFramework\MemoryConsolidation.AgentFramework.csproj"/>
+        <ProjectReference Include="..\MemoryPoisoningPrevention.AgentFramework\MemoryPoisoningPrevention.AgentFramework.csproj"/>
+        <ProjectReference Include="..\MixtureOfAgents.AgentFramework\MixtureOfAgents.AgentFramework.csproj"/>
+        <ProjectReference Include="..\MultiSourceContextFusion.AgentFramework\MultiSourceContextFusion.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ProactiveClarification.AgentFramework\ProactiveClarification.AgentFramework.csproj"/>
+        <ProjectReference Include="..\SpeculativeToolExecution.AgentFramework\SpeculativeToolExecution.AgentFramework.csproj"/>
+        <ProjectReference Include="..\StateMachineAgent.AgentFramework\StateMachineAgent.AgentFramework.csproj"/>
+        <ProjectReference Include="..\StepBack.AgentFramework\StepBack.AgentFramework.csproj"/>
         <ProjectReference Include="..\BoundedExecution.AgentFramework\BoundedExecution.AgentFramework.csproj"/>
         <ProjectReference Include="..\CodeAct.AgentFramework\CodeAct.AgentFramework.csproj"/>
         <ProjectReference Include="..\ConfidenceReporting.AgentFramework\ConfidenceReporting.AgentFramework.csproj"/>
