@@ -50,11 +50,13 @@ away.
 
 Four operations run against `ThoughtGraph`:
 
-- **Generate.** Three drafts from three angles, in parallel, each scored 0–1 by a scorer agent
-  on concreteness, relevance and actionability — plus the brief's six-sentence limit, which is
-  part of the rubric rather than a separate check. That inclusion is load-bearing twice over: it
-  keeps the drafts inside the brief, and it stops every candidate scoring 0.95, which turns
-  `Best()` into a coin flip. Three nodes, all children of the task node.
+- **Generate.** Three drafts from three angles, in parallel, each scored 0–1 by a scorer agent on
+  concreteness, relevance and actionability. The scorer judges **content only**: the brief's
+  six-sentence limit is applied afterwards by `LengthPolicy`, in host code, which caps an overlong
+  candidate's score deterministically and says so. Asking the model to weigh length works most of
+  the time — and "most of the time" is a suggestion with good odds, not a limit. A constraint the
+  host can evaluate belongs in code; the model judges what only a model can. Three nodes, all
+  children of the task node.
 - **Aggregate.** The two highest-scoring drafts are merged by an aggregator told to keep every
   distinct risk from both and drop the repetition. One node, **two parents** — the operation
   that does not exist in a tree.
@@ -87,6 +89,8 @@ flowchart LR
 - `ThoughtGraph.Best()` — highest score, ties broken towards the more derived node.
 - `agent.RunAsync<Score>(text, options:)` — structured scoring, run at temperature 0.2 while
   generation runs at 0.9. Diverse candidates, stable judgement.
+- `LengthPolicy.Apply(modelScore, text, maxSentences)` — the host's deterministic cap. Returns the
+  adjusted score and a penalty string, so the run explains the number rather than just showing it.
 - `ThoughtGraph.ToMermaid()` — the graph as a diagram, which is most of why owning the structure
   in C# is worth it.
 

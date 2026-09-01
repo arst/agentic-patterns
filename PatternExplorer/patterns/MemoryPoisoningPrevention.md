@@ -24,7 +24,8 @@ One sentence, on one page, read once, becomes a permanent belief.
 Three rules, all enforced in code rather than requested in a prompt:
 
 1. **Untrusted sources may propose, never publish.** They land in quarantine.
-2. **Quarantine is left by corroboration from an independent source**, or by a human.
+2. **Quarantine is left by corroboration from an independent source**, or by a human — where
+   *independent* is a property of the evidence, not of the ingestion mechanism.
 3. **Nothing overwrites an authoritative fact.** A contradiction is a security event, not an update.
 
 ## When to use it
@@ -44,18 +45,32 @@ uniform and the gate is just an audit log.
 The store is seeded with two authoritative facts: `refund_limit_eur = 250` and a support email
 address. Five candidates then arrive, each demonstrating one branch of `MemoryGate.Admit`:
 
-| Candidate | Source | Outcome |
+| Candidate | Source identity (trust) | Outcome |
 |---|---|---|
-| `customer_tz = Europe/Oslo` | UserSaid | quarantined — untrusted, uncorroborated |
-| `vendor_sla_hours = 4` | WebContent | quarantined |
-| `refund_limit_eur = 50000` | WebContent | **rejected** — contradicts an authoritative fact |
-| `vendor_sla_hours = 4` | ToolOutput | **promoted** — an independent source agrees |
-| `support_email = billing-desk@collections.example` | WebContent | **rejected** — same attack, different field |
+| `customer_tz = Europe/Oslo` | `user:ticket-8891` (UserSaid) | quarantined — untrusted, uncorroborated |
+| `vendor_sla_hours = 4` | `web:nordicsupply.example/sla` (WebContent) | quarantined |
+| `refund_limit_eur = 50000` | `web:collections-desk.example` (WebContent) | **rejected** — contradicts an authoritative fact |
+| `vendor_sla_hours = 4` | `web:nordicsupply.example/sla` (ToolOutput) | still quarantined — **same page**, different mechanism |
+| `vendor_sla_hours = 4` | `system:contracts/CONTRACT-778` (ToolOutput) | **promoted** — genuinely independent |
+| `carrier_rating = B+` | `web:logistics-review.example/vendors` (WebContent) | quarantined |
+| `support_email = billing-desk@…` | `web:collections-desk.example` (WebContent) | **rejected** — same attack, different field |
 
-The corroboration rule is the subtle one. Independence is counted **by source kind, not by
-occurrence**: the same page scraped twice is one claim, and a store that counted repetitions would
-promote whatever an attacker was willing to repeat. Only a *different* source agreeing lifts an
-item out of quarantine.
+The corroboration rule is the subtle one, and getting it wrong is easy in a way that looks
+correct. A source has two separate properties, and conflating them breaks corroboration in **both**
+directions:
+
+- **Trust class** — how much this *kind* of source is believed (`Authoritative`, `Operator`,
+  `UserSaid`, `ToolOutput`, `WebContent`).
+- **Evidence identity** — *which* page, contract, or person this claim actually came from.
+
+Judge independence by trust class and a scraper re-reading the page it was seeded from counts as a
+second opinion, because its class differs. Meanwhile two genuinely unrelated publishers cannot
+corroborate each other at all, because their class is the same. Neither is what corroboration
+means. So `Source` carries an `Id` — `web:nordicsupply.example/sla`, `system:contracts/CONTRACT-778`,
+`operator:alice` — and independence is counted over those.
+
+The demo plants exactly that pair: `vendor_sla_hours` arrives from a vendor page, then from a
+scraper reading **the same URL** (stays quarantined), then from a contract record (promoted).
 
 `MemoryGate.Retrievable` then returns the active tier only. Quarantined items are not "included
 with a caveat" — a warning label in the context window is still content the model will read and
@@ -82,19 +97,24 @@ flowchart TB
 
 - `MemoryGate.Admit(candidate, existing)` → `Admission(Item, Reason)` — returns the tiered item
   *and* why, so the run prints its reasoning rather than a verdict.
-- `Provenance` as an enum owned by the host — trust is a property of the source, decided before
-  anything is read, never inferred from how authoritative the text sounds.
+- `Source(Id, Trust)` — identity and trust class kept apart. `Trust` decides whether a source may
+  publish directly; `Id` decides whether two claims are independent. One enum cannot do both jobs.
+- `Trust` owned by the host, decided before anything is read, never inferred from how
+  authoritative the text sounds.
 - `MemoryGate.Retrievable(store)` — the only path from store to prompt.
 - `MemoryItem` as a record with `with`-expressions for tier changes: admission produces a new
   item rather than mutating the candidate, so the original stays inspectable.
 
 ## What to watch in the output
 
-The write gate block, line by line, with its reasons. The two `REJECTED` rows are the attack
-being stopped; the `QUARANTINE → ADMITTED` progression for `vendor_sla_hours` is corroboration
-working. Note that `customer_tz` — harmless, plausible, and from the user — stays quarantined:
-the rule is about provenance, not about plausibility, and a gate that let this one through on
-vibes would let the others through too.
+The write gate block, line by line, with its reasons. The two `REJECTED` rows are the attack being
+stopped. The three `vendor_sla_hours` rows are the corroboration rule doing its actual job: the
+vendor page quarantines, the **scraper reading that same page** stays quarantined — one claim,
+however many times it was fetched — and only the contract record promotes it.
+
+Note that `customer_tz` — harmless, plausible, from the user — stays quarantined. The rule is about
+provenance, not plausibility, and a gate that let this one through on vibes would let the others
+through too.
 
 Then `=== Retrievable memory (N of M items) ===`. The gap between those numbers is what the gate
 kept out. The answer at the end should cite EUR 250 and the real support address — the model

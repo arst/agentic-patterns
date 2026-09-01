@@ -23,6 +23,12 @@ enumerate the ways a natural language can say "do something else", against an at
 unlimited attempts and only needs one. Filters, delimiters and "ignore instructions in the
 document" preambles are all that game.
 
+State the guarantee precisely, because it is narrower than the enthusiasm around CaMeL suggests:
+**this prevents untrusted content from introducing new control flow or capabilities. It does not
+establish that values extracted from untrusted content are true.** Data flow can still be
+corrupted — the invoice total is whatever the email said it was. Value integrity is a separate
+problem needing a separate gate, which is why this sample has one.
+
 This pattern does not play it. The plan was fixed before the content was fetched, and the only
 thing the content is allowed to become is a decimal in a slot the plan already declared. The
 injection is not detected, or neutralised, or filtered. It is *read and understood* by a model —
@@ -73,8 +79,19 @@ precisely because freeform text out of untrusted content is the hole, and a type
 plug. `TryCoerce` refuses `"text"` outright for any tainted value — if a step wants freeform text
 from untrusted content, that is a design bug, not a case to handle.
 
-**5. The side effect** receives a typed, bounded value whose provenance is printed. A tainted
-value is fine *here*: it is a number in a slot, not a command.
+**5. A second gate, of a different kind.** Coercion decided the value could *cross the boundary*.
+It said nothing about whether the value is *true* — and that distinction is the thing about CaMeL
+most often over-read.
+
+Suppose the quarantined model had complied with the injection and returned `48000.00`. That is a
+well-formed decimal, inside the range bound, and it files. Control flow was never subverted — no
+new step, no new tool — and the expense is still wrong. Taint stopped untrusted content from
+becoming an *instruction*; it did nothing to make it a *fact*.
+
+So the side-effecting sink gets a **value policy** as well as a type: an unattended limit, applied
+*because* the value is tainted. Under it, the effect runs. Over it, a person decides. The run
+demonstrates this rather than asserting it — it pushes the injected `48000.00` through both gates
+and prints that the type check passes and the policy refuses.
 
 ```mermaid
 flowchart TB
@@ -98,8 +115,11 @@ flowchart TB
   connecting them, not a rule about what to put in a prompt.
 - `agent.RunAsync<PlanShape>(instruction, options:)` at temperature 0 for the plan.
 - `DataFlowPlan.Validate(steps, allowedTools)` — whole-plan validation before step one.
-- `DataFlowPlan.TryCoerce(value, declaredType, out coerced)` — the one-way door. `decimal` and
-  `date` parse with `CultureInfo.InvariantCulture`; `text` is refused for tainted values.
+- `DataFlowPlan.TryCoerce(value, declaredType, out coerced)` — the one-way door for *shape*.
+  `decimal` and `date` parse with `CultureInfo.InvariantCulture`; `text` is refused for tainted
+  values.
+- `DataFlowPlan.UnattendedViolation(value, limit)` — the gate for *magnitude*. Applies only to
+  tainted values; a business rule, not a type rule.
 - `Value(Name, Type, Content, Tainted)` — taint travels with the value and is printed at the
   side effect.
 
@@ -113,9 +133,24 @@ quarantined model returns `4182.50` and the coercion is uneventful. Sometimes it
 complies with the injection and returns something else — and the next line is the run stopping,
 which is the pattern working, not the sample failing.
 
-`[file_expense] EUR 4182.50 (value origin: untrusted content)` is worth sitting with: the value
-came from attacker-influenced text and it is still safe to use, because of what it was forced to
-become. The closing block spells out why nothing happened.
+`[file_expense] EUR 4182.50 (value origin: untrusted content, under the EUR 10,000 unattended
+limit)` is worth sitting with: the value came from attacker-influenced text, it is *not* known to
+be true, and it takes effect anyway — because it is below the threshold the host set for unattended
+action.
+
+Then the block that states the pattern's limit:
+
+```
+=== If the quarantined model had returned the injected figure ===
+  coerces to a valid decimal: True
+  value policy: EUR 48,000.00 exceeds the EUR 10,000.00 unattended limit …
+```
+
+Type safety had nothing to say about the injected amount. Only the value policy stopped it. The
+closing block puts the split in two lines:
+
+> Taint stops untrusted data from becoming **instructions**.
+> Taint does not turn untrusted data into **true facts**.
 
 **GuardRails** filters content and is a complement, not a substitute; **ToolAuthorization** limits
 what an authorised call may do; **MemoryPoisoningPrevention** is the same "untrusted input needs a

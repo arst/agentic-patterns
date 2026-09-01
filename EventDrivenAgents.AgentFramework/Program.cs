@@ -46,8 +46,9 @@ bus.Subscribe("RiskAssessed", async e =>
         "Approver", 0)
 ]);
 
-// Nothing subscribes to DecisionMade: it is a terminal event, and lands in the dead-letter list
-// where the run can report it rather than losing it.
+// Nothing subscribes to DecisionMade. That makes it a TERMINAL event - the workflow finished -
+// which the bus records separately from dead letters. A workflow output filed as a delivery
+// failure makes the dead-letter queue useless as an alarm.
 
 bus.Publish(new AgentEvent("PurchaseRequested",
     "Purchase request: 3-year contract with a Norwegian logistics SaaS vendor, EUR 84,000/year, " +
@@ -57,6 +58,12 @@ await bus.RunToCompletionAsync(e =>
     Console.WriteLine($"\n── {e.Topic} (gen {e.Generation}, from {e.Source}) ──\n{e.Payload}"));
 
 Console.WriteLine($"\n=== Done: {bus.Published} events dispatched ===");
+foreach (var terminal in bus.TerminalEvents)
+    Console.WriteLine($"  terminal: {terminal.Topic} (gen {terminal.Generation}) from {terminal.Source} " +
+                      "— nothing subscribes, the workflow ends here");
 foreach (var dead in bus.DeadLetters)
-    Console.WriteLine($"  dead-letter: {dead.Topic} (gen {dead.Generation}) from {dead.Source} — " +
-                      "no subscriber, over budget, or too deep");
+    Console.WriteLine($"  dead-letter: {dead.Event.Topic} (gen {dead.Event.Generation}) " +
+                      $"from {dead.Event.Source} — {dead.Reason}");
+
+if (bus.DeadLetters.Count == 0)
+    Console.WriteLine("  no dead letters: nothing hit the event budget or the generation cap.");

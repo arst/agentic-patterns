@@ -47,6 +47,29 @@ public static class DataFlowPlan
     ///
     /// This is why the quarantined model is asked for `12345.60` and not for a sentence. Freeform
     /// text out of untrusted content is the hole; a typed slot is the plug.
+    /// Coercion answers "may this value cross the boundary at all". It does not answer "is this
+    /// value TRUE", and conflating the two is the most common way to over-read what CaMeL buys.
+    ///
+    /// The injected email asks for EUR 48,000. That is a perfectly well-formed decimal: it passes
+    /// the type check, it is under the range bound, and it files. Control flow was never
+    /// subverted - no new step, no new tool - and the expense is still wrong. Taint stopped the
+    /// content from becoming an INSTRUCTION; it did nothing to make the content TRUE.
+    ///
+    /// So a side-effecting sink needs a second, different gate: a business constraint on the
+    /// value, applied because the value is tainted. Below the limit the effect runs unattended;
+    /// above it, a human decides. That is a policy question, not a type question.
+    public static string? UnattendedViolation(Value value, decimal unattendedLimit)
+    {
+        if (!value.Tainted) return null;
+        if (!decimal.TryParse(value.Content, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount))
+            return "value is not a decimal";
+
+        return amount > unattendedLimit
+            ? $"EUR {amount:N2} exceeds the EUR {unattendedLimit:N2} unattended limit for a value " +
+              "that came from untrusted content"
+            : null;
+    }
+
     public static bool TryCoerce(Value value, string declaredType, out string coerced)
     {
         var raw = value.Content.Trim();

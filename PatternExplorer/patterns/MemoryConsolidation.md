@@ -64,9 +64,18 @@ accumulated history. The threshold is the load-bearing parameter: two episodes s
 them have become a fact about the customer. So `exports` (5 episodes) consolidates and `billing`
 (2) does not.
 
-A consolidator writes one durable fact per ripe topic, and the source episodes are **retired**.
-That is the lossy step, and the reason consolidation runs on a threshold rather than on every
-write.
+A consolidator writes one durable fact per ripe topic, and the source episodes are **archived —
+not deleted**, with their ids recorded on the semantic memory as `SourceEpisodeIds`.
+
+That distinction is the difference between a memory architecture and a lossy compressor. The
+semantic memory is model-written prose about a dozen episodes. If it is subtly wrong and the
+episodes are gone, the error is now canonical, unfalsifiable, and retrieved into every future
+prompt — twelve mostly-correct episodes become one confidently-wrong fact with nothing left to
+check it against. Consolidation removes episodes from the **hot retrieval set**; durable history
+keeps them, so a suspect fact can be re-derived or audited.
+
+`EpisodicRetrieval.Score` and `Consolidation.Ripe` both filter to `Active`, so archived episodes
+neither crowd the prompt nor re-consolidate.
 
 The agent is then built from the consolidated store: semantic facts plus the episodes that
 survived.
@@ -88,7 +97,9 @@ flowchart TB
 
 - `EpisodicRetrieval.Score(episodes, query, now)` → `Scored(Episode, Recency, Relevance, Total)` —
   the components come back separately so the run can show *why* something ranked where it did.
-- `Consolidation.Ripe(episodes, minimum)` — grouping plus a threshold; the whole policy.
+- `Consolidation.Ripe(episodes, minimum)` — grouping plus a threshold, over active episodes only.
+- `episode with { Status = EpisodeStatus.Archived }` — the retirement, and it is not a delete.
+- `SemanticMemory.SourceEpisodeIds` — the derivation, so a consolidated fact has provenance.
 - `agent.RunAsync(...)` at temperature 0.2 for consolidation, instructed not to list the episodes
   back and not to invent causes they do not support — the two ways a summary turns into fiction.
 - `Episode(Text, At, Importance, Topic)` — importance recorded at write time, because deciding it
@@ -105,8 +116,19 @@ in full. Read it against the five episodes: a good consolidation captures the mo
 and the workaround already suggested. A bad one says "the customer has had export issues", which
 is true, useless, and the sign that the topic was consolidated too early.
 
-The store line — `3 episodes + 1 semantic memories (was 8 episodes)` — is the compression,
-and it should feel slightly uncomfortable. Those five episodes are gone; the fact is what remains.
+The consolidation block also prints `derived from: ep-01, ep-02, …` — the provenance that makes
+the fact checkable later.
+
+Then the two store lines:
+
+```
+Active retrieval set: 3 episodes + 1 semantic memories.
+Archived, still on disk and still auditable: 5 episodes.
+```
+
+The compression is real and should feel slightly uncomfortable — five episodes left the retrieval
+set and one paragraph of model prose now speaks for them. What makes that acceptable is the second
+line: if the paragraph is wrong, the episodes are still there to prove it.
 
 Finally the answer, which should reference the month-end pattern and the already-suggested
 workaround without having any of the individual episodes in context. That is consolidation

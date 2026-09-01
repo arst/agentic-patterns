@@ -21,11 +21,24 @@ into individual claims; each claim becomes a narrow question; each question is a
 fresh call that has never seen the draft. Only then are the two put side by side.
 
 The difference from **SelfCorrectionLoop** is what does the checking. There, an evaluator agent
-judges the whole output against criteria — a better critic, but still a critic reading the thing
-it is critiquing. Here the checker is not judging anything; it is answering "in what year was
-Cologne founded?" with no idea that a draft exists, let alone what it claimed. Agreement between
-two independent measurements means something. Agreement between a claim and a review of that
-claim mostly means the review read the claim.
+judges the whole output against criteria — a better critic, but still a critic reading the thing it
+is critiquing. Here the checker is not judging anything; it is answering "in what year was Cologne
+founded?" with no idea that a draft exists, let alone what it claimed.
+
+Be precise about what that buys, because it is easy to oversell and most write-ups of CoVe do.
+This is **independent context, not independent evidence**. The checker is the same deployment, same
+weights, same training data: a misconception the draft has, the check can have too — and on
+questions like Roman founding dates that is not a remote possibility, it is the likely failure. So
+this is a **blind cross-check**, and its two outcomes are worth very different amounts:
+
+- **Disagreement is strong evidence.** Two passes over the same knowledge reaching different
+  answers means at least one is unreliable, which is exactly what you wanted to find out.
+- **Agreement is weak evidence.** It rules out anchoring on the draft. It does not rule out a
+  shared misconception, and treating it as confirmation is how a wrong answer acquires a
+  verification badge.
+
+Genuine independence needs a different source — retrieval, a tool, a second model. **AgenticRAG**
+is where that lives.
 
 ## When to use it
 
@@ -57,8 +70,13 @@ Four stages, of which only the third is unusual:
    stateless run — no session, no draft, no siblings. The questions run concurrently because
    they are genuinely independent; that independence is the point, and the parallelism is a
    free consequence of it.
-4. **Revise.** The reviser sees the draft and the answers together, and is told which wins:
-   verification. Without that instruction models defend their drafts.
+4. **Revise, into three outcomes.** The reviser sees the draft and the cross-checks together, and
+   is explicitly told that a cross-check is *not an authority*. Each disagreement resolves as:
+   check confident and disagrees → correct the draft; check uncertain and disagrees → mark the
+   claim **contested**, stating both values without picking one; check agrees → leave it alone and
+   do **not** upgrade the wording, because agreement between a model and itself is weak evidence.
+   The verifier is asked to prefix its answers `CONFIDENT:` or `UNCERTAIN:` so that split is
+   available to act on.
 
 Between 2 and 3 sits the host's contribution, `VerificationGate`. Models drift toward leading
 questions — it is the natural way to phrase a check — and a question containing the drafted
@@ -96,6 +114,12 @@ flowchart TB
 - `VerificationGate.Validate(claim, question)` — the host's screen. Returns reasons, not a bool,
   so a dropped question prints why it was dropped.
 
+**Coverage is reported, not implied.** The planner is capped at eight claims and the gate drops
+leading questions, so some of the draft's specifics may never be checked at all. The run prints
+`claims extracted / cross-checked / never checked` and labels the result *partially* cross-checked
+when anything was missed — calling an output "verified" when three of its eleven claims were never
+looked at is the quiet overclaim this pattern invites.
+
 ## What to watch in the output
 
 `=== Draft ===` first, with its confident dates. Then the gate: any line starting `[gate] claim N
@@ -104,12 +128,19 @@ seeing zero of them across a run is the surprising outcome. `=== N verification 
 the gate ===` lists each question next to what the draft claimed, which is the clearest view of
 what is about to be tested.
 
-The section worth reading closely is `=== Independent answers ===`. Compare each to the
-`draft says:` value above it — this is where the pattern either earns its calls or does not.
-Then `=== Verified answer ===`, whose `Changes:` list is the actual deliverable: it names what
-the draft got wrong. An empty change list means the draft was right, which is a real and
-useful result rather than a wasted run.
+The section worth reading closely is `=== Blind cross-checks ===`. Compare each to the
+`draft says:` value above it, and note the `CONFIDENT:`/`UNCERTAIN:` prefix — that is what decides
+whether a disagreement becomes a correction or a contested claim.
 
-**SelfCorrectionLoop** is the same instinct with a judging evaluator rather than independent
-re-measurement; **Voting** and **SelfConsistency** get independence from sampling the same
-question many times instead of decomposing it.
+Then `=== Cross-checked answer ===`, whose `Changes:` list is the deliverable: corrections and
+contested claims, listed separately. An empty change list means the draft and the check agreed,
+which — per above — is the weaker of the two possible results, not a clean bill of health.
+
+Finally `=== Coverage ===`. If it says `never checked: 2`, two of the draft's specifics carry the
+draft's confidence and nothing more, and the run says so rather than letting the header imply
+otherwise.
+
+**SelfCorrectionLoop** is the same instinct with a judging evaluator rather than a blind re-ask;
+**Voting** and **SelfConsistency** sample the same question many times instead of decomposing it —
+and share this pattern's ceiling, since correlated errors survive any number of samples from one
+model. **AgenticRAG** is the escape from that ceiling: evidence from outside the weights.
