@@ -106,14 +106,28 @@ public class EventBusTaxonomyTests
     static AgentEvent Event(string topic, int generation = 0) => new(topic, "payload", "test", generation);
 
     [Fact]
-    public void AnEventNobodySubscribesToIsTerminalNotADeadLetter()
+    public void ADeclaredTerminalTopicIsAnOutcomeNotADeadLetter()
     {
         var bus = new EventBus(maxEvents: 10, maxGeneration: 5);
+        bus.RegisterTerminal("workflow-finished");
 
-        bus.Publish(Event("nobody-listens"));
+        bus.Publish(Event("workflow-finished"));
 
         Assert.Single(bus.TerminalEvents);
         Assert.Empty(bus.DeadLetters);
+    }
+
+    [Fact]
+    public void AnUndeclaredTopicIsADeliveryFailure()
+    {
+        var bus = new EventBus(maxEvents: 10, maxGeneration: 5);
+
+        // The typo case: neither subscribed nor registered as terminal. Inferring "terminal" from
+        // an empty handler list would make this a successful outcome.
+        bus.Publish(Event("DecisionMdae"));
+
+        Assert.Empty(bus.TerminalEvents);
+        Assert.Equal(Refusal.NoSubscriber, bus.DeadLetters.Single().Reason);
     }
 
     [Fact]

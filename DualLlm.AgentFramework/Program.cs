@@ -147,10 +147,11 @@ foreach (var step in steps)
 
 // ── What taint does NOT buy ──────────────────────────────────────────────────
 // The run above depends on the quarantined model reporting the real total. Suppose it had
-// complied with the injection instead and returned 48000.00: that is a well-formed decimal,
-// inside the range bound, and it would file. Control flow is still intact - no new step, no new
-// tool - and the expense is still wrong. Only the value policy stops it, and it is worth seeing
-// that stop happen rather than trusting that it would.
+// complied with the injection instead and returned 48000.00: that is a well-formed decimal, so
+// it passes the type gate untouched. Control flow is still intact - no new step, no new tool -
+// and the expense is still wrong. What stops it is the second, separate gate: the unattended
+// value policy holds it for a person. Worth watching both gates run rather than trusting that
+// they would.
 var injected = new Value("invoice_total", "decimal", "48000.00", Tainted: true);
 Console.WriteLine($"\n=== If the quarantined model had returned the injected figure ===");
 Console.WriteLine($"  coerces to a valid decimal: {DataFlowPlan.TryCoerce(injected, "decimal", out _)}");

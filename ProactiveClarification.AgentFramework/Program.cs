@@ -79,8 +79,7 @@ if (allowed.Count > 0)
 // told, and then "assumes" the thing it was just told.
 var askedSlots = screened
     .Where(q => q.Allowed)
-    .Select(q => slots.First(s =>
-        s.Keywords.Any(k => q.Question.Contains(k, StringComparison.OrdinalIgnoreCase))).Name)
+    .Select(q => q.TargetSlot!)
     .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
 if (!string.IsNullOrWhiteSpace(reply))

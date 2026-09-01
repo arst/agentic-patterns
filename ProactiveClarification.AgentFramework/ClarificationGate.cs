@@ -5,7 +5,10 @@ namespace ProactiveClarification.AgentFramework;
 /// decides which ones are worth a human's attention.
 public sealed record Slot(string Name, string[] Keywords);
 
-public sealed record ScreenedQuestion(string Question, string? RejectedBecause)
+/// `TargetSlot` is the slot the screen resolved this question to - carried out of `Screen`
+/// rather than re-derived from the question text later. The lexical match happens once, so the
+/// screen and the merge cannot drift into disagreeing about what a question was asking.
+public sealed record ScreenedQuestion(string Question, string? TargetSlot, string? RejectedBecause)
 {
     public bool Allowed => RejectedBecause is null;
 }
@@ -75,7 +78,7 @@ public static class ClarificationGate
 
             var reason = Reject(target);
             if (reason is null) asked.Add(target!.Name);
-            screened.Add(new ScreenedQuestion(question, reason));
+            screened.Add(new ScreenedQuestion(question, target?.Name, reason));
         }
 
         return screened;

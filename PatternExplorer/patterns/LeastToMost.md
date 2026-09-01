@@ -71,8 +71,13 @@ intermediate state inspectable does not make it correct.
 The actual benefit is one step further along: externalised state can be **checked**, if something
 checks it. So the host attaches a deterministic verifier where one exists — here `StepChecks`
 recomputes the billing schedule from the problem's own rules and compares it against the final
-answer's stated total. A failure gets one retry with the discrepancy named; a second failure is
-reported as contested rather than quietly accepted.
+answer's stated total. A failure gets one retry with the discrepancy named.
+
+**And a verifier that cannot refuse is only telemetry.** A second failure does not become the run's
+answer: the step is recorded `Contested`, the chain stops rather than handing a value to steps that
+would cite it as established, and the run ends with the candidate, the host's figure, and the word
+`CONTESTED` instead of a total. Printing the number anyway — with the check's own failure logged
+directly above it — is the version of this pattern that looks rigorous and is not.
 
 Most steps have no verifier, and the run says so with `[no verifier for this step]` rather than
 implying coverage it does not have. That is the honest situation in most chains, and it is why the
@@ -118,8 +123,11 @@ for work twice.
 
 Most steps end `[no verifier for this step]`. The final one ends `[check] EUR 144.00 matches the
 schedule computed by the host` — the only claim in the whole run that anything actually tested. If
-it ever prints a mismatch, watch the retry: the model is handed the discrepancy and recomputes, and
-if it still disagrees the run says **CONTESTED** rather than shipping the number.
+it ever prints a mismatch, watch the retry: the model is handed the discrepancy and recomputes. If
+it still disagrees, the run does not print a final answer at all — it prints
+`=== Run stopped: the final answer failed a deterministic check ===` with the candidate beside the
+host's figure. A `SolvedStep` carries `Accepted` / `Unverified` / `Contested`, and only the first
+two are answers.
 
 **ChainofThoughts** is the single-call version; **Planning** turns the decomposition into a
 validated tool plan rather than a question chain; **SelfNote** is the same "prepare, then answer"

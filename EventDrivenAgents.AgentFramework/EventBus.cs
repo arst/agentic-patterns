@@ -24,11 +24,17 @@ public sealed record DeadLetter(AgentEvent Event, Refusal Reason);
 ///
 /// Refused events are kept with a reason rather than dropped: a silent drop looks exactly like a
 /// handler that never fired.
+///
+/// Terminal topics are declared, not inferred. "Nobody subscribes" is ambiguous - it is either
+/// the workflow finishing or a topic name nobody will ever match - and in a system whose wiring
+/// IS the subscription table, a typo is the likeliest wiring bug there is. Inferring terminal
+/// from an empty handler list makes `DecisionMdae` a successful outcome.
 public sealed class EventBus(int maxEvents, int maxGeneration)
 {
     readonly Channel<AgentEvent> channel = Channel.CreateUnbounded<AgentEvent>();
     readonly Dictionary<string, List<Func<AgentEvent, Task<IReadOnlyList<AgentEvent>>>>> handlers =
         new(StringComparer.OrdinalIgnoreCase);
+    readonly HashSet<string> terminalTopics = new(StringComparer.OrdinalIgnoreCase);
 
     /// Events refused by the budget or the generation cap. A dead letter is a FAILURE - something
     /// that could not be processed.
@@ -43,6 +49,9 @@ public sealed class EventBus(int maxEvents, int maxGeneration)
 
     public int Published { get; private set; }
 
+    /// Declares a topic as an outcome of the run: legal to publish, nothing reacts to it.
+    public void RegisterTerminal(string topic) => terminalTopics.Add(topic);
+
     public void Subscribe(string topic, Func<AgentEvent, Task<IReadOnlyList<AgentEvent>>> handler)
     {
         if (!handlers.TryGetValue(topic, out var list)) handlers[topic] = list = [];
@@ -50,7 +59,8 @@ public sealed class EventBus(int maxEvents, int maxGeneration)
     }
 
     /// Returns false when the event was not queued - because the run is finished with it
-    /// (terminal), or because a limit refused it (dead letter). The two are recorded separately.
+    /// (terminal), or because a limit or an unknown topic refused it (dead letter). The two are
+    /// recorded separately.
     public bool Publish(AgentEvent @event)
     {
         if (Published >= maxEvents)
@@ -61,7 +71,11 @@ public sealed class EventBus(int maxEvents, int maxGeneration)
 
         if (!handlers.ContainsKey(@event.Topic))
         {
-            // Nothing left to react to. That is the workflow ending, not a delivery failing.
+            // A declared terminal topic is the workflow ending, not a delivery failing. An
+            // undeclared one is a message addressed to nobody - which is what a misspelled topic
+            // looks like, and it should be loud.
+            if (!terminalTopics.Contains(@event.Topic)) return Refuse(@event, Refusal.NoSubscriber);
+
             TerminalEvents.Add(@event);
             return false;
         }

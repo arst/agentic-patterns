@@ -88,22 +88,40 @@ foreach (var (community, index) in communities.Select((c, i) => (c, i)))
     // believing them. Without this the provenance chain breaks exactly here: documents carry ids,
     // relations carry ids, and then a free-text summary carries whatever the model happened to
     // retain - after which the final answerer is asked to "cite the incident ids" and can only
-    // repeat, or invent, what reached it. An id the summariser names that is not in the community
-    // is a fabrication, and it is cheap to catch because the truth is a set the host already has.
+    // repeat, or invent, what reached it.
+    //
+    // The citation is the INTERSECTION, and both halves of that matter. An id the summariser
+    // names that is not in the community is a fabrication. An id in the community that the
+    // summariser did not use is not support for this summary - attaching the whole community
+    // would trade fabricated provenance for inflated provenance, which reads exactly as
+    // convincing and is just as untrue. The host can only vouch for what the model claimed AND
+    // the graph contains.
     var actual = community.Select(r => r.SourceDoc).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToArray();
     var claimed = summarised.SourceDocumentIds ?? [];
+    var validated = claimed.Intersect(actual, StringComparer.OrdinalIgnoreCase)
+        .Distinct(StringComparer.OrdinalIgnoreCase).Order().ToArray();
     var fabricated = claimed.Except(actual, StringComparer.OrdinalIgnoreCase).ToArray();
-
-    // Cite what the community actually contains - the host's set, not the model's recollection.
-    summaries.Add($"Community {index + 1} [sources: {string.Join(", ", actual)}]: {summarised.Summary}");
+    var unused = actual.Except(validated, StringComparer.OrdinalIgnoreCase).ToArray();
 
     Console.WriteLine($"\n  Community {index + 1} ({community.Count} relations, " +
                       $"{community.SelectMany(r => new[] { r.From, r.To }).Distinct(StringComparer.OrdinalIgnoreCase).Count()} entities)");
     Console.WriteLine($"    {summarised.Summary}");
-    Console.WriteLine($"    sources (from the graph): {string.Join(", ", actual)}");
+    Console.WriteLine($"    validated sources: {(validated.Length == 0 ? "(none)" : string.Join(", ", validated))}");
     if (fabricated.Length > 0)
-        Console.WriteLine($"    [provenance] summariser also claimed {string.Join(", ", fabricated)} — " +
-                          "not in this community, dropped");
+        Console.WriteLine($"    [provenance] claimed {string.Join(", ", fabricated)} — not in this " +
+                          "community, dropped as fabricated");
+    if (unused.Length > 0)
+        Console.WriteLine($"    [provenance] {string.Join(", ", unused)} are in this community but " +
+                          "were not claimed as used — not cited as support");
+
+    if (validated.Length == 0)
+    {
+        Console.WriteLine("    [provenance] no claimed id survives — the summary is not carried " +
+                          "to the global answer. A claim nothing can be traced to is not evidence.");
+        continue;
+    }
+
+    summaries.Add($"Community {index + 1} [sources: {string.Join(", ", validated)}]: {summarised.Summary}");
 }
 
 var answerer = new ChatClientAgent(client, name: "Answerer",
@@ -114,9 +132,12 @@ var answerer = new ChatClientAgent(client, name: "Answerer",
 // ── 3a. Global question: answered from community summaries ───────────────────
 Console.WriteLine("\n=== Global question ===");
 Console.WriteLine("Q: What is the recurring systemic problem across these incidents?\n");
-Console.WriteLine(await answerer.RunAsync(
-    $"Community summaries:\n{string.Join("\n", summaries)}\n\n" +
-    "Q: What is the recurring systemic problem across these incidents?", options: precise));
+Console.WriteLine(summaries.Count == 0
+    ? "  (no summary kept its provenance, so there is no evidence to answer from. Saying that is\n" +
+      "   the answer; synthesising one from unattributable text is the failure this guards.)"
+    : (await answerer.RunAsync(
+        $"Community summaries:\n{string.Join("\n", summaries)}\n\n" +
+        "Q: What is the recurring systemic problem across these incidents?", options: precise)).Text);
 
 // ── 3b. Local question: answered from a neighbourhood ────────────────────────
 var neighbourhood = graph.Neighbourhood("Team Atlas", hops: 2);
