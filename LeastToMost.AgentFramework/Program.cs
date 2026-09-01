@@ -16,6 +16,11 @@ using Shared;
 // state does not make the chain safer by itself - it makes it CHECKABLE, which is only a benefit
 // if something checks. So the host attaches a deterministic verifier where one exists, and says
 // plainly where one does not.
+//
+// And a verifier that cannot refuse is only telemetry. Once a deterministic check has proved a
+// value wrong, that value does not become an established fact for the steps after it, and does
+// not become the run's answer either. The run ends CONTESTED instead - a worse-looking output
+// and a far better one than a number the host already knows is false.
 
 var client = Settings.ChatClient;
 var precise = new ChatClientAgentRunOptions(new ChatOptions { Temperature = 0.1f });
@@ -57,7 +62,7 @@ var expectedTotal = StepChecks.BillingTotal(
     start: new DateOnly(2025, 3, 3), upgradeEffective: new DateOnly(2025, 7, 3),
     cancelled: new DateOnly(2025, 10, 15), beforeUpgrade: 14m, afterUpgrade: 22m);
 
-var solved = new List<(SubProblem Step, string Answer)>();
+var solved = new List<SolvedStep>();
 foreach (var step in steps)
 {
     var known = solved.Count == 0
@@ -83,33 +88,56 @@ foreach (var step in steps)
     // subproblems in most chains do not. Where one exists, a failed check is caught before the
     // answer becomes an "established fact" that every later step cites.
     var isFinal = step.Order == steps.Count;
-    if (isFinal)
+    if (!isFinal)
     {
-        var check = StepChecks.AgainstTotal(answer, expectedTotal);
-        Console.WriteLine($"\n[{step.Order}] {step.Question}\n    → {answer.ReplaceLineEndings(" ")}");
-        Console.WriteLine($"    [check] {check.Detail}");
-
-        if (!check.Passed)
-        {
-            // One retry, with the discrepancy named. Not a loop: an unbounded "try again" on a
-            // criterion the model cannot see is how a sample becomes a hang.
-            answer = (await solver.RunAsync(
-                $"{prompt}\n\nA deterministic check of your answer failed: {check.Detail}. " +
-                "Recompute carefully, listing each billing date and its charge.", options: precise)).Text.Trim();
-
-            var recheck = StepChecks.AgainstTotal(answer, expectedTotal);
-            Console.WriteLine($"    → retry: {answer.ReplaceLineEndings(" ")}");
-            Console.WriteLine($"    [check] {(recheck.Passed ? recheck.Detail : recheck.Detail + " — CONTESTED, not settled")}");
-        }
-
-        solved.Add((step, answer));
+        solved.Add(new SolvedStep(step, answer, StepStatus.Unverified));
+        Console.WriteLine($"\n[{step.Order}] {step.Question}\n    → {answer.ReplaceLineEndings(" ")}   [no verifier for this step]");
         continue;
     }
 
-    solved.Add((step, answer));
-    Console.WriteLine($"\n[{step.Order}] {step.Question}\n    → {answer.ReplaceLineEndings(" ")}   [no verifier for this step]");
+    var check = StepChecks.AgainstTotal(answer, expectedTotal);
+    Console.WriteLine($"\n[{step.Order}] {step.Question}\n    → {answer.ReplaceLineEndings(" ")}");
+    Console.WriteLine($"    [check] {check.Detail}");
+
+    if (!check.Passed)
+    {
+        // One retry, with the discrepancy named. Not a loop: an unbounded "try again" on a
+        // criterion the model cannot see is how a sample becomes a hang.
+        answer = (await solver.RunAsync(
+            $"{prompt}\n\nA deterministic check of your answer failed: {check.Detail}. " +
+            "Recompute carefully, listing each billing date and its charge.", options: precise)).Text.Trim();
+
+        check = StepChecks.AgainstTotal(answer, expectedTotal);
+        Console.WriteLine($"    → retry: {answer.ReplaceLineEndings(" ")}");
+        Console.WriteLine($"    [check] {check.Detail}");
+    }
+
+    solved.Add(new SolvedStep(step, answer, check.Passed ? StepStatus.Accepted : StepStatus.Contested));
+
+    // A step the host has proved wrong is not handed to the steps after it. Here it is the last
+    // step, so there are none - but the rule is the point, not the arithmetic.
+    if (!check.Passed) break;
 }
 
-Console.WriteLine($"\n=== Final answer ===\n{solved[^1].Answer}");
+var last = solved[^1];
+Console.WriteLine(last.Status switch
+{
+    StepStatus.Contested => $"""
+
+                             === Run stopped: the final answer failed a deterministic check ===
+                               candidate:  {last.Answer.ReplaceLineEndings(" ")}
+                               host rule:  EUR {expectedTotal:F2}
+                               status:     CONTESTED
+
+                             The host will not hand on a value it has already proved wrong. A
+                             chain that prints this is working; one that prints the number anyway
+                             was only ever logging its verifier.
+                             """,
+    _ => $"\n=== Final answer (checked against the host's schedule) ===\n{last.Answer}"
+});
+
+internal enum StepStatus { Accepted, Unverified, Contested }
+
+internal sealed record SolvedStep(SubProblem Step, string Answer, StepStatus Status);
 
 internal sealed record ProposedSteps(string[] Steps);

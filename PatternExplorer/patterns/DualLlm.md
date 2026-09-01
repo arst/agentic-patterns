@@ -84,7 +84,7 @@ It said nothing about whether the value is *true* — and that distinction is th
 most often over-read.
 
 Suppose the quarantined model had complied with the injection and returned `48000.00`. That is a
-well-formed decimal, inside the range bound, and it files. Control flow was never subverted — no
+well-formed decimal, so it passes the type gate untouched. Control flow was never subverted — no
 new step, no new tool — and the expense is still wrong. Taint stopped untrusted content from
 becoming an *instruction*; it did nothing to make it a *fact*.
 

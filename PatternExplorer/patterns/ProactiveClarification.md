@@ -96,9 +96,12 @@ flowchart TB
 
 - `agent.RunAsync<Triage>(...)` — structured output splits "what the request said" from "what I
   want to ask", so the host can screen the second against the first.
-- `ClarificationGate.Screen(slots, filled, questions, maxQuestions)` — returns every question
-  with a rejection reason or `null`, so the run can print what it chose not to ask. Deciding by
-  *slot* rather than by question text is what makes "one question per slot" enforceable.
+- `ClarificationGate.Screen(slots, filled, questions, maxQuestions)` — returns every question with
+  the slot it resolved to and a rejection reason or `null`, so the run can print what it chose not
+  to ask. Deciding by *slot* rather than by question text is what makes "one question per slot"
+  enforceable — and `ScreenedQuestion.TargetSlot` carries that decision forward to the merge, so
+  the lexical match happens once and the two stages cannot drift into disagreeing about what a
+  question was asking.
 - `parser.RunAsync<ClarificationReply>(...)` — splits one free-text reply into per-slot answers.
   Model-parsed, therefore untrusted, therefore gated.
 - `ClarificationGate.Merge(filled, knownSlots, askedSlots, answers)` — writes answers into slot

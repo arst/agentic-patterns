@@ -46,9 +46,11 @@ bus.Subscribe("RiskAssessed", async e =>
         "Approver", 0)
 ]);
 
-// Nothing subscribes to DecisionMade. That makes it a TERMINAL event - the workflow finished -
-// which the bus records separately from dead letters. A workflow output filed as a delivery
-// failure makes the dead-letter queue useless as an alarm.
+// Nothing subscribes to DecisionMade, and that is declared rather than inferred: it is a TERMINAL
+// topic, an outcome of the run, which the bus records separately from dead letters. A workflow
+// output filed as a delivery failure makes the dead-letter queue useless as an alarm - and,
+// inferred the other way round, a topic nobody can match becomes a silent success.
+bus.RegisterTerminal("DecisionMade");
 
 bus.Publish(new AgentEvent("PurchaseRequested",
     "Purchase request: 3-year contract with a Norwegian logistics SaaS vendor, EUR 84,000/year, " +
@@ -60,10 +62,20 @@ await bus.RunToCompletionAsync(e =>
 Console.WriteLine($"\n=== Done: {bus.Published} events dispatched ===");
 foreach (var terminal in bus.TerminalEvents)
     Console.WriteLine($"  terminal: {terminal.Topic} (gen {terminal.Generation}) from {terminal.Source} " +
-                      "— nothing subscribes, the workflow ends here");
+                      $"— registered as an outcome, the workflow ends here\n    {terminal.Payload}");
 foreach (var dead in bus.DeadLetters)
     Console.WriteLine($"  dead-letter: {dead.Event.Topic} (gen {dead.Event.Generation}) " +
                       $"from {dead.Event.Source} — {dead.Reason}");
 
 if (bus.DeadLetters.Count == 0)
     Console.WriteLine("  no dead letters: nothing hit the event budget or the generation cap.");
+
+// ── What "the wiring is the subscription table" costs ────────────────────────
+// There is no compiler for a topic name. A handler that publishes "DecisionMdae" is not a broken
+// handler you can find by reading it - it is a message addressed to nobody, and the only reason
+// it is visible here is that the bus refuses topics it was never told about.
+Console.WriteLine("\n=== A misspelled topic, published by nobody's mistake in particular ===");
+bus.Publish(new AgentEvent("DecisionMdae", "APPROVE", "Approver", 3));
+var typo = bus.DeadLetters[^1];
+Console.WriteLine($"  dead-letter: {typo.Event.Topic} — {typo.Reason}. Neither subscribed nor " +
+                  "registered as terminal, so it is a delivery failure and says so.");

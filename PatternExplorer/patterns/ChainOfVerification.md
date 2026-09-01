@@ -70,13 +70,18 @@ Four stages, of which only the third is unusual:
    stateless run — no session, no draft, no siblings. The questions run concurrently because
    they are genuinely independent; that independence is the point, and the parallelism is a
    free consequence of it.
-4. **Revise, into three outcomes.** The reviser sees the draft and the cross-checks together, and
-   is explicitly told that a cross-check is *not an authority*. Each disagreement resolves as:
-   check confident and disagrees → correct the draft; check uncertain and disagrees → mark the
-   claim **contested**, stating both values without picking one; check agrees → leave it alone and
-   do **not** upgrade the wording, because agreement between a model and itself is weak evidence.
-   The verifier is asked to prefix its answers `CONFIDENT:` or `UNCERTAIN:` so that split is
-   available to act on.
+4. **Revise, into two outcomes.** The reviser sees the draft and the cross-checks together, and is
+   explicitly told that neither is an authority. Check agrees → leave it alone and do **not**
+   upgrade the wording, because agreement between a model and itself is weak evidence. Check
+   disagrees → mark the claim **contested**, stating both values without picking one.
+
+   *A disagreement is a flag, not a correction.* No new fact entered the system between the draft
+   and the check — preferring the check would only be preferring the model's later guess to its
+   earlier one. The verifier's `CONFIDENT:`/`UNCERTAIN:` prefix is worth having and worth being
+   precise about: it is the checker describing itself, not evidence about the world, and letting
+   that word decide which value wins promotes a self-report into an authority. It is reported, not
+   obeyed. Settling a contested claim needs a source outside the model, which is where
+   **AgenticRAG** or a deterministic tool comes in.
 
 Between 2 and 3 sits the host's contribution, `VerificationGate`. Models drift toward leading
 questions — it is the natural way to phrase a check — and a question containing the drafted
@@ -129,12 +134,12 @@ the gate ===` lists each question next to what the draft claimed, which is the c
 what is about to be tested.
 
 The section worth reading closely is `=== Blind cross-checks ===`. Compare each to the
-`draft says:` value above it, and note the `CONFIDENT:`/`UNCERTAIN:` prefix — that is what decides
-whether a disagreement becomes a correction or a contested claim.
+`draft says:` value above it. The `CONFIDENT:`/`UNCERTAIN:` prefix tells you how firmly the checker
+holds its answer and nothing more — a disagreement is contested either way.
 
-Then `=== Cross-checked answer ===`, whose `Changes:` list is the deliverable: corrections and
-contested claims, listed separately. An empty change list means the draft and the check agreed,
-which — per above — is the weaker of the two possible results, not a clean bill of health.
+Then `=== Cross-checked answer ===`, whose `Changes:` list is the deliverable: every contested
+claim and what would settle it. An empty change list means the draft and the check agreed, which —
+per above — is the weaker of the two possible results, not a clean bill of health.
 
 Finally `=== Coverage ===`. If it says `never checked: 2`, two of the draft's specifics carry the
 draft's confidence and nothing more, and the run says so rather than letting the header imply

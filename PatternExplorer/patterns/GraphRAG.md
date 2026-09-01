@@ -71,10 +71,14 @@ then a free-text summary carries whatever the model happened to retain. The fina
 to "cite the incident ids", and can only repeat what reached it, or invent.
 
 So the summariser returns a structured `CommunitySummary(Summary, SourceDocumentIds)`, **and the
-host checks those ids against the graph rather than believing them.** Ids the model names that are
-not in the community are reported and dropped; what gets attached to the summary is the set the
-host already knows. Verifying is cheap here precisely because the truth is a set the host holds —
-which is the difference between GraphRAG and summarising some graph-shaped text.
+host checks those ids against the graph rather than believing them.** What gets attached is the
+*intersection*, and both halves of that matter. An id the model names that the community does not
+contain is a fabrication, reported and dropped. An id the community contains that the model did not
+use is not support for this summary — attaching the whole community would trade fabricated
+provenance for **inflated** provenance, which reads exactly as convincing and is just as untrue. A
+summary with no id surviving is not carried to the global answer at all: a claim nothing can be
+traced to is not evidence. Verifying is cheap here precisely because the truth is a set the host
+holds — which is the difference between GraphRAG and summarising some graph-shaped text.
 
 **5. Answer, two ways.**
 - *Global:* "what is the recurring systemic problem" — answered from community summaries alone.
@@ -101,8 +105,8 @@ flowchart TB
 - `KnowledgeGraph.Communities()` — union-find over the relations, groups ordered largest first.
 - `KnowledgeGraph.Neighbourhood(entity, hops)` — breadth-limited traversal for local questions.
 - `Relation.SourceDoc` — every edge remembers its document, so answers can cite incident ids.
-- `agent.RunAsync<CommunitySummary>(...)` — summary plus claimed source ids, checked against the
-  community's actual ids before either is used.
+- `agent.RunAsync<CommunitySummary>(...)` — summary plus claimed source ids. The citation attached
+  to the summary is `claimed ∩ actual`: fabricated ids dropped, unclaimed ids not inflated in.
 
 ## What to watch in the output
 
@@ -118,10 +122,12 @@ everything else to join into one component through the shared Postgres cluster a
 chain. If you see four or five tiny communities instead, extraction drifted on entity names; that
 is the failure this pipeline has, and the relation list above is where you diagnose it.
 
-Each community also prints `sources (from the graph): INC-…` — the provenance the answerer will
-cite, taken from the host's set rather than the summariser's memory. A
-`[provenance] summariser also claimed …` line means the model named an id the community does not
-contain; it is dropped, and seeing it occasionally is the check earning its place.
+Each community also prints `validated sources: INC-…` — the provenance the answerer will cite,
+which is what the summariser claimed *and* the graph confirms. Two `[provenance]` lines can follow.
+`claimed … not in this community` means the model named an id that does not exist here; it is
+dropped as fabricated. `… are in this community but were not claimed as used` means the reverse:
+real documents that this particular summary does not rest on, so they are not cited as support for
+it. Seeing either occasionally is the check earning its place.
 
 Then the two answers. The global one should name weak change management around shared
 infrastructure, citing manual rollbacks and the shared Postgres cluster — a claim no single report
