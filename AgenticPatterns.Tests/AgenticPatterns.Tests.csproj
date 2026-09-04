@@ -12,6 +12,12 @@
 
     <ItemGroup>
         <ProjectReference Include="..\AgentCommunicationFaultTolerance.AgentFramework\AgentCommunicationFaultTolerance.AgentFramework.csproj"/>
+        <ProjectReference Include="..\AuthenticatedDelegation.AgentFramework\AuthenticatedDelegation.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ComputerUse.AgentFramework\ComputerUse.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ProgressiveAgentRollout.AgentFramework\ProgressiveAgentRollout.AgentFramework.csproj"/>
+        <ProjectReference Include="..\ReversibleActionCompensation.AgentFramework\ReversibleActionCompensation.AgentFramework.csproj"/>
+        <ProjectReference Include="..\SelfHealingOperationsLoop.AgentFramework\SelfHealingOperationsLoop.AgentFramework.csproj"/>
+        <ProjectReference Include="..\SyntheticUserSimulation.AgentFramework\SyntheticUserSimulation.AgentFramework.csproj"/>
         <ProjectReference Include="..\AgentRegistry.AgentFramework\AgentRegistry.AgentFramework.csproj"/>
         <ProjectReference Include="..\ChainOfVerification.AgentFramework\ChainOfVerification.AgentFramework.csproj"/>
         <ProjectReference Include="..\ContextAssembly.AgentFramework\ContextAssembly.AgentFramework.csproj"/>
