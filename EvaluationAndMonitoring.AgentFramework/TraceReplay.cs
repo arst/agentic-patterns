@@ -212,7 +212,22 @@ public static class TraceStore
         var tools = string.Join(";", options?.Tools?.Select(tool => tool is AIFunctionDeclaration function
             ? $"{function.Name}:{function.JsonSchema.GetRawText()}"
             : $"{tool.Name}:{tool.Description}") ?? []);
-        return $"model:{options?.ModelId}|temperature:{options?.Temperature}|format:{options?.ResponseFormat}|tools:{tools}";
+        var toolMode = options?.ToolMode is RequiredChatToolMode required
+            ? $"Required:{required.RequiredFunctionName}"
+            : options?.ToolMode?.GetType().Name ?? "";
+        var additionalProperties = options?.AdditionalProperties is { } props
+            ? JsonSerializer.Serialize(props.OrderBy(p => p.Key, StringComparer.Ordinal))
+            : "";
+
+        return string.Join('|',
+            $"model:{options?.ModelId}", $"temperature:{options?.Temperature}", $"format:{options?.ResponseFormat}",
+            $"tools:{tools}", $"toolMode:{toolMode}", $"allowMultipleToolCalls:{options?.AllowMultipleToolCalls}",
+            $"instructions:{options?.Instructions}", $"maxOutputTokens:{options?.MaxOutputTokens}",
+            $"topP:{options?.TopP}", $"topK:{options?.TopK}", $"seed:{options?.Seed}",
+            $"stopSequences:{string.Join(",", options?.StopSequences ?? [])}",
+            $"frequencyPenalty:{options?.FrequencyPenalty}", $"presencePenalty:{options?.PresencePenalty}",
+            $"reasoningEffort:{options?.Reasoning?.Effort}", $"reasoningOutput:{options?.Reasoning?.Output}",
+            $"additionalProperties:{additionalProperties}");
     }
 
     private static string Redact(string value) => Regex.Replace(

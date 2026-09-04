@@ -197,6 +197,15 @@ public class EpisodicMemoryTests
     }
 
     [Fact]
+    public void DayOldRecencyMatchesTheDocumentedDecay()
+    {
+        var scored = EpisodicRetrieval.Score(
+            [new("ep-1", "memory", Now.AddDays(-1), 0.5, "t")], "unrelated", Now);
+
+        Assert.InRange(scored.Single().Recency, 0.88, 0.89);
+    }
+
+    [Fact]
     public void OnlyTopicsOverTheThresholdConsolidate()
     {
         Episode[] episodes =

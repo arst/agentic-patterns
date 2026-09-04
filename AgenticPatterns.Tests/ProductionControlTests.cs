@@ -570,22 +570,42 @@ public class GuardRailsTests
     }
 
     [Fact]
-    public void TruncateTrimsOnlyTheLastTextContent()
+    public void TruncateKeepsThePrefixAndCountsTheMarkerWithinTheLimit()
     {
         var functionCall = new FunctionCallContent("c1", "lookup", null);
         var response = new ChatResponse([
             new ChatMessage(ChatRole.Assistant, [new TextContent("first ten.")]),
-            new ChatMessage(ChatRole.Assistant, [functionCall, new TextContent("second block of text")])
+            new ChatMessage(ChatRole.Assistant,
+                [functionCall, new TextContent("second block of text that keeps going for much longer")])
         ]);
 
-        // 10 ("first ten.") + budget 5 left for the last TextContent out of a 15-character cap.
-        var truncated = GuardRails.Truncate(response, maxCharacters: 15);
+        var truncated = GuardRails.Truncate(response, maxCharacters: 50);
 
         Assert.Equal("first ten.", ((TextContent)truncated.Messages[0].Contents[0]).Text);
         Assert.Same(functionCall, truncated.Messages[1].Contents[0]);
         var lastText = ((TextContent)truncated.Messages[1].Contents[1]).Text;
-        Assert.StartsWith("secon", lastText);
+        Assert.StartsWith("second", lastText);
         Assert.Contains("[Response truncated for safety.]", lastText);
+        Assert.True(truncated.Messages.Sum(message =>
+            message.Contents.OfType<TextContent>().Sum(text => text.Text.Length)) <= 50);
+    }
+
+    [Fact]
+    public void TruncateCapsEarlierTextAndClearsLaterText()
+    {
+        var functionCall = new FunctionCallContent("c1", "lookup", null);
+        var response = new ChatResponse([
+            new ChatMessage(ChatRole.Assistant, new string('x', 100)),
+            new ChatMessage(ChatRole.Assistant, [functionCall, new TextContent("later")])
+        ]);
+
+        var truncated = GuardRails.Truncate(response, maxCharacters: 50);
+
+        Assert.Equal(50, truncated.Messages.Sum(message =>
+            message.Contents.OfType<TextContent>().Sum(text => text.Text.Length)));
+        Assert.Contains("[Response truncated for safety.]", truncated.Messages[0].Text);
+        Assert.Equal("", truncated.Messages[1].Text);
+        Assert.Same(functionCall, truncated.Messages[1].Contents[0]);
     }
 
     [Fact]

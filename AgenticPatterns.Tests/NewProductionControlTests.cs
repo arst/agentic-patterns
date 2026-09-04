@@ -31,6 +31,47 @@ public class DataFlowPlanTests
         ], Tools));
 
     [Fact]
+    public void ToolContractsRejectWrongArityAndOutputTypes()
+    {
+        var errors = DataFlowPlan.Validate(
+        [
+            new Step("fetch_email", [], "email", "text"),
+            new Step("extract_total", [], "total", "decimal"),
+            new Step("file_expense", ["total"], "receipt", "text")
+        ], Tools);
+
+        Assert.Contains(errors, error => error.Message.Contains("produces 'untrusted_text'"));
+        Assert.Contains(errors, error => error.Message.Contains("expects 1 argument"));
+    }
+
+    [Fact]
+    public void ConsumerInputTypesMustMatchTheirProducer()
+    {
+        var errors = DataFlowPlan.Validate(
+        [
+            new Step("fetch_email", [], "email", "untrusted_text"),
+            new Step("extract_total", ["email"], "total", "decimal"),
+            new Step("file_expense", ["email"], "receipt", "text")
+        ], Tools);
+
+        Assert.Contains(errors, error => error.Message.Contains("expected 'decimal'"));
+    }
+
+    [Fact]
+    public void APlanMustHaveExactlyOneSideEffectingSink()
+    {
+        var errors = DataFlowPlan.Validate(
+        [
+            new Step("fetch_email", [], "email", "untrusted_text"),
+            new Step("extract_total", ["email"], "total", "decimal"),
+            new Step("file_expense", ["total"], "receipt-1", "text"),
+            new Step("file_expense", ["total"], "receipt-2", "text")
+        ], Tools);
+
+        Assert.Contains(errors, error => error.Message.Contains("exactly one 'file_expense'"));
+    }
+
+    [Fact]
     public void ReassigningAVariableIsRejected() =>
         Assert.NotEmpty(DataFlowPlan.Validate(
         [
@@ -184,6 +225,29 @@ public class ReliableChannelTests
         await channel.SendAsync(Message("M1"), _ => (++runs).ToString());
 
         Assert.Equal(1, runs);
+    }
+
+    [Fact]
+    public async Task ConcurrentDuplicateDeliveriesRunTheEffectOnce()
+    {
+        const int callers = 8;
+        using var start = new Barrier(callers);
+        var runs = 0;
+        var inbox = new Inbox();
+
+        await Task.WhenAll(Enumerable.Range(0, callers).Select(_ => Task.Run(() =>
+        {
+            start.SignalAndWait();
+            inbox.Handle(Message("M1"), _ =>
+            {
+                Interlocked.Increment(ref runs);
+                Thread.Sleep(50);
+                return "done";
+            });
+        })));
+
+        Assert.Equal(1, runs);
+        Assert.Single(inbox.Handled);
     }
 
     [Fact]

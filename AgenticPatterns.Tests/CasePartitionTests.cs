@@ -39,6 +39,15 @@ public class CasePartitionTests
     }
 
     [Fact]
+    public void WhitespaceReviewedByIsAlsoAwaitingReview()
+    {
+        var (evaluated, awaitingReview) = CasePartition.Partition([Case("blank", reviewedBy: "  \t")]);
+
+        Assert.Empty(evaluated);
+        Assert.Single(awaitingReview);
+    }
+
+    [Fact]
     public void MixedCorpusSplitsCorrectly()
     {
         var (evaluated, awaitingReview) = CasePartition.Partition(

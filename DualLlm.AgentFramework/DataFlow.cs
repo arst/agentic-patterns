@@ -15,6 +15,14 @@ public sealed record PlanError(string Step, string Message);
 
 public static class DataFlowPlan
 {
+    private static readonly IReadOnlyDictionary<string, (string[] Inputs, string Output)> Contracts =
+        new Dictionary<string, (string[] Inputs, string Output)>(StringComparer.Ordinal)
+        {
+            ["fetch_email"] = ([], "untrusted_text"),
+            ["extract_total"] = (["untrusted_text"], "decimal"),
+            ["file_expense"] = (["decimal"], "text")
+        };
+
     /// The plan is written by the privileged model, which has seen only the user's instruction -
     /// but "privileged" describes what it was shown, not that its output is trusted. Validate the
     /// whole plan before a single step runs.
@@ -22,21 +30,41 @@ public static class DataFlowPlan
         IReadOnlySet<string> allowedTools)
     {
         var errors = new List<PlanError>();
-        var produced = new HashSet<string>(StringComparer.Ordinal);
+        var produced = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var step in steps)
         {
             if (!allowedTools.Contains(step.Tool))
                 errors.Add(new PlanError(step.Tool, $"tool '{step.Tool}' is not allowed"));
 
-            foreach (var arg in step.Args)
-                if (!produced.Contains(arg))
+            var hasContract = Contracts.TryGetValue(step.Tool, out var contract);
+            if (!hasContract)
+                errors.Add(new PlanError(step.Tool, $"tool '{step.Tool}' has no declared data-flow contract"));
+            else if (step.Args.Length != contract.Inputs.Length)
+                errors.Add(new PlanError(step.Tool,
+                    $"tool '{step.Tool}' expects {contract.Inputs.Length} argument(s), got {step.Args.Length}"));
+
+            for (var i = 0; i < step.Args.Length; i++)
+            {
+                var arg = step.Args[i];
+                if (!produced.TryGetValue(arg, out var actualType))
                     errors.Add(new PlanError(step.Tool,
                         $"argument '{arg}' is not a variable produced by an earlier step"));
+                else if (hasContract && i < contract.Inputs.Length && actualType != contract.Inputs[i])
+                    errors.Add(new PlanError(step.Tool,
+                        $"argument '{arg}' has type '{actualType}', expected '{contract.Inputs[i]}'"));
+            }
 
-            if (!produced.Add(step.Produces))
+            if (hasContract && step.ProducesType != contract.Output)
+                errors.Add(new PlanError(step.Tool,
+                    $"tool '{step.Tool}' produces '{contract.Output}', not '{step.ProducesType}'"));
+
+            if (!produced.TryAdd(step.Produces, step.ProducesType))
                 errors.Add(new PlanError(step.Tool, $"variable '{step.Produces}' is assigned twice"));
         }
+
+        if (steps.Count(step => step.Tool == "file_expense") != 1)
+            errors.Add(new PlanError("file_expense", "plan must contain exactly one 'file_expense' step"));
 
         return errors;
     }

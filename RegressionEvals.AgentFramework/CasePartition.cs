@@ -13,7 +13,7 @@ public static class CasePartition
         var evaluated = new List<GoldenCase>();
         var awaitingReview = new List<GoldenCase>();
         foreach (var c in cases)
-            (string.IsNullOrEmpty(c.ReviewedBy) ? awaitingReview : evaluated).Add(c);
+            (string.IsNullOrWhiteSpace(c.ReviewedBy) ? awaitingReview : evaluated).Add(c);
         return (evaluated, awaitingReview);
     }
 

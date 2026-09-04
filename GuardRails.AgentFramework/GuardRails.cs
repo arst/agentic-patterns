@@ -18,10 +18,8 @@ public static class GuardRails
         WithMessages(response, RedactMessages(response.Messages));
 
     /// <summary>
-    /// Caps the response's total text at <paramref name="maxCharacters"/>. Only the last
-    /// <see cref="TextContent"/> in the response absorbs the cut — earlier text and every
-    /// non-text content item are left untouched. See <see cref="TruncateMessages"/> for the
-    /// exact budget rule.
+    /// Caps the response's total text at <paramref name="maxCharacters"/>, including the
+    /// truncation marker. Non-text content items are left untouched.
     /// </summary>
     public static ChatResponse Truncate(ChatResponse response, int maxCharacters) =>
         WithMessages(response, TruncateMessages(response.Messages, maxCharacters));
@@ -41,46 +39,40 @@ public static class GuardRails
     /// <summary>
     /// Truncates a list of messages to at most <paramref name="maxCharacters"/> characters of
     /// total text. "Total text" is the sum of every <see cref="TextContent.Text"/> length across
-    /// every message. When that sum exceeds the limit, only the last message's last
-    /// <see cref="TextContent"/> is shortened — down to whatever budget remains once every other
-    /// text item is counted — and a truncation marker is appended; everything before it, and
-    /// every non-text content item, is untouched. Returns the original list unchanged (same
-    /// reference) when already under budget, so callers can detect a no-op with
+    /// every message. When that sum exceeds the limit, the response prefix is kept, a truncation
+    /// marker is appended within the budget, and later text is cleared. Non-text content is
+    /// untouched. Returns the original list unchanged (same reference) when already under budget,
+    /// so callers can detect a no-op with
     /// <see cref="object.ReferenceEquals(object?, object?)"/>.
     /// </summary>
     internal static IList<ChatMessage> TruncateMessages(IList<ChatMessage> messages, int maxCharacters)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(maxCharacters);
+
         var totalLength = messages.Sum(m => m.Contents.OfType<TextContent>().Sum(t => t.Text.Length));
         if (totalLength <= maxCharacters)
             return messages;
 
-        var lastMessageIndex = -1;
-        var lastTextIndex = -1;
-        for (var i = messages.Count - 1; i >= 0 && lastMessageIndex < 0; i--)
+        var marker = TruncationSuffix[..Math.Min(TruncationSuffix.Length, maxCharacters)];
+        var remaining = maxCharacters - marker.Length;
+        var truncated = false;
+        return messages.Select(message =>
         {
-            var contents = messages[i].Contents;
-            for (var j = contents.Count - 1; j >= 0; j--)
+            var contents = message.Contents.Select(content =>
             {
-                if (contents[j] is not TextContent) continue;
-                lastMessageIndex = i;
-                lastTextIndex = j;
-                break;
-            }
-        }
+                if (content is not TextContent text) return content;
+                if (truncated) return new TextContent("");
+                if (text.Text.Length <= remaining)
+                {
+                    remaining -= text.Text.Length;
+                    return content;
+                }
 
-        // No TextContent anywhere in the response — nothing this function is responsible for can trim.
-        if (lastMessageIndex < 0)
-            return messages;
-
-        var lastText = (TextContent)messages[lastMessageIndex].Contents[lastTextIndex];
-        var budget = Math.Max(0, maxCharacters - (totalLength - lastText.Text.Length));
-        var truncatedText = (budget < lastText.Text.Length ? lastText.Text[..budget] : lastText.Text) + TruncationSuffix;
-
-        var newContents = messages[lastMessageIndex].Contents.ToList();
-        newContents[lastTextIndex] = new TextContent(truncatedText);
-        var newMessages = messages.ToList();
-        newMessages[lastMessageIndex] = CloneWithContents(messages[lastMessageIndex], newContents);
-        return newMessages;
+                truncated = true;
+                return new TextContent(text.Text[..remaining] + marker);
+            }).ToList();
+            return CloneWithContents(message, contents);
+        }).ToList();
     }
 
     // Core mapper: rewrites only TextContent items (via `transform`) in a message's Contents,
