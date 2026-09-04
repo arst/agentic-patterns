@@ -109,6 +109,7 @@ the catalog together; each result states its scope limits and cites a primary so
 |---|---|
 | AgentRegistry | Discovery by capability with signed agent cards verified before dispatch |
 | CodeAct | One code-execution tool instead of many bound tools; results stay in the script |
+| ComputerUse | Bounded screenshot → click → observe loop over currently visible controls |
 | ControlPlaneAsTool | One execute_capability tool; a trusted control plane picks the backend |
 | EventDrivenAgents | Topic subscriptions instead of an orchestrator, with a generation-capped bus |
 | GoalSetting(s)AndMonitoring | Goal decomposition with progress monitoring |
@@ -125,6 +126,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Prioritization | Task triage with tools |
 | PromptChaining | Multi-step prompt pipelines (workflow-based in AF) |
 | RalphLoop | Fresh-context agent loop until the plan file is satisfied; state lives in files |
+| ReversibleActionCompensation | Saga steps with explicit reverse-order compensation and stable replay IDs |
 | Routing | Intent routing to specialist agents (incl. a workflow variant) |
 | SpeculativeToolExecution | Read-only, free-to-discard tools started before the model asks |
 | StateMachineAgent | Host-owned transition table; the model decides only within a state |
@@ -156,6 +158,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | AgentCommunicationFaultTolerance | Retry, receiver-side dedup, dead letters, and a reconciliation pass |
+| AuthenticatedDelegation | Signed, short-lived authority bound to user, agent, audience, action, and resource |
 | BoundedExecution | Hard per-run limits on calls, tools, and elapsed time; tokens estimated conservatively |
 | ConfidenceReporting | Uncertainty signals over one canonical candidate — an uncalibrated heuristic, not a calibrated score |
 | ContrastiveExplanation | Why A rather than B, with the flip condition re-run against the rule |
@@ -171,6 +174,7 @@ the catalog together; each result states its scope limits and cites a primary so
 | MemoryPoisoningPrevention | A write gate: untrusted sources propose, corroboration or a human publishes |
 | Middleware | Agent-run and function-invocation middleware (logging, latency, tool guards) |
 | ResourceAwareOptimization | Model routing under a soft, post-call cost budget |
+| SelfHealingOperationsLoop | Detect, diagnose, policy-gate one remediation, verify, or escalate |
 | ToolAuthorization | Capability-scoped, argument-level authorization before tool execution; one-time grants are reserved, then committed after the effect |
 
 ### Evaluation
@@ -178,8 +182,10 @@ the catalog together; each result states its scope limits and cites a primary so
 | Pattern | What it demonstrates |
 |---|---|
 | LLMAsJudge | Judge-model rubric scoring plus a position-bias probe that compares verdicts across balanced candidate orderings |
+| ProgressiveAgentRollout | Shadow → canary → ramp gates with automatic rollback on metric regression |
 | RedTeaming | Deterministic leak checks first, judge second, against a GuardRails-style output filter |
 | RegressionEvals | Golden-dataset suite of reviewed cases with tiered assertions, cached as a CI gate |
+| SyntheticUserSimulation | Diverse personas drive bounded multi-turn dialogues to discover failures |
 | TrajectoryEvaluation | Scoring the agent's tool-use path with agent evaluators |
 
 ## Setup
