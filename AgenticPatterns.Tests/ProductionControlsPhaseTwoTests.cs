@@ -108,6 +108,21 @@ public class TraceReplayTests
     }
 
     [Fact]
+    public void RequestHashIncludesGenerationOptions()
+    {
+        var messages = new[] { new ChatMessage(ChatRole.User, "same prompt") };
+        var original = TraceStore.HashMessages(messages,
+            new ChatOptions { Instructions = "v1", MaxOutputTokens = 100 }, TracePrivacyMode.FullContent);
+        var changedInstructions = TraceStore.HashMessages(messages,
+            new ChatOptions { Instructions = "v2", MaxOutputTokens = 100 }, TracePrivacyMode.FullContent);
+        var changedLimit = TraceStore.HashMessages(messages,
+            new ChatOptions { Instructions = "v1", MaxOutputTokens = 500 }, TracePrivacyMode.FullContent);
+
+        Assert.NotEqual(original, changedInstructions);
+        Assert.NotEqual(original, changedLimit);
+    }
+
+    [Fact]
     public async Task TraceFileRoundTrips()
     {
         var path = Path.Combine(Path.GetTempPath(), $"agent-trace-{Guid.NewGuid():N}.json");

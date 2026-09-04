@@ -48,8 +48,8 @@ Eight episodes across three topics span 45 days, each with an importance scored 
 the host here; usually a cheap model call in production).
 
 **Retrieval.** `EpisodicRetrieval.Score` computes `recency + importance + relevance` for a query
-about export timeouts. Recency is exponential decay at 0.995 per hour — a day-old memory counts
-about a fifth of a fresh one. Relevance is word overlap, with a `ponytail:` note that a real
+about export timeouts. Recency is exponential decay at 0.995 per hour — a day-old memory retains
+about 89%, and the half-life is about 5.8 days. Relevance is word overlap, with a `ponytail:` note that a real
 system swaps in the embedding generator from the **RAG** sample; the scoring formula around it
 does not change.
 

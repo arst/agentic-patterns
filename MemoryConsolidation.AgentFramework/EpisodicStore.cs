@@ -28,7 +28,7 @@ public sealed record Scored(Episode Episode, double Recency, double Relevance, d
 /// the rare significant event retrievable long after it stops being recent.
 public static class EpisodicRetrieval
 {
-    /// Half-life in hours: a memory a day old counts about a fifth of a fresh one.
+    /// Per-hour retention: a day-old memory retains about 89%; half-life is about 5.8 days.
     const double DecayPerHour = 0.995;
 
     /// Scores the ACTIVE episodes only. Archived ones are still on disk and still auditable; they

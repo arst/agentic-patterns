@@ -78,8 +78,8 @@ async Task<AgentResponse> OutputGuardMiddleware(
 {
     var response = await innerAgent.RunAsync(messages, session, options, cancellationToken);
 
-    // Truncate on total text length, but only rewrite the last TextContent — function calls,
-    // function results and earlier text stay intact instead of being flattened into one message.
+    // Keep the response prefix within the total text budget. Function calls and function results
+    // stay intact instead of being flattened into one message.
     var truncatedMessages = GuardRails.TruncateMessages(response.Messages, 2000);
     if (!ReferenceEquals(truncatedMessages, response.Messages))
     {

@@ -24,17 +24,28 @@ public sealed class FlakyTransport(int seed, double lossRate, double duplicateRa
 public sealed class Inbox
 {
     readonly Dictionary<string, string> handled = new(StringComparer.Ordinal);
+    readonly object gate = new();
 
-    public IReadOnlyDictionary<string, string> Handled => handled;
+    public IReadOnlyDictionary<string, string> Handled
+    {
+        get
+        {
+            lock (gate) return new Dictionary<string, string>(handled, StringComparer.Ordinal);
+        }
+    }
 
     /// Returns the effect's result and whether this was a replay rather than a first delivery.
     public (string Result, bool Duplicate) Handle(Message message, Func<Message, string> effect)
     {
-        if (handled.TryGetValue(message.Id, out var existing)) return (existing, true);
+        // ponytail: one global lock; use per-message locks if unrelated effects need parallel throughput.
+        lock (gate)
+        {
+            if (handled.TryGetValue(message.Id, out var existing)) return (existing, true);
 
-        var result = effect(message);
-        handled[message.Id] = result;
-        return (result, false);
+            var result = effect(message);
+            handled[message.Id] = result;
+            return (result, false);
+        }
     }
 }
 
@@ -84,6 +95,9 @@ public sealed class ReliableChannel(FlakyTransport transport, Inbox inbox, int m
     /// The step people skip. Retries and dead-letters make each message's fate correct; only a
     /// reconciliation pass makes the CONVERSATION correct - it is where you find out that agent B
     /// is missing the one message agent A believes it sent.
-    public static IReadOnlyList<string> Reconcile(IEnumerable<Message> sent, Inbox inbox) =>
-        [.. sent.Select(m => m.Id).Where(id => !inbox.Handled.ContainsKey(id))];
+    public static IReadOnlyList<string> Reconcile(IEnumerable<Message> sent, Inbox inbox)
+    {
+        var handled = inbox.Handled;
+        return [.. sent.Select(m => m.Id).Where(id => !handled.ContainsKey(id))];
+    }
 }
